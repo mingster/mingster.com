@@ -75,6 +75,11 @@ export const auth = betterAuth({
 	},
 	plugins: [
 		//haveIBeenPwned(),
+		stripe({
+			stripeClient,
+			stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET!,
+			createCustomerOnSignUp: true,
+		}),
 		twoFactor(),
 		magicLink({
 			sendMagicLink: async ({ email, url, token }, request) => {

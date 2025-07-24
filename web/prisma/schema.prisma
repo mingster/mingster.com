@@ -187,3 +187,67 @@ model Invitation {
 
   @@map("invitation")
 }
+
+model Subscription {
+  id                   String    @id
+  plan                 String
+  referenceId          String // The ID this subscription is associated with (user ID by default)
+  stripeCustomerId     String
+  stripeSubscriptionId String
+  status               String
+  periodStart          DateTime
+  periodEnd            DateTime
+  cancelAtPeriodEnd    Boolean   @default(false)
+  seats                Int?
+  trialStart           DateTime?
+  trialEnd             DateTime?
+}
+
+model PlatformSettings {
+  id              String  @id
+  stripeProductId String?
+  settings        String?
+}
+
+model Country {
+  name          String
+  unCode        String  @unique @db.VarChar(3)
+  allowBilling  Boolean @default(false)
+  allowShipping Boolean @default(false)
+  allowInStore  Boolean @default(false)
+  alpha3        String  @id @unique @db.VarChar(3)
+
+  @@index([name])
+  @@index([alpha3])
+}
+
+model Currency {
+  id           String  @id @unique
+  name         String
+  symbol       String?
+  ISOdigits    Int?
+  ISOnum       Int?
+  decimals     Int?
+  demonym      String
+  majorPlural  String?
+  majorSingle  String?
+  minorPlural  String?
+  minorSingle  String?
+  numToBasic   Int?
+  symbolNative String
+
+  @@index([name])
+  @@index([demonym])
+  @@index([symbol])
+  @@index([symbolNative])
+}
+
+model Locale {
+  id                String @id @unique @db.VarChar(5)
+  name              String
+  lng               String //2 digit language code
+  defaultCurrencyId String
+
+  @@index([id])
+  @@index([name])
+}
