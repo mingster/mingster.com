@@ -76,12 +76,6 @@ export default function DropdownUser({ db_user }: UserButtonProps) {
 						<DropdownMenuSeparator />
 						<DropdownMenuGroup>
 							<DropdownMenuItem className="cursor-pointer" asChild>
-								<Link href="/account/subscription">
-									<IconBrandStripe className="mr-0 size-4" />
-									<span>{t("user_profile_subscription")}</span>
-								</Link>
-							</DropdownMenuItem>
-							<DropdownMenuItem className="cursor-pointer" asChild>
 								<Link href="/account">
 									<IconSettings className="mr-0 size-4" />
 									<span>{t("user_profile_myAccount")}</span>

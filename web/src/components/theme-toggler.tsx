@@ -31,7 +31,7 @@ const ThemeToggler = () => {
 	return (
 		<label
 			className={`relative m-0 block h-7.5 w-14 rounded-full ${
-				colorMode === "dark" ? "bg-secondary" : "bg-secondary/50"
+				colorMode === "dark" ? "bg-transparent" : "bg-secondary/90"
 			}`}
 		>
 			<input
