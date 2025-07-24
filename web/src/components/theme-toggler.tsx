@@ -3,8 +3,8 @@
 import { IconSun } from "@tabler/icons-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
-import useColorMode from "@/hooks/useColorMode";
 import { NotMountSkeleton } from "@/components/not-mount-skeleton";
+import useColorMode from "@/hooks/useColorMode";
 
 const ThemeToggler = () => {
 	const [mounted, setMounted] = useState(false);

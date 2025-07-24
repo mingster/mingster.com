@@ -68,7 +68,7 @@ export default function FormMagicLink({
 			const { data, error } = await authClient.signIn.magicLink({
 				email,
 				callbackURL: callbackUrl,
-				newUserCallbackURL: "/trial",
+				newUserCallbackURL: "/",
 				fetchOptions,
 			});
 
