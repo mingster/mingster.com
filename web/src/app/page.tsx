@@ -1,15 +1,12 @@
 import { Suspense } from "react";
-import ClientSignIn from "@/components/auth/client-signin";
+import { GlobalNavbar } from "@/components/global-navbar";
 import { Loader } from "@/components/ui/loader";
 
 export default async function HomePage() {
-	const callbackUrl = "/";
-
+	const title = "mingster.com";
 	return (
 		<Suspense fallback={<Loader />}>
-			<div className="w-full h-screen flex items-center justify-center">
-				<ClientSignIn callbackUrl={callbackUrl} />
-			</div>
+			<GlobalNavbar title={title} />
 		</Suspense>
 	);
 }

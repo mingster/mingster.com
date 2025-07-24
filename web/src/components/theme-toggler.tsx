@@ -3,8 +3,8 @@
 import { IconSun } from "@tabler/icons-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
-import useColorMode from "@/hooks/useColorMode";
 import { NotMountSkeleton } from "@/components/not-mount-skeleton";
+import useColorMode from "@/hooks/useColorMode";
 
 const ThemeToggler = () => {
 	const [mounted, setMounted] = useState(false);
@@ -31,7 +31,7 @@ const ThemeToggler = () => {
 	return (
 		<label
 			className={`relative m-0 block h-7.5 w-14 rounded-full ${
-				colorMode === "dark" ? "bg-secondary" : "bg-secondary/50"
+				colorMode === "dark" ? "bg-transparent" : "bg-secondary/90"
 			}`}
 		>
 			<input

@@ -14,6 +14,7 @@ const GoogleLoginButton = ({ callbackUrl = "/" }: { callbackUrl?: string }) => {
 		const data = await authClient.signIn.social({
 			provider: "google",
 			callbackURL: callbackUrl,
+			newUserCallbackURL: "/",
 		});
 		console.log(data);
 	};
