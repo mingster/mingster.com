@@ -1,3 +1,4 @@
+import { IconHome } from "@tabler/icons-react";
 import clsx from "clsx";
 
 export function Logo({ className, ...props }: { className?: string }) {
@@ -35,6 +36,7 @@ export function Logo({ className, ...props }: { className?: string }) {
 				/>
 			</svg>
 			*/}
+			<IconHome className="w-6 h-6" />
 		</div>
 	);
 }
