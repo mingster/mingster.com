@@ -281,7 +281,7 @@ export function DataTableDraggable<TData extends { id: UniqueIdentifier }>({
 			<div className="flex items-center justify-end space-x-2 py-4">
 				{rowSelectionEnabled && (
 					<div className="text-muted-foreground hidden flex-1 text-xs lg:flex">
-						{table.getFilteredSelectedRowModel().rows.length} of{" "}
+						{table.getFilteredSelectedRowModel().rows.length} of
 						{table.getFilteredRowModel().rows.length} row(s) selected.
 					</div>
 				)}
@@ -315,7 +315,7 @@ export function DataTableDraggable<TData extends { id: UniqueIdentifier }>({
 						</Select>
 					</div>
 					<div className="flex w-fit items-center justify-center">
-						Page {table.getState().pagination.pageIndex + 1} of{" "}
+						Page {table.getState().pagination.pageIndex + 1} of
 						{table.getPageCount()}
 					</div>
 					<div className="ml-auto flex items-center gap-2 lg:ml-0">

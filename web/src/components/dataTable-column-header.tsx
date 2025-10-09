@@ -22,14 +22,14 @@ export function DataTableColumnHeader<TData, TValue>({
 	}
 
 	return (
-		<div className="flex">
+		<div className="flex items-center gap-1">
 			<Button
 				variant="ghost"
 				size="sm"
 				onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
 			>
 				<div className="capitalize text-xs">{title}</div>
-				<IconSortAscending className="ml-2 size-4" />
+				<IconSortAscending className="ml-1 size-4" />
 			</Button>
 		</div>
 	);

@@ -3,16 +3,16 @@
 import {
 	type ColumnDef,
 	type ColumnFiltersState,
+	type SortingState,
 	flexRender,
 	getCoreRowModel,
 	getFilteredRowModel,
 	getPaginationRowModel,
 	getSortedRowModel,
-	type SortingState,
 	useReactTable,
 } from "@tanstack/react-table";
 import { useState } from "react";
-import { useTranslation } from "@/app/i18n/client";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -23,6 +23,8 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+
+import { useTranslation } from "@/app/i18n/client";
 import { useI18n } from "@/providers/i18n-provider";
 
 interface DataTableProps<TData, TValue> {

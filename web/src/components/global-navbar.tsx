@@ -1,12 +1,7 @@
 "use client";
-
-import { IconHome2 } from "@tabler/icons-react";
 import clsx from "clsx";
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import ClipLoader from "react-spinners/ClipLoader";
+//import { cn } from '@/lib/utils';
 import DropdownUser from "@/components/auth/dropdown-user";
-import { Logo } from "@/components/logo";
 import ThemeToggler from "@/components/theme-toggler";
 import {
 	Sheet,
@@ -16,6 +11,16 @@ import {
 	SheetTitle,
 	SheetTrigger,
 } from "@/components/ui/sheet";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+//import { useI18n } from '@/providers/i18n-provider';
+//import { useTranslation } from '@/app/i18n/client';
+import { authClient } from "@/lib/auth-client";
+import ClipLoader from "react-spinners/ClipLoader";
+import { BackgroundImage } from "./BackgroundImage";
+import DialogSignIn from "./auth/dialog-sign-in";
+import LanguageToggler from "./language-toggler";
+import { Logo } from "./logo";
 
 interface NavbarProps {
 	title: string;
@@ -24,7 +29,7 @@ interface NavbarProps {
 export function GlobalNavbar({ title }: NavbarProps) {
 	const [mounted, setMounted] = useState(false);
 	const [isOpaque, setIsOpaque] = useState(false);
-
+	const { data: session } = authClient.useSession();
 	useEffect(() => {
 		const offset = 50;
 		function onScroll() {
@@ -39,6 +44,7 @@ export function GlobalNavbar({ title }: NavbarProps) {
 
 		return () => {
 			window.removeEventListener("scroll", onScroll);
+			//window.addEventListener("scroll", onScroll, { passive: true } as any);
 		};
 	}, [isOpaque]);
 
@@ -47,37 +53,23 @@ export function GlobalNavbar({ title }: NavbarProps) {
 	}, []);
 	if (!mounted) return <ClipLoader />;
 
+	/*
+  if (process.env.NODE_ENV === 'development') {
+	log.debug('session: ' + JSON.stringify(session));
+	log.debug('user: ' + JSON.stringify(user));
+  }
+  */
+
 	return (
 		<>
 			{/* background image*/}
-			<div className="absolute inset-x-0 top-0 z-20 flex justify-center overflow-hidden pointer-events-none">
-				<div className="w-[108rem] flex-none flex justify-end">
-					<picture>
-						<source srcSet="/img/beams/docs@30.avif" type="image/avif" />
-						<img
-							src="/img/beams/docs@tinypng.png"
-							alt=""
-							className="w-[71.75rem] flex-none max-w-none dark:hidden"
-							decoding="async"
-						/>
-					</picture>
-					<picture>
-						<source srcSet="/img/beams/docs-dark@30.avif" type="image/avif" />
-						<img
-							src="/img/beams/docs-dark@tinypng.png"
-							alt=""
-							className="w-[90rem] flex-none max-w-none hidden dark:block"
-							decoding="async"
-						/>
-					</picture>
-				</div>
-			</div>
+			<BackgroundImage />
 			<div
 				className={clsx(
 					"sticky top-0 z-40 w-full backdrop-blur flex-none transition-colors duration-500 lg:z-50 lg:border-b lg:border-slate-900/10 dark:border-slate-50/[0.06]",
 					isOpaque
 						? "bg-transparent supports-backdrop-blur:bg-white/95 dark:bg-gray-900/5"
-						: "bg-transparent supports-backdrop-blur:bg-white/60 dark:bg-gray-900/50",
+						: "bg-primary/20 supports-backdrop-blur:bg-white/60 dark:bg-gray-900/50",
 				)}
 			>
 				<div className="mx-auto max-w-8xl">
@@ -96,7 +88,7 @@ export function GlobalNavbar({ title }: NavbarProps) {
 								}}
 							>
 								<span className="sr-only">home page</span>
-								<IconHome2 className="w-auto text-sm" />
+								<Logo className="w-auto text-sm" />
 							</Link>
 							<h1>{title}</h1>
 							<div className="relative items-center hidden ml-auto lg:flex">
@@ -104,7 +96,8 @@ export function GlobalNavbar({ title }: NavbarProps) {
 									<ul className="flex space-x-8 items-center">
 										<li className="flex pl-6 ml-6 items-center border-slate-200 dark:border-slate-800">
 											<ThemeToggler />
-											<DropdownUser />
+											{session !== null ? <DropdownUser /> : <DialogSignIn />}
+											<LanguageToggler />
 										</li>
 									</ul>
 								</nav>
@@ -128,7 +121,7 @@ export function NavPopover({
 	className?: string;
 } & React.HTMLAttributes<HTMLDivElement>) {
 	const [isOpen, setIsOpen] = useState(false);
-
+	const { data: session } = authClient.useSession();
 	/*
   useEffect(() => {
 	if (!isOpen) return;
@@ -176,7 +169,8 @@ export function NavPopover({
 						<ul className="space-y-6"> {/* TODO: add menu items here */}</ul>
 						<div className="flex pt-6 mt-6 border-t border-slate-200 dark:border-slate-200/10">
 							<ThemeToggler />
-							<DropdownUser />
+							{session !== null ? <DropdownUser /> : <DialogSignIn />}
+							<LanguageToggler />
 						</div>
 					</div>
 				</SheetContent>

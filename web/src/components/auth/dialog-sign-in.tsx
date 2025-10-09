@@ -1,6 +1,6 @@
-// dialog-sign-in.tsx
 "use client";
-import { IconLogin, IconUserPlus } from "@tabler/icons-react";
+
+import { IconUserPlus } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import {
 	Dialog,
@@ -24,19 +24,19 @@ export default function DialogSignIn({
 	return (
 		<Dialog>
 			<DialogTrigger asChild>
-				<div className="flex items-center gap-1 pl-2 cursor-pointer hover:text-orange-800 dark:hover:text-orange-300">
-					<IconLogin className="mr-0 size-4" />
-					<span>{t("signin")}</span>
+				<div className="flex items-center gap-2 pl-1 pr-2 cursor-pointer hover:text-orange-800 dark:hover:text-orange-300 text-gray-400">
 					<IconUserPlus className="mr-0 size-4" />
-					<span>{t("signUp")}</span>
+					<span>
+						{t("signin")}
+						{t("or")}
+						{t("signUp")}
+					</span>
 				</div>
 			</DialogTrigger>
 			<DialogContent className="max-w-lg max-h-lg p-2 border-0">
 				<DialogHeader>
-					<DialogTitle>Welcome</DialogTitle>
-					<DialogDescription>
-						Sign up or sign in to your account
-					</DialogDescription>
+					<DialogTitle>{t("signin_title")}</DialogTitle>
+					<DialogDescription>{t("signin_or_signup")}</DialogDescription>
 				</DialogHeader>
 				<ClientSignIn callbackUrl={callbackUrl} noTitle={true} />
 			</DialogContent>

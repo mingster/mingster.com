@@ -1,3 +1,5 @@
+"use client";
+
 import {
 	GoogleReCaptchaProvider,
 	GoogleReCaptcha,
@@ -5,7 +7,7 @@ import {
 } from "@wojtekmaj/react-recaptcha-v3";
 import { type ReactNode, useEffect, useState } from "react";
 
-import { useIsHydrated } from "../../hooks/use-hydrated";
+import { useIsHydrated } from "@/hooks/use-hydrated";
 import { useTheme } from "@/hooks/use-theme";
 import { useLang } from "@/hooks/use-lang";
 

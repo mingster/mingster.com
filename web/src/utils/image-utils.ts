@@ -1,6 +1,7 @@
 import axios from "axios";
 import Resizer from "react-image-file-resizer";
 import { generateSHA1, generateSignature } from "./utils";
+import { clientLogger } from "@/lib/client-logger";
 
 export async function resizeAndCropImage(
 	file: File,
@@ -131,7 +132,14 @@ export const uploadImage = async (
 		//upload_response: https://cloudinary.com/documentation/upload_images#upload_response
 		return res.data;
 	} catch (error) {
-		console.error(error);
+		clientLogger.error(error as Error, {
+			message: "Error uploading image to Cloudinary",
+			metadata: { folderName, imageName: image.name },
+			tags: ["cloudinary", "upload", "error"],
+			service: "uploadImage",
+			environment: process.env.NODE_ENV,
+			version: process.env.npm_package_version,
+		});
 
 		return error;
 	}
@@ -158,7 +166,14 @@ export const deleteImage = async (publicId: string) => {
 
 		//console.log('handleDeleteImage: ' + JSON.stringify(response));
 	} catch (error) {
-		console.error(error);
+		clientLogger.error(error as Error, {
+			message: "Error deleting image from Cloudinary",
+			metadata: { publicId },
+			tags: ["cloudinary", "delete", "error"],
+			service: "deleteImage",
+			environment: process.env.NODE_ENV,
+			version: process.env.npm_package_version,
+		});
 	}
 };
 // #endregion cloudinary

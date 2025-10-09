@@ -1,125 +1,161 @@
 import { stripe } from "@better-auth/stripe";
-import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
+import { PrismaClient } from "@prisma/client";
+
+import {
+	betterAuth,
+	type BetterAuthOptions,
+	type OAuth2Tokens,
+} from "better-auth";
 import {
 	admin,
 	apiKey,
 	bearer,
-	captcha,
-	//emailOTP,
 	magicLink,
-	oneTap,
 	organization,
 	twoFactor,
+	//genericOAuth,
+	captcha,
 } from "better-auth/plugins";
 import { passkey } from "better-auth/plugins/passkey";
 import { emailHarmony } from "better-auth-harmony";
-import { sqlClient } from "@/lib/prismadb";
-//import { sendAuthMagicLink } from "@/actions/mail/send-auth-magic-link";
+
+import { sendAuthMagicLink } from "@/actions/mail/send-auth-magic-link";
+import { sendAuthPasswordReset } from "@/actions/mail/send-auth-password-reset";
+import { sendAuthEmailValidation } from "@/actions/mail/send-auth-email-validation";
 import { stripe as stripeClient } from "@/lib/stripe/config";
+import { customSession } from "better-auth/plugins";
+import { sqlClient } from "./prismadb";
+
+const prisma = new PrismaClient();
+
+const options = {
+	//...config options
+	plugins: [],
+} satisfies BetterAuthOptions;
 
 export const auth = betterAuth({
-	database: prismaAdapter(sqlClient, {
-		provider: "postgresql",
+	database: prismaAdapter(prisma, {
+		provider: "postgresql", // or "mysql", "postgresql", ...etc
 	}),
-
 	session: {
 		expiresIn: 60 * 60 * 24 * 365, // 365 days
 		updateAge: 60 * 60 * 24, // 1 day (every 1 day the session expiration is updated)
 	},
-	/* 
-		emailAndPassword: {
+	account: {
+		accountLinking: {
 			enabled: true,
-			requireEmailVerification: false,
-			account: {
-				accountLinking: {
-					enabled: true,
-				},
-			},
-			sendResetPassword: async ({ user, url, token }, request) => {
-				await sendAuthPasswordReset(user.email, url);
+			allowDifferentEmails: true,
+			trustedProviders: ["google", "line"],
+		},
+	},
+	emailAndPassword: {
+		enabled: true,
+		requireEmailVerification: false,
+		account: {
+			accountLinking: {
+				enabled: true,
 			},
 		},
-		emailVerification: {
-			sendOnSignUp: true,
-			sendVerificationEmail: async ({ user, url, token }, request) => {
-				await sendAuthEmailValidation(user.email, url);
-			},
-		},	
-	*/
+		sendResetPassword: async ({ user, url, token }, request) => {
+			await sendAuthPasswordReset(user.email, url);
+		},
+	},
+	/* 
+	emailVerification: {
+		sendOnSignUp: true,
+		sendVerificationEmail: async ({ user, url, token }, request) => {
+			await sendAuthEmailValidation(user.email, url);
+		},
+	},
+  */
 	socialProviders: {
-		/*
-		github: {
-			clientId: process.env.GITHUB_CLIENT_ID as string,
-			clientSecret: process.env.GITHUB_CLIENT_SECRET as string,
-		},
-		line: {
-			clientId: process.env.AUTH_LINE_ID as string,
-			clientSecret: process.env.AUTH_LINE_SECRET as string,
-		},
-		discord: {
-			clientId: process.env.AUTH_DISCORD_ID as string,
-			clientSecret: process.env.AUTH_DISCORD_SECRET as string,
-		},
-		facebook: {
-			clientId: process.env.AUTH_FACEBOOK_ID as string,
-			clientSecret: process.env.AUTH_FACEBOOK_SECRET as string,
-		},
-		*/
 		google: {
 			clientId: process.env.AUTH_GOOGLE_ID as string,
 			clientSecret: process.env.AUTH_GOOGLE_SECRET as string,
 			accessType: "offline",
-			prompt: "select_account+consent",
+			prompt: "select_account consent",
+		},
+		line: {
+			clientId: process.env.AUTH_LINE_ID as string,
+			clientSecret: process.env.AUTH_LINE_SECRET as string,
+			scopes: ["openid", "profile", "email"],
 		},
 	},
 	plugins: [
-		//haveIBeenPwned(),
+		...(options.plugins ?? []),
+		customSession(async ({ user, session }, ctx) => {
+			// Include role and other user fields in the session
+			const typedUser = user as any;
+			const typedSession = session as any;
+
+			return {
+				user: {
+					...typedUser,
+					role: typedUser?.role || "user", // Ensure role is always present
+				},
+				session: {
+					...typedSession,
+					user: {
+						...typedSession?.user,
+						role: typedUser?.role || "user", // Include role in session.user
+					},
+				},
+			};
+		}, options),
 		stripe({
 			stripeClient,
-			stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET!,
-			createCustomerOnSignUp: true,
+			stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET as string,
+			createCustomerOnSignUp: false,
+			enabled: true,
+			plans: async () => {
+				const setting = await sqlClient.platformSettings.findFirst();
+				if (!setting) {
+					return [];
+				}
+
+				const pricesResponse = await stripeClient.prices
+					.list({
+						product: setting.stripeProductId as string,
+					})
+					.then((obj) => {
+						return obj.data.map((price) => ({
+							name: price.nickname,
+							priceId: price.id,
+							//limits: JSON.parse(price.metadata.limits),
+							freeTrial: {
+								days: price.metadata.freeTrial,
+							},
+							active: price.active,
+							lookup_key: price.lookup_key,
+							group: price.metadata.group,
+						}));
+					});
+			},
 		}),
 		twoFactor(),
 		magicLink({
 			sendMagicLink: async ({ email, url, token }, request) => {
-				//await sendAuthMagicLink(email, url);
+				await sendAuthMagicLink(email, url);
 			},
+			expiresIn: 60 * 60 * 24, // 24 hours
 		}),
 		bearer(),
 		passkey(),
-		oneTap(),
 		apiKey(),
 		emailHarmony(),
+		/*
 		captcha({
 			provider: "google-recaptcha", // or cloudflare-turnstile, hcaptcha
-			secretKey: process.env.NEXT_PUBLIC_RECAPTCHA as string,
+			secretKey: process.env.RECAPTCHA_SECRET_KEY as string,
 		}),
+		*/
 		organization(),
 		admin({
 			adminRoles: ["admin"],
 			//sysAdminUserIds: ["Nz6WKKKMKvadXXmgZgaHiqIYOuXr31w1"],
 			//impersonationSessionDuration: 60 * 60 * 24, // 1 day
 		}),
-
-		/*	
-		nextCookies(),
-		emailOTP({
-			//https://www.better-auth.com/docs/plugins/email-otp#reset-password
-			async sendVerificationOTP({ email, otp, type }) {
-				if (type === "sign-in") {
-					// Send the OTP for sign-in
-					await sendAuthEmailValidation(email, otp);
-				} else if (type === "email-verification") {
-					// Send the OTP for email verification
-					await sendAuthEmailValidation(email, otp);
-				} else {
-					// Send the OTP for password reset
-					await sendAuthPasswordReset(email, otp);
-				}
-			},
-		}),
-		*/
 	],
 	user: {
 		additionalFields: {

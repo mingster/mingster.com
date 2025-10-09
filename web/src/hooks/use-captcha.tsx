@@ -1,5 +1,8 @@
+"use client";
+
 import { AuthUIContext } from "@daveyplate/better-auth-ui";
 import { useGoogleReCaptcha } from "@wojtekmaj/react-recaptcha-v3";
+import type ReCAPTCHA from "react-google-recaptcha";
 import { type RefObject, useContext, useRef } from "react";
 
 // Default captcha endpoints
@@ -33,7 +36,17 @@ export function useCaptcha() {
 	const { executeRecaptcha } = useGoogleReCaptcha();
 
 	const executeCaptcha = async (action: string) => {
-		if (!captcha) throw new Error("MISSING_RESPONSE");
+		if (!captcha) {
+			console.error("Captcha context not available in executeCaptcha");
+			throw new Error("MISSING_RESPONSE");
+		}
+
+		console.log(
+			"Executing captcha for action:",
+			action,
+			"Provider:",
+			captcha.provider,
+		);
 
 		// Sanitize the action name for reCAPTCHA
 		let response: string | undefined | null;
@@ -41,7 +54,9 @@ export function useCaptcha() {
 		switch (captcha.provider) {
 			case "google-recaptcha-v3": {
 				const sanitizedAction = sanitizeActionName(action);
+				console.log("Sanitized action:", sanitizedAction);
 				response = await executeRecaptcha?.(sanitizedAction);
+				console.log("reCAPTCHA response:", response ? "Received" : "None");
 				break;
 			}
 			/*
@@ -65,7 +80,10 @@ export function useCaptcha() {
                 response = hcaptchaRef.current.getResponse()
                 break
             }
-                */
+			*/
+			default: {
+				break;
+			}
 		}
 
 		if (!response) {
@@ -76,21 +94,48 @@ export function useCaptcha() {
 	};
 
 	const getCaptchaHeaders = async (action: string) => {
-		if (!captcha) return undefined;
+		if (!captcha) {
+			console.log("Captcha context not available");
+			return undefined;
+		}
 
 		// Use custom endpoints if provided, otherwise use defaults
 		const endpoints = captcha.endpoints || DEFAULT_CAPTCHA_ENDPOINTS;
+		console.log("Captcha endpoints:", endpoints, "Action:", action);
 
 		// Only execute captcha if the action is in the endpoints list
 		if (endpoints.includes(action)) {
-			return { "x-captcha-response": await executeCaptcha(action) };
+			try {
+				const token = await executeCaptcha(action);
+				console.log("Captcha token generated:", token ? "Yes" : "No");
+				return { "x-captcha-response": token };
+			} catch (error) {
+				console.error("Captcha execution failed:", error);
+				throw error;
+			}
 		}
 
+		console.log("Action not in captcha endpoints, skipping captcha");
 		return undefined;
+	};
+
+	const resetCaptcha = () => {
+		if (!captcha) return;
+
+		switch (captcha.provider) {
+			case "google-recaptcha-v3": {
+				// No widget to reset; token is generated per execute call
+				break;
+			}
+			default: {
+				break;
+			}
+		}
 	};
 
 	return {
 		captchaRef,
 		getCaptchaHeaders,
+		resetCaptcha,
 	};
 }

@@ -1,5 +1,10 @@
 "use client";
-import { IconBrandStripe, IconLock, IconSettings } from "@tabler/icons-react";
+import {
+	IconBrandStripe,
+	IconHome,
+	IconLock,
+	IconSettings,
+} from "@tabler/icons-react";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -76,6 +81,12 @@ export default function DropdownUser({ db_user }: UserButtonProps) {
 						<DropdownMenuSeparator />
 						<DropdownMenuGroup>
 							<DropdownMenuItem className="cursor-pointer" asChild>
+								<Link href="/account/subscription">
+									<IconBrandStripe className="mr-0 size-4" />
+									<span>{t("user_profile_subscription")}</span>
+								</Link>
+							</DropdownMenuItem>
+							<DropdownMenuItem className="cursor-pointer" asChild>
 								<Link href="/account">
 									<IconSettings className="mr-0 size-4" />
 									<span>{t("user_profile_myAccount")}</span>
@@ -84,10 +95,17 @@ export default function DropdownUser({ db_user }: UserButtonProps) {
 
 							<DropdownMenuSeparator />
 
+							<DropdownMenuItem className="cursor-pointer" asChild>
+								<Link href="/">
+									<IconHome className="mr-0 size-4" />
+									{t("home")}
+								</Link>
+							</DropdownMenuItem>
+
 							{(session?.user?.role === "affiliate" ||
 								session?.user?.role === "admin") && (
 								<DropdownMenuItem className="cursor-pointer" asChild>
-									<Link href="/affiliates/">
+									<Link href="/storeAdmin/">
 										<IconLock className="mr-0 size-4" />
 										<span>{t("user_profile_linkTo_storeDashboard")}</span>
 									</Link>

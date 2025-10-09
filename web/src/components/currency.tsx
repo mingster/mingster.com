@@ -1,7 +1,8 @@
 "use client";
 
+import { cn } from "@/utils/utils";
+import type Decimal from "decimal.js";
 import { useEffect, useState } from "react";
-import { cn } from "@/lib/utils";
 
 const formatter = new Intl.NumberFormat("zh-Hant", {
 	style: "currency",
@@ -13,8 +14,7 @@ const formatter = new Intl.NumberFormat("zh-Hant", {
 //const formatter = new Intl.NumberFormat("en"); // 1,000
 
 interface CurrencyProps {
-	value?: string | number;
-	//value?: string | number | Decimal;
+	value?: string | number | Decimal;
 }
 
 const Currency: React.FC<CurrencyProps> = ({ value = 0 }) => {

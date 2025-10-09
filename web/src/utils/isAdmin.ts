@@ -1,12 +1,7 @@
-import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import { Role } from "@/types/enum";
+import { headers } from "next/headers";
 
-export async function isAdmin({
-	email,
-}: {
-	email?: string | null | undefined;
-}) {
+export async function isAdmin({ email }: { email?: string | null }) {
 	if (!email) return false;
 
 	const session = await auth.api.getSession({
@@ -22,14 +17,7 @@ export async function isAdmin({
 	}
 
 	// block if not admin
-	if (session.user.role === Role.admin.toString()) {
-		return true;
+	if (session.user.role !== "admin") {
+		return process.env.ADMINS?.includes(email);
 	}
-
-	// check if email is in ADMINS
-	if (process.env.ADMINS?.includes(session.user.email)) {
-		return true;
-	}
-
-	return false;
 }

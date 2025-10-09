@@ -18,89 +18,107 @@ datasource db {
 }
 
 model User {
-  id               String       @id
-  name             String
-  email            String
-  emailVerified    Boolean
-  image            String?
-  createdAt        DateTime
-  updatedAt        DateTime
-  twoFactorEnabled Boolean?
-  normalizedEmail  String?
-  role             String?
-  banned           Boolean?
-  banReason        String?
-  banExpires       DateTime?
+  id            String   @id @default(cuid())
+  name          String?
+  email         String?  @unique
+  emailVerified Boolean?
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  role             String? @default("user")
   locale           String?
   timezone         String?
-  stripeCustomerId String?
-  sessions         Session[]
-  accounts         Account[]
-  twofactors       TwoFactor[]
-  passkeys         Passkey[]
-  apikeys          Apikey[]
-  members          Member[]
-  invitations      Invitation[]
+  stripeCustomerId String? @unique
 
-  @@unique([email])
+  twoFactorEnabled Boolean? @default(false)
+
+  banned     Boolean?  @default(false)
+  banReason  String?
+  banExpires DateTime?
+
+  normalizedEmail String?
+
+  sessions    Session[]
+  accounts    Account[]
+  twofactors  TwoFactor[]
+  passkeys    Passkey[]
+  apikeys     Apikey[]
+  members     Member[]
+  invitations Invitation[]
+
   @@unique([normalizedEmail])
+  @@index([email])
   @@map("user")
 }
 
+model Account {
+  id                    String    @id @default(cuid())
+  userId                String
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+
+  scope     String?
+  idToken   String?
+  password  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
 model Session {
-  id                   String   @id
-  expiresAt            DateTime
-  token                String
-  createdAt            DateTime
-  updatedAt            DateTime
-  ipAddress            String?
-  userAgent            String?
-  userId               String
-  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  activeOrganizationId String?
+  id        String   @id @default(cuid())
+  userId    String
+  token     String
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
   impersonatedBy       String?
+  activeOrganizationId String?
 
   @@unique([token])
+  @@index([userId])
   @@map("session")
 }
 
-model Account {
-  id                    String    @id
-  accountId             String
-  providerId            String
-  userId                String
-  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  accessToken           String?
-  refreshToken          String?
-  idToken               String?
-  accessTokenExpiresAt  DateTime?
-  refreshTokenExpiresAt DateTime?
-  scope                 String?
-  password              String?
-  createdAt             DateTime
-  updatedAt             DateTime
-
-  @@map("account")
+enum Role {
+  user
+  admin
+  owner
 }
 
 model Verification {
-  id         String    @id
+  id         String   @id
   identifier String
   value      String
   expiresAt  DateTime
-  createdAt  DateTime?
-  updatedAt  DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
 
   @@map("verification")
 }
 
 model TwoFactor {
-  id          String @id
+  id     String @id
+  userId String
+
   secret      String
   backupCodes String
-  userId      String
-  user        User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
   @@map("twoFactor")
 }
 
@@ -109,7 +127,6 @@ model Passkey {
   name         String?
   publicKey    String
   userId       String
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   credentialID String
   counter      Int
   deviceType   String
@@ -118,6 +135,9 @@ model Passkey {
   createdAt    DateTime?
   aaguid       String?
 
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
   @@map("passkey")
 }
 
@@ -132,8 +152,8 @@ model Apikey {
   refillInterval      Int?
   refillAmount        Int?
   lastRefillAt        DateTime?
-  enabled             Boolean?
-  rateLimitEnabled    Boolean?
+  enabled             Boolean?  @default(true)
+  rateLimitEnabled    Boolean?  @default(true)
   rateLimitTimeWindow Int?
   rateLimitMax        Int?
   requestCount        Int?
@@ -145,16 +165,18 @@ model Apikey {
   permissions         String?
   metadata            String?
 
+  @@index([userId])
   @@map("apikey")
 }
 
 model Organization {
-  id          String       @id
-  name        String
-  slug        String?
-  logo        String?
-  createdAt   DateTime
-  metadata    String?
+  id        String   @id
+  name      String
+  slug      String
+  logo      String?
+  metadata  String?
+  createdAt DateTime
+
   members     Member[]
   invitations Invitation[]
 
@@ -163,49 +185,92 @@ model Organization {
 }
 
 model Member {
-  id             String       @id
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id             String   @id
   userId         String
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String
   role           String
   createdAt      DateTime
 
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([organizationId])
   @@map("member")
 }
 
 model Invitation {
-  id             String       @id
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id             String   @id
   email          String
+  inviterId      String
+  organizationId String
   role           String?
   status         String
   expiresAt      DateTime
-  inviterId      String
-  user           User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
 
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@index([inviterId])
+  @@index([organizationId])
   @@map("invitation")
 }
 
 model Subscription {
-  id                   String    @id
+  id                   String    @id @default(cuid())
   plan                 String
-  referenceId          String // The ID this subscription is associated with (user ID by default)
-  stripeCustomerId     String
-  stripeSubscriptionId String
+  referenceId          String    @unique // The ID this subscription is associated with (user ID by default)
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
   status               String
-  periodStart          DateTime
-  periodEnd            DateTime
-  cancelAtPeriodEnd    Boolean   @default(false)
+  periodStart          DateTime?
+  periodEnd            DateTime?
+  cancelAtPeriodEnd    Boolean?  @default(false)
   seats                Int?
   trialStart           DateTime?
   trialEnd             DateTime?
 }
 
+/// Next.js application logs for log drain functionality
+
+model system_logs {
+  id          String   @id @default(cuid())
+  timestamp   DateTime @default(now())
+  level       String   @db.VarChar(10) // error, warn, info, debug
+  message     String
+  service     String   @db.VarChar(100) // service name (e.g., "web", "api")
+  environment String   @db.VarChar(20) // production, development, staging
+  version     String?  @db.VarChar(50) // app version
+  requestId   String?  @db.VarChar(100) // request correlation ID
+  userId      String?  @db.VarChar(100) // user ID if available
+  sessionId   String?  @db.VarChar(100) // session ID if available
+  ip          String?  @db.VarChar(45) // IPv4 or IPv6
+  userAgent   String?  @db.VarChar(500)
+  url         String?  @db.VarChar(1000) // request URL
+  method      String?  @db.VarChar(10) // HTTP method
+  statusCode  Int? // HTTP status code
+  duration    Int? // request duration in ms
+  errorCode   String?  @db.VarChar(100) // error code if applicable
+  stackTrace  String?
+  metadata    String?
+  tags        String?
+  source      String?  @db.VarChar(100) // source file/component
+  line        Int? // line number
+  column      Int? // column number
+  createdAt   DateTime @default(now())
+
+  @@index([timestamp])
+  @@index([level])
+  @@index([service])
+  @@index([environment])
+  @@index([requestId])
+  @@index([userId])
+}
+
 model PlatformSettings {
-  id              String  @id
+  id              String  @id @default(cuid())
   stripeProductId String?
+  stripePriceId   String?
   settings        String?
 }
 
@@ -248,6 +313,69 @@ model Locale {
   lng               String //2 digit language code
   defaultCurrencyId String
 
+  SystemMessage            SystemMessage[]
+  MessageTemplateLocalized MessageTemplateLocalized[]
+
   @@index([id])
   @@index([name])
+}
+
+
+model SystemMessage {
+  id        String   @id @default(uuid())
+  localeId  String   @unique
+  published Boolean  @default(false)
+  message   String
+  createdOn DateTime @default(now())
+
+  Locale Locale @relation(fields: [localeId], references: [id])
+
+  @@index([localeId])
+  @@index([createdOn])
+}
+
+
+model MessageTemplate {
+  id                       String                     @id @default(uuid())
+  name                     String
+  MessageTemplateLocalized MessageTemplateLocalized[]
+
+  @@index([name])
+}
+
+model MessageTemplateLocalized {
+  id                String          @id @default(uuid())
+  messageTemplateId String
+  localeId          String
+  bCCEmailAddresses String?
+  subject           String
+  body              String
+  isActive          Boolean         @default(true)
+  Locale            Locale          @relation(fields: [localeId], references: [id], onDelete: Cascade)
+  MessageTemplate   MessageTemplate @relation(fields: [messageTemplateId], references: [id], onDelete: Cascade)
+
+  @@unique([localeId, messageTemplateId])
+  @@index([localeId])
+  @@index([messageTemplateId])
+}
+
+model EmailQueue {
+  id          String    @id @default(uuid())
+  from        String
+  fromName    String    @default("")
+  to          String
+  toName      String    @default("")
+  cc          String    @default("")
+  bcc         String    @default("")
+  subject     String
+  textMessage String
+  htmMessage  String
+  createdOn   DateTime  @default(now())
+  sendTries   Int       @default(0)
+  sentOn      DateTime?
+
+  @@index([sendTries])
+  @@index([createdOn])
+  @@index([from])
+  @@index([to])
 }

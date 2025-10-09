@@ -1,6 +1,6 @@
 "use client";
 
-import { IconBrandLine, IconBrandMeta } from "@tabler/icons-react";
+import { IconBrandMeta } from "@tabler/icons-react";
 import Link from "next/link";
 import { useTranslation } from "react-i18next";
 import GoogleLoginButton from "@/components/auth/button-google-login";
@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useI18n } from "@/providers/i18n-provider";
+import { useParams } from "next/navigation";
+import LineLoginButton from "./button-line-login";
 
 export default function ClientSignIn({
 	callbackUrl = "/",
@@ -26,29 +28,35 @@ export default function ClientSignIn({
 	const { lng } = useI18n();
 	const { t } = useTranslation(lng);
 
+	const params = useParams();
+	const storeId = params.storeId as string;
+
+	if (storeId) {
+		callbackUrl = `/${storeId}`;
+	}
+
+	//console.log(callbackUrl);
+
 	return (
 		<Card className="w-full max-w-lg max-h-lg p-2">
 			{!noTitle && (
 				<CardHeader>
-					<CardTitle>Welcome</CardTitle>
+					<CardTitle>{t("signin_title")}</CardTitle>
 				</CardHeader>
 			)}
 
-			<CardContent>
+			<CardContent className="flex flex-col gap-10">
 				<GoogleLoginButton callbackUrl={callbackUrl} />
-
-				<Separator className="!w-auto grow pt-5 pb-5 bg-transparent" />
-
+				<LineLoginButton callbackUrl={callbackUrl} />
 				<FormMagicLink callbackUrl={callbackUrl} />
-
-				<Separator className="!w-auto grow pt-5 pb-5 bg-transparent" />
 
 				{/* display supported 3rd party login buttons */}
 				<div className="flex items-center justify-center gap-1">
 					<PasskeyLoginButton callbackUrl={callbackUrl} />
-					<IconBrandLine className="mr-0 size-4" />
 					<IconBrandMeta className="mr-0 size-4" />
 				</div>
+
+				<Separator className="!w-auto grow pt-5 pb-5 bg-transparent" />
 
 				<CardFooter className="flex py-1 justify-end items-center pt-10">
 					<div className="flex gap-1">

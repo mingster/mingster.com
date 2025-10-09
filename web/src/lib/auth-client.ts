@@ -3,12 +3,12 @@ import {
 	adminClient,
 	//anonymousClient,
 	apiKeyClient,
+	customSessionClient,
 	//emailOTPClient,
 	genericOAuthClient,
 	inferAdditionalFields,
 	magicLinkClient,
 	//multiSessionClient,
-	//oneTapClient,
 	organizationClient,
 	passkeyClient,
 	twoFactorClient,
@@ -21,6 +21,7 @@ export const authClient = createAuthClient({
 	//baseURL: "http://localhost:3000"
 	plugins: [
 		inferAdditionalFields<typeof auth>(),
+		customSessionClient<typeof auth>(),
 		stripeClient({
 			subscription: true, //if you want to enable subscription management
 		}),
@@ -31,28 +32,16 @@ export const authClient = createAuthClient({
 		passkeyClient(),
 		genericOAuthClient(),
 		apiKeyClient(),
+
 		/*
 		emailOTPClient(),
-		usernameClient(),
-		oneTapClient({
-			clientId: "YOUR_CLIENT_ID",
-			// Optional client configuration:
-			autoSelect: false,
-			cancelOnTapOutside: true,
-			context: "signin",
-			additionalOptions: {
-				// Any extra options for the Google initialize method
-			},
-			// Configure prompt behavior and exponential backoff:
-			promptOptions: {
-				baseDelay: 1000, // Base delay in ms (default: 1000)
-				maxAttempts: 5, // Maximum number of attempts before triggering onPromptNotification (default: 5)
-			},
-		}),
 		
 		*/
 	],
 });
+async function signInWithLINE() {
+	const res = await authClient.signIn.social({ provider: "line" });
+}
 
 export const {
 	signIn,
@@ -62,8 +51,7 @@ export const {
 	forgetPassword,
 	resetPassword,
 } = createAuthClient();
-/*
+
 export type AuthClient = typeof authClient;
 export type Session = AuthClient["$Infer"]["Session"]["session"];
 export type User = AuthClient["$Infer"]["Session"]["user"];
-*/

@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useTranslation } from "@/app/i18n/client";
+
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
+
+import { useTranslation } from "@/app/i18n/client";
 import { useI18n } from "@/providers/i18n-provider";
 
 interface AlertModalProps {

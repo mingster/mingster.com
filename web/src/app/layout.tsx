@@ -1,12 +1,14 @@
-import { CookiesProvider } from "next-client-cookies/server";
-//import { getT } from "@/app/i18n";
 import { Toaster } from "@/components/ui/sonner";
-import { SessionWrapper } from "@/providers/auth-provider";
 import I18nProvider from "@/providers/i18n-provider";
 import NextThemeProvider from "@/providers/theme-provider";
+import type { Metadata, Viewport } from "next";
+import { CookiesProvider } from "next-client-cookies/server";
+import { SessionWrapper } from "@/providers/session-provider";
 
-import "./globals.css";
-import type { Viewport } from "next";
+import "./css/globals.css";
+import { GoogleAnalytics } from "@next/third-parties/google";
+import { IOSVersionCheck } from "@/components/ios-version-check";
+import { PageViewTracker } from "@/components/analytics/page-view-tracker";
 import { getT } from "./i18n";
 
 export const viewport: Viewport = {
@@ -95,17 +97,15 @@ export async function generateMetadata() {
 		},
 	};
 }
+
 export default async function RootLayout({
 	children,
 }: Readonly<{
 	children: React.ReactNode;
 }>) {
-	/*bg-[url(/img/bg.jpg)] bg-background  */
 	return (
 		<html lang="en" suppressHydrationWarning>
-			<body
-				className={`overscroll-none antialiased dark [--scroll-mt:9.875rem] lg:[--scroll-mt:6.3125rem] [scrollbar-gutter:stable]`}
-			>
+			<body className={"antialiased"}>
 				<NextThemeProvider
 					attribute="class"
 					defaultTheme="dark"
@@ -114,11 +114,20 @@ export default async function RootLayout({
 				>
 					<CookiesProvider>
 						<I18nProvider>
-							<SessionWrapper>{children}</SessionWrapper>
+							<SessionWrapper>
+								<IOSVersionCheck>
+									<PageViewTracker />
+									{children}
+								</IOSVersionCheck>
+							</SessionWrapper>
 						</I18nProvider>
 					</CookiesProvider>
 				</NextThemeProvider>
 				<Toaster />
+				{process.env.NODE_ENV === "production" &&
+					process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
+						<GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID} />
+					)}
 			</body>
 		</html>
 	);
