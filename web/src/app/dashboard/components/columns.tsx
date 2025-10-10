@@ -11,16 +11,16 @@ import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { DragHandle } from "@/components/datatable-draggable";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { DragHandle } from "mingster.backbone";
+import { Badge } from "mingster.backbone";
+import { Button } from "mingster.backbone";
 import {
 	type ChartConfig,
 	ChartContainer,
 	ChartTooltip,
 	ChartTooltipContent,
-} from "@/components/ui/chart";
-import { Checkbox } from "@/components/ui/checkbox";
+} from "mingster.backbone";
+import { Checkbox } from "mingster.backbone";
 import {
 	Drawer,
 	DrawerClose,
@@ -30,25 +30,25 @@ import {
 	DrawerHeader,
 	DrawerTitle,
 	DrawerTrigger,
-} from "@/components/ui/drawer";
+} from "mingster.backbone";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from "mingster.backbone";
+import { Input } from "mingster.backbone";
+import { Label } from "mingster.backbone";
 import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { useIsMobile } from "@/hooks/use-mobile";
+} from "mingster.backbone";
+import { Separator } from "mingster.backbone";
+import { useIsMobile } from "mingster.backbone";
 
 export const schema = z.object({
 	id: z.number(),

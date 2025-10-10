@@ -1,7 +1,7 @@
 import { sqlClient } from "@/lib/prismadb";
 import { EmailQueue } from "@/types";
-import { getUtcNow } from "@/utils/datetime-utils";
 import { loadOuterHtmTemplate } from "./load-outer-htm-template";
+import { getUtcNow } from "mingster.backbone";
 
 // add a new email to the mail queue
 export const addToMailQueue = async (

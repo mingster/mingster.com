@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTranslation } from "@/app/i18n/client";
 import { authClient } from "@/lib/auth-client";
 import { useI18n } from "@/providers/i18n-provider";
-import { Button } from "../ui/button";
+import { Button } from "mingster.backbone";
 import type { VariantProps } from "class-variance-authority";
 
 type props = {

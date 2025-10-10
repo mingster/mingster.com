@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import ReactPlayer from "react-player";
 
-import { Button } from "./ui/button";
+import { Button } from "mingster.backbone";
 
 // Constants
 const ASPECT_RATIO = 16 / 9;

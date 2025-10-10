@@ -7,7 +7,7 @@ import {
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "@/components/ui/select";
+} from "mingster.backbone";
 
 // List of common timezones
 const timezones = [

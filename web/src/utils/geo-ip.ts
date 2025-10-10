@@ -1,13 +1,11 @@
+import { getClientIPAddress } from "./server-utils";
+
 /**
  * Geo IP Utility
  *
  * Provides IP geolocation functionality using free services with fallbacks.
  * Supports both client-side and server-side usage.
  */
-
-import { getClientIPAddress } from "@/utils/server-utils";
-import logger from "@/lib/logger";
-
 export interface GeoLocation {
 	ip: string;
 	country: string;
@@ -174,7 +172,7 @@ export function getClientIP(
 		}
 	}
 
-	logger.warn("No IP found in headers", {
+	console.warn("No IP found in headers", {
 		message: "No IP found in headers",
 		tags: ["getClientIPAddress"],
 		service: "geo-ip",
@@ -201,7 +199,7 @@ export async function getClientIPForServerAction(): Promise<string> {
 		}
 
 		// If no IP found, try alternative approaches
-		logger.warn("No IP found in headers, trying alternative approaches", {
+		console.warn("No IP found in headers, trying alternative approaches", {
 			tags: ["getClientIPForServerAction"],
 			service: "geo-ip",
 			environment: process.env.NODE_ENV,
@@ -244,7 +242,7 @@ export async function getClientIPForServerAction(): Promise<string> {
 				}
 			}
 		} catch (error) {
-			logger.warn("Failed to get IP from external service", {
+			console.warn("Failed to get IP from external service", {
 				message: "Failed to get IP from external service",
 				metadata: {
 					error: error instanceof Error ? error.message : String(error),
@@ -257,7 +255,7 @@ export async function getClientIPForServerAction(): Promise<string> {
 		}
 
 		// Last resort: use a default IP
-		logger.warn("No IP found, using default IP", {
+		console.warn("No IP found, using default IP", {
 			message: "No IP found, using default IP",
 			tags: ["getClientIPForServerAction"],
 			service: "geo-ip",
@@ -266,7 +264,7 @@ export async function getClientIPForServerAction(): Promise<string> {
 		});
 		return "0.0.0.0";
 	} catch (error) {
-		logger.error("Error getting client IP", {
+		console.error("Error getting client IP", {
 			message: "Error getting client IP",
 			metadata: {
 				error: error instanceof Error ? error.message : String(error),
@@ -368,7 +366,7 @@ async function getGeoFromIPAPI(ip: string): Promise<GeoLocation | null> {
 			continentCode: data.continent_code || "",
 		};
 	} catch (error) {
-		logger.warn(
+		console.warn(
 			`Failed to get geo data from ipapi.co: ${error instanceof Error ? error.message : String(error)}`,
 			{
 				metadata: { ip },
@@ -420,7 +418,7 @@ async function getGeoFromIPAPICom(ip: string): Promise<GeoLocation | null> {
 			continentCode: data.continentCode || "",
 		};
 	} catch (error) {
-		logger.warn(
+		console.warn(
 			`Failed to get geo data from ip-api.com: ${error instanceof Error ? error.message : String(error)}`,
 			{
 				metadata: { ip },
@@ -449,7 +447,7 @@ export async function getGeoLocation(ip?: string): Promise<GeoIPResult> {
 						ip = data.ip;
 					}
 				} catch (error) {
-					logger.warn(
+					console.warn(
 						`Failed to get client IP: ${error instanceof Error ? error.message : String(error)}`,
 						{
 							metadata: { ip },
@@ -525,7 +523,7 @@ export async function getGeoLocation(ip?: string): Promise<GeoIPResult> {
 
 		return geoData;
 	} catch (error) {
-		logger.error(
+		console.error(
 			`Geo IP lookup error: ${error instanceof Error ? error.message : String(error)}`,
 			{
 				metadata: { ip },

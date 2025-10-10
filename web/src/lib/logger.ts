@@ -1,9 +1,8 @@
+import pino from "pino";
 import {
 	transformBigIntToNumbers,
 	transformDecimalsToNumbers,
-} from "@/utils/edge-utils";
-import pino from "pino";
-import { analytics } from "./analytics";
+} from "mingster.backbone";
 import { sqlClient } from "./prismadb";
 
 const isProduction = process.env.NODE_ENV === "production";
@@ -136,7 +135,7 @@ class Logger {
 			try {
 				logMessage = JSON.stringify(message);
 				logMetadata = { ...metadata, metadata: message };
-			} catch (error) {
+			} catch (_error) {
 				transformBigIntToNumbers(message);
 				transformDecimalsToNumbers(message);
 				logMessage = JSON.stringify(message);
@@ -231,7 +230,7 @@ class Logger {
 
 		// In production: only database
 		this.logToDatabase(entry);
-		analytics.trackError(errorCode || "", errorMessage || "");
+		//analytics.trackError(errorCode || "", errorMessage || "");
 	}
 
 	debug(message: string | any, metadata?: Partial<LogEntry>): void {

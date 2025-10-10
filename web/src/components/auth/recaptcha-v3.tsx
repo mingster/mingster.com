@@ -7,9 +7,9 @@ import {
 } from "@wojtekmaj/react-recaptcha-v3";
 import { type ReactNode, useEffect, useState } from "react";
 
-import { useIsHydrated } from "@/hooks/use-hydrated";
-import { useTheme } from "@/hooks/use-theme";
-import { useLang } from "@/hooks/use-lang";
+import { useIsHydrated } from "mingster.backbone";
+import { useTheme } from "mingster.backbone";
+import { useLang } from "mingster.backbone";
 
 export function RecaptchaV3({
 	children,
