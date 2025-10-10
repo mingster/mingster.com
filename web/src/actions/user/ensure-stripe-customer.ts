@@ -3,7 +3,7 @@ import { sqlClient } from "@/lib/prismadb";
 import { stripe } from "@/lib/stripe/config";
 import type { User } from "@/types";
 import { SafeError } from "@/utils/error";
-import logger from "@/utils/logger";
+import logger from "@/lib/logger";
 
 export const ensureStripeCustomer = async (
 	userId: string,

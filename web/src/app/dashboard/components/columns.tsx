@@ -11,7 +11,7 @@ import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { DragHandle } from "@/components/datatable-draggable";
+import { DragHandle } from "mingster.backbone";
 import { Badge } from "mingster.backbone";
 import { Button } from "mingster.backbone";
 import {
