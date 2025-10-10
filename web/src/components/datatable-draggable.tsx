@@ -42,21 +42,21 @@ import {
 	type VisibilityState,
 } from "@tanstack/react-table";
 import * as React from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from "mingster.backbone";
 import {
 	DropdownMenu,
 	DropdownMenuCheckboxItem,
 	DropdownMenuContent,
 	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Label } from "@/components/ui/label";
+} from "mingster.backbone";
+import { Label } from "mingster.backbone";
 import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "@/components/ui/select";
+} from "mingster.backbone";
 import {
 	Table,
 	TableBody,
@@ -64,7 +64,7 @@ import {
 	TableHead,
 	TableHeader,
 	TableRow,
-} from "@/components/ui/table";
+} from "mingster.backbone";
 
 // Drag handle for rows
 export function DragHandle({ id }: { id: UniqueIdentifier }) {

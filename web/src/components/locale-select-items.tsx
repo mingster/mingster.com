@@ -2,7 +2,7 @@
 
 import type { Locale } from "@prisma/client";
 import useSWR from "swr";
-import { SelectItem } from "@/components/ui/select";
+import { SelectItem } from "mingster.backbone";
 
 export const LocaleSelectItems: React.FC = () => {
 	const url = `${process.env.NEXT_PUBLIC_API_URL}/common/get-locales`;

@@ -1,11 +1,14 @@
 import { Suspense } from "react";
 import { GetContentPrivacy } from "@/actions/store/get-content-privacy";
 import { getT } from "@/app/i18n";
-import DisplayMarkDown from "@/components/display-mark-down";
 import { GlobalNavbar } from "@/components/global-navbar";
-import { Loader } from "@/components/loader";
-import { Card, CardContent } from "@/components/ui/card";
-import Container from "@/components/ui/container";
+import {
+	Loader,
+	DisplayMarkDown,
+	Card,
+	CardContent,
+	Container,
+} from "mingster.backbone";
 
 // display privacy policy
 //

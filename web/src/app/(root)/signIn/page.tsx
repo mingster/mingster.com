@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import ClientSignIn from "@/components/auth/client-signin";
-import { Loader } from "@/components/loader";
+import { Loader } from "mingster.backbone";
 import logger from "@/lib/logger";
 
 type Props = {

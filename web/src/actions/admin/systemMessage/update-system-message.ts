@@ -2,7 +2,7 @@
 import { sqlClient } from "@/lib/prismadb";
 
 import { adminActionClient } from "@/utils/actions/safe-action";
-import { getUtcNow } from "@/utils/datetime-utils";
+import { getUtcNow } from "mingster.backbone";
 import { updateSystemMessageSchema } from "./update-system-message.validation";
 
 export const updateSystemMessageAction = adminActionClient

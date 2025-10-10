@@ -1,7 +1,6 @@
 import { sqlClient } from "@/lib/prismadb";
 import { User } from "@/types";
 import { StringNVType } from "@/types/enum";
-import { formatDateTime } from "@/utils/datetime-utils";
 
 // Cache for database queries to avoid repeated calls
 const queryCache = new Map<string, any>();

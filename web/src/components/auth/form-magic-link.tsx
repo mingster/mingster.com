@@ -8,11 +8,11 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod/v4";
 import { useTranslation } from "@/app/i18n/client";
-import { useIsHydrated } from "@/hooks/use-hydrated";
+import { useIsHydrated } from "mingster.backbone";
 import { authClient } from "@/lib/auth-client";
 import { useI18n } from "@/providers/i18n-provider";
-import { toastError, toastSuccess } from "../Toaster";
-import { Button } from "../ui/button";
+import { toastError, toastSuccess } from "mingster.backbone";
+import { Button } from "mingster.backbone";
 import {
 	Form,
 	FormControl,
@@ -20,11 +20,11 @@ import {
 	FormItem,
 	FormLabel,
 	FormMessage,
-} from "../ui/form";
-import { Input } from "../ui/input";
+} from "mingster.backbone";
+import { Input } from "mingster.backbone";
 import { RecaptchaV3 } from "./recaptcha-v3";
-import { clientLogger } from "@/lib/client-logger";
-import { analytics } from "@/lib/analytics";
+import { clientLogger } from "mingster.backbone";
+import { analytics } from "mingster.backbone";
 
 function FormMagicLinkInner({ callbackUrl = "/" }: { callbackUrl?: string }) {
 	const { lng } = useI18n();

@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { DataTableDraggable } from "@/components/datatable-draggable";
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarInset, SidebarProvider } from "mingster.backbone";
 import { auth } from "@/lib/auth";
 import { isAdmin } from "@/utils/isAdmin";
 import logger from "@/utils/logger";

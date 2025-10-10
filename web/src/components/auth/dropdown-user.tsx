@@ -10,8 +10,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useTranslation } from "@/app/i18n/client";
-import { NotMountSkeleton } from "@/components/not-mount-skeleton";
-import { Button } from "@/components/ui/button";
+import { NotMountSkeleton } from "mingster.backbone";
+import { Button } from "mingster.backbone";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -20,7 +20,7 @@ import {
 	DropdownMenuLabel,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "mingster.backbone";
 import { authClient } from "@/lib/auth-client";
 import { useI18n } from "@/providers/i18n-provider";
 import type { User } from "@/types";

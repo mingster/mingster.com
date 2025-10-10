@@ -9,7 +9,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 	DialogTrigger,
-} from "@/components/ui/dialog";
+} from "mingster.backbone";
 import { useI18n } from "@/providers/i18n-provider";
 import ClientSignIn from "./client-signin";
 

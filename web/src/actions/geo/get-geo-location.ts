@@ -12,7 +12,7 @@ import {
 	isUserInContinent,
 	clearGeoCache,
 	getGeoCacheStats,
-} from "@/utils/geo-ip";
+} from "mingster.backbone";
 import logger from "@/lib/logger";
 
 // Validation schema for getting geo location by IP
