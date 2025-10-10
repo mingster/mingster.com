@@ -2,7 +2,7 @@
 import clsx from "clsx";
 //import { cn } from '@/lib/utils';
 import DropdownUser from "@/components/auth/dropdown-user";
-import ThemeToggler from "@/components/theme-toggler";
+import { ThemeToggler } from "mingster.backbone";
 import {
 	Sheet,
 	SheetContent,
@@ -10,7 +10,7 @@ import {
 	SheetHeader,
 	SheetTitle,
 	SheetTrigger,
-} from "@/components/ui/sheet";
+} from "mingster.backbone";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 //import { useI18n } from '@/providers/i18n-provider';

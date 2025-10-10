@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "mingster.backbone";
 import { authClient } from "@/lib/auth-client";
 import { useTranslation } from "@/app/i18n/client";
 import { useCookies } from "next-client-cookies";

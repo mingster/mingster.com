@@ -2,14 +2,14 @@
 
 import { type Icon, IconCirclePlusFilled, IconMail } from "@tabler/icons-react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "mingster.backbone";
 import {
 	SidebarGroup,
 	SidebarGroupContent,
 	SidebarMenu,
 	SidebarMenuButton,
 	SidebarMenuItem,
-} from "@/components/ui/sidebar";
+} from "mingster.backbone";
 
 export function NavMain({
 	items,

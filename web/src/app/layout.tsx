@@ -1,14 +1,16 @@
-import { Toaster } from "@/components/ui/sonner";
+import {
+	Toaster,
+	ThemeProvider as NextThemeProvider,
+	IOSVersionCheck,
+	PageViewTracker,
+} from "mingster.backbone";
 import I18nProvider from "@/providers/i18n-provider";
-import NextThemeProvider from "@/providers/theme-provider";
 import type { Metadata, Viewport } from "next";
 import { CookiesProvider } from "next-client-cookies/server";
 import { SessionWrapper } from "@/providers/session-provider";
 
 import "./css/globals.css";
 import { GoogleAnalytics } from "@next/third-parties/google";
-import { IOSVersionCheck } from "@/components/ios-version-check";
-import { PageViewTracker } from "@/components/analytics/page-view-tracker";
 import { getT } from "./i18n";
 
 export const viewport: Viewport = {

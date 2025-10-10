@@ -10,22 +10,22 @@ import {
 	CardDescription,
 	CardHeader,
 	CardTitle,
-} from "@/components/ui/card";
+} from "mingster.backbone";
 import {
 	type ChartConfig,
 	ChartContainer,
 	ChartTooltip,
 	ChartTooltipContent,
-} from "@/components/ui/chart";
+} from "mingster.backbone";
 import {
 	Select,
 	SelectContent,
 	SelectItem,
 	SelectTrigger,
 	SelectValue,
-} from "@/components/ui/select";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { useIsMobile } from "@/hooks/use-mobile";
+} from "mingster.backbone";
+import { ToggleGroup, ToggleGroupItem } from "mingster.backbone";
+import { useIsMobile } from "mingster.backbone";
 
 export const description = "An interactive area chart";
 

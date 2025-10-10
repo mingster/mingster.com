@@ -3,7 +3,7 @@
 import { updateUserSettingsSchema } from "@/actions/user/update-user-settings.validation";
 import { sqlClient } from "@/lib/prismadb";
 import { userRequiredActionClient } from "@/utils/actions/safe-action";
-import { getUtcNow } from "@/utils/datetime-utils";
+import { getUtcNow } from "mingster.backbone";
 
 export const updateUserSettingsAction = userRequiredActionClient
 	.metadata({ name: "updateUserSettings" })
