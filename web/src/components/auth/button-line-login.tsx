@@ -3,8 +3,8 @@ import { authClient } from "@/lib/auth-client";
 import { useI18n } from "@/providers/i18n-provider";
 import { IconBrandLine } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
-import { Button } from "mingster.backbone";
-import { analytics } from "mingster.backbone";
+import { Button } from "../ui/button";
+import { analytics } from "@/lib/analytics";
 
 const LineLoginButton = ({ callbackUrl = "/" }: { callbackUrl?: string }) => {
 	const { lng } = useI18n();

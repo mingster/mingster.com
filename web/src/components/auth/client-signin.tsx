@@ -12,8 +12,8 @@ import {
 	CardFooter,
 	CardHeader,
 	CardTitle,
-} from "mingster.backbone";
-import { Separator } from "mingster.backbone";
+} from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { useI18n } from "@/providers/i18n-provider";
 import { useParams } from "next/navigation";
 import LineLoginButton from "./button-line-login";

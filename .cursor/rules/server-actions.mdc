@@ -1,0 +1,117 @@
+---
+description: Guidelines for implementing Next.js server actions
+globs: 
+alwaysApply: false
+---
+# Server Action Guide
+
+This project uses @Next.js Server Actions with @safe-action for secure, type-safe server-side mutations and data operations.
+
+## Location & Structure
+
+- **Server actions** are located in the `pstv_web/src/actions/` directory, organized by feature/domain such as:
+  - `admin/sysmsg/` - System message actions
+  - `admin/faq/` - FAQ management actions
+- Each action file typically exports one or more actions using the `adminActionClient` or `baseClient` or `userRequiredActionClient` wrapper. 
+- administration pages within `admin` URL should use `adminActionClient` wrapper.
+- user related pages within `account` URL should use `userRequiredActionClient` wrapper.
+- other actions can use `baseClient`
+- Validation schemas (using Zod) are colocated in the same directory as `[action-name].validation.ts`
+
+## Naming Conventions
+
+- Action files are named with the pattern: `verb-object.ts` (e.g., `update-opserver.ts`, `update-system-message.ts`)
+- Validation schemas are named: `verb-object.validation.ts`
+- Exported actions are named in camelCase with "Action" suffix, e.g., `updateOpServerAction`
+
+## Validation & Action Structure
+
+- All server actions use Zod schemas for input validation and type safety
+- Actions are wrapped with `userRequiredActionClient` for general action:
+
+```ts
+export const updateOpServerAction = userRequiredActionClient
+  .metadata({ name: "updateUser" })
+  .schema(updateUserSchema)
+  .action(async ({ parsedInput }) => {
+    // Action implementation
+  });
+```
+
+- Actions are wrapped with `emailRequiredActionClient` for if e-mail is required:
+
+```ts
+export const updateOpServerAction = actionClient
+  .metadata({ name: "updateUserBilling" })
+  .schema(updateUserBillingSchema)
+  .action(async ({ parsedInput }) => {
+    // Action implementation
+  });
+```
+
+- Actions are wrapped with `adminActionClient` if administration role is required:
+
+```ts
+export const updateOpServerAction = adminActionClient
+  .metadata({ name: "updateOpServer" })
+  .schema(updateOpServerSchema)
+  .action(async ({ parsedInput }) => {
+    // Action implementation
+  });
+```
+
+## Common Patterns
+
+### Create/Update Pattern
+```ts
+if (guid === undefined || guid === null || guid === "" || guid === "new") {
+  // Create new record
+  const result = await prisma.create({ data: { ... } });
+} else {
+  // Update existing record
+  await prisma.update({ where: { guid }, data: { ... } });
+}
+```
+
+### Date Handling
+- Use `getUtcNow()` from `@/utils/utils` for consistent UTC timestamps
+- Set `creationDate` for new records
+- Set `lastModified` for updates
+
+## Example Files
+
+- @update-opserver.ts
+- @update-opserver.validation.ts
+- @update-system-message.ts
+- @update-system-message.validation.ts
+
+## Best Practices
+
+1. **Type Safety**
+   - Use Zod schemas for input validation
+   - Use TypeScript types from Prisma client
+   - Leverage safe-action for end-to-end type safety
+
+2. **Error Handling**
+   - Return structured results with `data` or `serverError`
+   - Use try-catch blocks for database operations
+   - Log errors with descriptive context
+
+3. **Security**
+   - Use `adminActionClient` for admin actions
+   - Use `actionClient` is e-mail is required
+   - Use `actionClient` for general actions
+   - Validate all input data
+   - Don't expose sensitive information
+
+4. **Data Consistency**
+   - Use transactions for related operations
+   - Set appropriate timestamps
+   - Handle null/undefined values properly
+
+5. **Code Organization**
+   - Keep actions focused and single-purpose
+   - Colocate validation schemas
+   - Use consistent naming patterns
+
+This pattern ensures secure, maintainable, and type-safe server-side operations throughout the app.

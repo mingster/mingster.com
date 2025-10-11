@@ -5,8 +5,8 @@ import { useEffect, useState } from "react";
 
 import { useTranslation } from "@/app/i18n/client";
 import { cookieName, languages } from "@/app/i18n/settings";
-import { NotMountSkeleton } from "mingster.backbone";
-import { Button } from "mingster.backbone";
+import { NotMountSkeleton } from "@/components/not-mount-skeleton";
+import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -15,7 +15,7 @@ import {
 	DropdownMenuRadioItem,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
-} from "mingster.backbone";
+} from "@/components/ui/dropdown-menu";
 
 export const LanguageToggler = () => {
 	const [mounted, setMounted] = useState(false);

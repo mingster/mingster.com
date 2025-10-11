@@ -2,7 +2,7 @@
 
 //import { Currency } from '@/prisma-pstv/pstv-database-client-types';
 import { useTranslation } from "@/app/i18n/client";
-import { Button } from "mingster.backbone";
+import { Button } from "@/components/ui/button";
 import {
 	Command,
 	CommandEmpty,
@@ -10,8 +10,12 @@ import {
 	CommandInput,
 	CommandItem,
 	CommandList,
-} from "mingster.backbone";
-import { Popover, PopoverContent, PopoverTrigger } from "mingster.backbone";
+} from "@/components/ui/command";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "@/components/ui/popover";
 import { useI18n } from "@/providers/i18n-provider";
 import * as React from "react";
 import useSWR from "swr";
