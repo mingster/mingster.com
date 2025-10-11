@@ -1,117 +1,503 @@
 ---
-description: Guidelines for implementing Next.js server actions
-globs: 
+description: Guidelines for implementing Next.js Server Actions with Better Auth
+globs: **/*.ts
 alwaysApply: false
 ---
 # Server Action Guide
 
-This project uses @Next.js Server Actions with @safe-action for secure, type-safe server-side mutations and data operations.
+This project uses **Next.js Server Actions** with **next-safe-action** for type-safe, secure server-side mutations and data operations. Authentication is handled by **Better Auth**.
 
-## Location & Structure
+## Overview
 
-- **Server actions** are located in the `pstv_web/src/actions/` directory, organized by feature/domain such as:
-  - `admin/sysmsg/` - System message actions
-  - `admin/faq/` - FAQ management actions
-- Each action file typically exports one or more actions using the `adminActionClient` or `baseClient` or `userRequiredActionClient` wrapper. 
-- administration pages within `admin` URL should use `adminActionClient` wrapper.
-- user related pages within `account` URL should use `userRequiredActionClient` wrapper.
-- other actions can use `baseClient`
-- Validation schemas (using Zod) are colocated in the same directory as `[action-name].validation.ts`
+- **Location**: `src/actions/` directory, organized by feature/domain
+- **Validation**: Zod schemas for input validation
+- **Authentication**: Better Auth with role-based access control
+- **Type Safety**: Full end-to-end type safety with next-safe-action
+
+## Directory Structure
+
+```
+src/actions/
+├── admin/              # Admin-only actions
+├── geo/                # Geolocation actions
+├── mail/               # Email-related actions
+├── store/              # Store management actions
+├── sysAdmin/           # System admin actions (requires admin role)
+│   ├── systemMessage/
+│   │   ├── update-system-message.ts
+│   │   └── update-system-message.validation.ts
+└── user/               # User-related actions
+```
+
+## Action Clients
+
+The project uses different action clients based on authentication requirements:
+
+### 1. Base Action Client
+
+For public actions that don't require authentication:
+
+```typescript
+import { actionClient } from "@/lib/safe-action";
+
+export const publicAction = actionClient
+  .metadata({ name: "publicAction" })
+  .schema(publicSchema)
+  .action(async ({ parsedInput }) => {
+    // No authentication required
+    return { success: true };
+  });
+```
+
+### 2. User Required Action Client
+
+For actions requiring any authenticated user:
+
+```typescript
+import { userRequiredActionClient } from "@/lib/safe-action";
+
+export const userAction = userRequiredActionClient
+  .metadata({ name: "userAction" })
+  .schema(userSchema)
+  .action(async ({ parsedInput, ctx }) => {
+    // ctx.user is available (from Better Auth session)
+    const userId = ctx.user.id;
+    return { success: true };
+  });
+```
+
+### 3. Admin Action Client
+
+For actions requiring admin role:
+
+```typescript
+import { adminActionClient } from "@/lib/safe-action";
+
+export const adminAction = adminActionClient
+  .metadata({ name: "adminAction" })
+  .schema(adminSchema)
+  .action(async ({ parsedInput, ctx }) => {
+    // ctx.user is available and has admin role
+    const adminId = ctx.user.id;
+    return { success: true };
+  });
+```
 
 ## Naming Conventions
 
-- Action files are named with the pattern: `verb-object.ts` (e.g., `update-opserver.ts`, `update-system-message.ts`)
-- Validation schemas are named: `verb-object.validation.ts`
-- Exported actions are named in camelCase with "Action" suffix, e.g., `updateOpServerAction`
+### Files
 
-## Validation & Action Structure
+- Action file: `verb-object.ts` (e.g., `update-system-message.ts`)
+- Validation file: `verb-object.validation.ts` (e.g., `update-system-message.validation.ts`)
 
-- All server actions use Zod schemas for input validation and type safety
-- Actions are wrapped with `userRequiredActionClient` for general action:
+### Exports
 
-```ts
-export const updateOpServerAction = userRequiredActionClient
-  .metadata({ name: "updateUser" })
-  .schema(updateUserSchema)
-  .action(async ({ parsedInput }) => {
-    // Action implementation
+- Action export: `verbObjectAction` in camelCase with "Action" suffix
+- Example: `updateSystemMessageAction`, `createUserAction`, `deleteItemAction`
+
+## Complete Example
+
+### 1. Validation Schema
+
+```typescript
+// actions/sysAdmin/systemMessage/update-system-message.validation.ts
+import { z } from "zod/v4";
+
+export const updateSystemMessageSchema = z.object({
+  id: z.string(),
+  message: z.string().min(1, "Message is required"),
+  localeId: z.string().optional(),
+  published: z.boolean().default(false),
+});
+
+export type UpdateSystemMessageInput = z.infer<typeof updateSystemMessageSchema>;
+```
+
+### 2. Server Action
+
+```typescript
+// actions/sysAdmin/systemMessage/update-system-message.ts
+"use server";
+
+import { adminActionClient } from "@/lib/safe-action";
+import prismadb from "@/lib/prismadb";
+import { updateSystemMessageSchema } from "./update-system-message.validation";
+
+export const updateSystemMessageAction = adminActionClient
+  .metadata({ name: "updateSystemMessage" })
+  .schema(updateSystemMessageSchema)
+  .action(async ({ parsedInput, ctx }) => {
+    const { id, ...data } = parsedInput;
+    
+    // Create new record
+    if (id === "new") {
+      const result = await prismadb.systemMessage.create({
+        data: {
+          ...data,
+          createdBy: ctx.user.id,  // From Better Auth session
+          createdOn: new Date(),
+        },
+      });
+      return { success: true, data: result };
+    }
+    
+    // Update existing record
+    const result = await prismadb.systemMessage.update({
+      where: { id },
+      data: {
+        ...data,
+        lastModifiedBy: ctx.user.id,
+        lastModified: new Date(),
+      },
+    });
+    
+    return { success: true, data: result };
   });
 ```
 
-- Actions are wrapped with `emailRequiredActionClient` for if e-mail is required:
+### 3. Client Usage
 
-```ts
-export const updateOpServerAction = actionClient
-  .metadata({ name: "updateUserBilling" })
-  .schema(updateUserBillingSchema)
-  .action(async ({ parsedInput }) => {
-    // Action implementation
-  });
-```
+```tsx
+"use client";
 
-- Actions are wrapped with `adminActionClient` if administration role is required:
+import { updateSystemMessageAction } from "@/actions/sysAdmin/systemMessage/update-system-message";
+import { toastSuccess, toastError } from "mingster.backbone";
 
-```ts
-export const updateOpServerAction = adminActionClient
-  .metadata({ name: "updateOpServer" })
-  .schema(updateOpServerSchema)
-  .action(async ({ parsedInput }) => {
-    // Action implementation
-  });
+async function handleSubmit(data: FormData) {
+  const result = await updateSystemMessageAction(data);
+  
+  if (result?.serverError) {
+    toastError({ description: result.serverError });
+    return;
+  }
+  
+  toastSuccess({ description: "Updated successfully!" });
+}
 ```
 
 ## Common Patterns
 
 ### Create/Update Pattern
-```ts
-if (guid === undefined || guid === null || guid === "" || guid === "new") {
-  // Create new record
-  const result = await prisma.create({ data: { ... } });
-} else {
-  // Update existing record
-  await prisma.update({ where: { guid }, data: { ... } });
-}
+
+```typescript
+export const updateItemAction = adminActionClient
+  .metadata({ name: "updateItem" })
+  .schema(itemSchema)
+  .action(async ({ parsedInput, ctx }) => {
+    const { id, ...data } = parsedInput;
+    
+    if (id === "new" || !id) {
+      // Create new
+      return await prismadb.item.create({
+        data: {
+          ...data,
+          createdBy: ctx.user.id,
+          createdOn: new Date(),
+        },
+      });
+    }
+    
+    // Update existing
+    return await prismadb.item.update({
+      where: { id },
+      data: {
+        ...data,
+        lastModifiedBy: ctx.user.id,
+        lastModified: new Date(),
+      },
+    });
+  });
 ```
 
-### Date Handling
-- Use `getUtcNow()` from `@/utils/utils` for consistent UTC timestamps
-- Set `creationDate` for new records
-- Set `lastModified` for updates
+### Delete Action
 
-## Example Files
+```typescript
+export const deleteItemAction = adminActionClient
+  .metadata({ name: "deleteItem" })
+  .schema(z.object({ id: z.string() }))
+  .action(async ({ parsedInput }) => {
+    await prismadb.item.delete({
+      where: { id: parsedInput.id },
+    });
+    
+    return { success: true };
+  });
+```
 
-- @update-opserver.ts
-- @update-opserver.validation.ts
-- @update-system-message.ts
-- @update-system-message.validation.ts
+### List/Query Action
+
+```typescript
+export const listItemsAction = userRequiredActionClient
+  .metadata({ name: "listItems" })
+  .schema(z.object({
+    page: z.number().optional(),
+    limit: z.number().optional(),
+    search: z.string().optional(),
+  }))
+  .action(async ({ parsedInput }) => {
+    const { page = 1, limit = 10, search } = parsedInput;
+    
+    const items = await prismadb.item.findMany({
+      where: search ? {
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } },
+        ],
+      } : undefined,
+      skip: (page - 1) * limit,
+      take: limit,
+      orderBy: { createdOn: 'desc' },
+    });
+    
+    return { items, page, limit };
+  });
+```
+
+### With Transactions
+
+```typescript
+export const createOrderAction = userRequiredActionClient
+  .metadata({ name: "createOrder" })
+  .schema(orderSchema)
+  .action(async ({ parsedInput, ctx }) => {
+    // Use Prisma transaction for multiple related operations
+    return await prismadb.$transaction(async (tx) => {
+      // Create order
+      const order = await tx.order.create({
+        data: {
+          userId: ctx.user.id,
+          total: parsedInput.total,
+        },
+      });
+      
+      // Create order items
+      await tx.orderItem.createMany({
+        data: parsedInput.items.map(item => ({
+          orderId: order.id,
+          productId: item.productId,
+          quantity: item.quantity,
+        })),
+      });
+      
+      return order;
+    });
+  });
+```
+
+## Better Auth Integration
+
+### Accessing User Session
+
+```typescript
+export const getUserProfileAction = userRequiredActionClient
+  .metadata({ name: "getUserProfile" })
+  .schema(z.object({}))
+  .action(async ({ ctx }) => {
+    // ctx.user is populated from Better Auth session
+    const userId = ctx.user.id;
+    const userEmail = ctx.user.email;
+    const userName = ctx.user.name;
+    
+    const profile = await prismadb.user.findUnique({
+      where: { id: userId },
+      include: { profile: true },
+    });
+    
+    return { profile };
+  });
+```
+
+### Role-Based Access
+
+```typescript
+// Admin role is already checked by adminActionClient
+export const adminOnlyAction = adminActionClient
+  .metadata({ name: "adminOnly" })
+  .schema(adminSchema)
+  .action(async ({ parsedInput, ctx }) => {
+    // This only runs if ctx.user has admin role
+    // Implement admin-only logic here
+    return { success: true };
+  });
+
+// For custom role checks
+export const customRoleAction = userRequiredActionClient
+  .metadata({ name: "customRole" })
+  .schema(customSchema)
+  .action(async ({ parsedInput, ctx }) => {
+    // Check for specific role or permission
+    if (ctx.user.role !== "moderator") {
+      throw new Error("Moderator role required");
+    }
+    
+    // Proceed with action
+    return { success: true };
+  });
+```
+
+## Error Handling
+
+### Standard Error Handling
+
+```typescript
+export const risky ActionClient = userRequiredActionClient
+  .metadata({ name: "riskyAction" })
+  .schema(riskySchema)
+  .action(async ({ parsedInput, ctx }) => {
+    try {
+      const result = await someRiskyOperation(parsedInput);
+      return { success: true, data: result };
+    } catch (error) {
+      console.error("Error in riskyAction:", error);
+      throw new Error("Failed to complete operation");
+    }
+  });
+```
+
+### Custom Error Messages
+
+```typescript
+export const validateAction = userRequiredActionClient
+  .metadata({ name: "validateAction" })
+  .schema(validateSchema)
+  .action(async ({ parsedInput }) => {
+    // Business logic validation
+    if (parsedInput.amount < 0) {
+      throw new Error("Amount must be positive");
+    }
+    
+    if (parsedInput.amount > 10000) {
+      throw new Error("Amount exceeds maximum limit");
+    }
+    
+    return { success: true };
+  });
+```
 
 ## Best Practices
 
-1. **Type Safety**
-   - Use Zod schemas for input validation
-   - Use TypeScript types from Prisma client
-   - Leverage safe-action for end-to-end type safety
+1. **Always use "use server"**: Start server action files with `"use server"` directive
+2. **Choose correct action client**:
+   - `actionClient` - Public actions
+   - `userRequiredActionClient` - Authenticated users
+   - `adminActionClient` - Admin users only
+3. **Validate input**: Always define and use Zod schemas
+4. **Type safety**: Export TypeScript types from validation files
+5. **Error handling**: Use try-catch for external operations
+6. **Transactions**: Use Prisma transactions for related operations
+7. **Audit trails**: Record `createdBy`, `createdOn`, `lastModifiedBy`, `lastModified`
+8. **Return data**: Return created/updated data to client for optimistic updates
+9. **Security**: Never expose sensitive data in error messages
+10. **BigInt handling**: Use `transformBigIntToNumbers` before sending to client
 
-2. **Error Handling**
-   - Return structured results with `data` or `serverError`
-   - Use try-catch blocks for database operations
-   - Log errors with descriptive context
+## Safe Action Configuration
 
-3. **Security**
-   - Use `adminActionClient` for admin actions
-   - Use `actionClient` is e-mail is required
-   - Use `actionClient` for general actions
-   - Validate all input data
-   - Don't expose sensitive information
+The action clients are configured in `src/lib/safe-action.ts`:
 
-4. **Data Consistency**
-   - Use transactions for related operations
-   - Set appropriate timestamps
-   - Handle null/undefined values properly
+```typescript
+import { createSafeActionClient } from "next-safe-action";
+import { auth } from "@/lib/auth";
 
-5. **Code Organization**
-   - Keep actions focused and single-purpose
-   - Colocate validation schemas
-   - Use consistent naming patterns
+// Base action client (no authentication)
+export const actionClient = createSafeActionClient();
 
-This pattern ensures secure, maintainable, and type-safe server-side operations throughout the app.
+// User required action client
+export const userRequiredActionClient = actionClient.use(async ({ next }) => {
+  const session = await auth.api.getSession({ headers: await headers() });
+  
+  if (!session?.user) {
+    throw new Error("Unauthorized");
+  }
+  
+  return next({ ctx: { user: session.user } });
+});
+
+// Admin required action client
+export const adminActionClient = userRequiredActionClient.use(async ({ next, ctx }) => {
+  if (ctx.user.role !== "admin") {
+    throw new Error("Admin access required");
+  }
+  
+  return next({ ctx });
+});
+```
+
+## Testing Server Actions
+
+### In Development
+
+Test actions directly in components:
+
+```tsx
+"use client";
+
+import { testAction } from "@/actions/test/test-action";
+import { Button } from "mingster.backbone";
+
+export function TestComponent() {
+  const handleTest = async () => {
+    const result = await testAction({ test: "data" });
+    console.log("Result:", result);
+  };
+  
+  return <Button onClick={handleTest}>Test Action</Button>;
+}
+```
+
+### Error Cases
+
+```tsx
+async function handleAction() {
+  const result = await someAction(data);
+  
+  if (result?.serverError) {
+    console.error("Server error:", result.serverError);
+    toastError({ description: result.serverError });
+    return;
+  }
+  
+  if (result?.validationErrors) {
+    console.error("Validation errors:", result.validationErrors);
+    return;
+  }
+  
+  console.log("Success:", result.data);
+  toastSuccess({ description: "Action completed!" });
+}
+```
+
+## Migration Notes
+
+When migrating from other authentication systems to Better Auth:
+
+**Before:**
+
+```typescript
+const session = await getServerSession();
+const userId = session.user.id;
+```
+
+**After:**
+
+```typescript
+// In action client middleware
+const session = await auth.api.getSession({ headers: await headers() });
+const userId = session.user.id;
+
+// In action
+export const myAction = userRequiredActionClient
+  .action(async ({ ctx }) => {
+    const userId = ctx.user.id;  // From session
+  });
+```
+
+## Summary
+
+- **Location**: `src/actions/` organized by domain
+- **Validation**: Zod schemas with TypeScript types
+- **Authentication**: Better Auth with role-based clients
+- **Error handling**: Use toast notifications from `mingster.backbone`
+- **Type safety**: Full end-to-end with next-safe-action
+- **Naming**: `verbObjectAction` with validation in separate file
+
+Follow these patterns for consistent, secure, and maintainable server actions throughout the application.
