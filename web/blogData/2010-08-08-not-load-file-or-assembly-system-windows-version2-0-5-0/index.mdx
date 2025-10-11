@@ -1,0 +1,12 @@
+import { mingster } from "@/app/blog/authors";
+
+export const meta = {
+  title: "not load file or assembly 'System.Windows, Version=2.0.5.0...'",
+  description: "if you get this error, it's because Sliverlight assembly is not in GAC. Do this to fix: cd C:Program FilesMicrosoft Silverlight4.0.50524.0gacutil -i...",
+  date: "2010-08-08T00:00:00.000Z",
+  authors: [mingster],
+};
+
+<p>if you get this error, it's because Sliverlight assembly is not in GAC. Do this to fix:</p>
+<p><code><br />cd C:Program FilesMicrosoft Silverlight4.0.50524.0<br />gacutil -i System.Core.dll<br />gacutil -i system.dll<br />gacutil -i system.net.dll<br />gacutil -i system.xml.dll<br />gacutil -i System.Runtime.Serialization.dll<br /></code></p>
+<p><a href="http://forums.silverlight.net/forums/p/135896/303959.aspx">check out what other people said.</a></p>

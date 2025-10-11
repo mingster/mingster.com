@@ -1,0 +1,20 @@
+import { mingster } from "@/app/blog/authors";
+
+export const meta = {
+  title: "MySQL 5.x Repair Cheat Sheet",
+  description: "If you upgrade MySQL or move the database around, you are most likely need to do those operations: Backup mysqldump -u root -p --default-character-set=utf8...",
+  date: "2010-05-28T00:00:00.000Z",
+  authors: [mingster],
+};
+
+<p>If you upgrade MySQL or move the database around, you are most likely need to do those operations:<br />
+<h1>Backup</h1>
+<p><code> mysqldump -u root -p --default-character-set=utf8 databasename &gt; data.sql<br /></code><br />
+<h1>Restore</h1>
+<p><code> mysqldump -u root -p --default-character-set=utf8  databasename &lt; data.sql </code><br />if database is larger then 100MB, this works better:<code><br />mysql -u root -p<br />#mysql&gt; use the_database<br />#mysql&gt; source data.sql<br /></code><br />
+<h1>Check, Repair &amp; Optimize All Tables in All Databases</h1>
+<p>If you need database server up, use mysqlcheck:<code><br />mysqlcheck -u root -p --auto-repair --check --optimize --all-databases<br /></code></p>
+<p>Or you can make it offline and do a better check:<code><br />service mysqld stop<br />myisamchk /var/lib/mysql/the_database/*.MYI<br />service mysqld start<br /></code><br />
+<h2>Repair single table</h2>
+<p><code> mysql -u root -p<br />#mysql&gt; use the_database<br />#mysql&gt; repair table the_table<br /></code></p>
+<p>Reference:<br /><a href="http://www.felipecruz.com/repair-mysql-database.php" target="_blank">http://www.felipecruz.com/repair-mysql-database.php</a></p>

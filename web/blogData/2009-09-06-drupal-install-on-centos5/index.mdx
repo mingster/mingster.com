@@ -1,0 +1,42 @@
+import { mingster } from "@/app/blog/authors";
+
+export const meta = {
+  title: "RHEL: Drupal install on CentOS5",
+  description: "PHP 5.3 is not supported on current Drupal (6.14), and CentOS's PHP version is still on 5.1.9. So the drupal installation needs a little bit of work. 1....",
+  date: "2009-09-06T00:00:00.000Z",
+  authors: [mingster],
+};
+
+<p>PHP 5.3 is not supported on current Drupal (6.14), and CentOS's PHP version is still on 5.1.9. So the drupal installation needs a little bit of work.</p>
+<p>1. Install MySQL<br />
+<code><br />
+wget http://download.fedora.redhat.com/pub/epel/5/i386/epel-release-5-3.noarch.rpm<br />
+rpm -ivh epel-release-5-3.noarch.rpm</p>
+<p>wget http://rpms.famillecollet.com/enterprise/remi-release-5.rpm<br />
+rpm -ivh remi-release-5.rpm</p>
+<p>yum --enablerepo=remi install mysql mysql-server<br />
+</code><br />
+2. Install PHP 5.2.9 from CentOS testing repository:<br />
+<code><br />
+cd /etc/yum.repos.d<br />
+wget http://dev.centos.org/centos/5/CentOS-Testing.repo<br />
+yum --enablerepo=c5-testing install php php-devel php-pear php-pecl php-mcrypt php-xml php-xml php-imap php-soap php-mbstring php-mysql php-cli php-mysql<br />
+</code><br />
+3. drupal clean URL config (sample)<br />
+there are many ways to turn on clean URL. Here's how I do it:</p>
+<p>AllowOverride All<br />
+Options Indexes FollowSymLinks MultiViews<br />
+Order allow,deny<br />
+Allow from all</p>
+<p>RewriteEngine on<br />
+RewriteBase /<br />
+RewriteCond %{REQUEST_FILENAME} !-f<br />
+RewriteCond %{REQUEST_FILENAME} !-d<br />
+RewriteRule ^(.*)$ index.php?q=$1 [L,QSA]</p>
+<p>Alias /drupal /var/www/drupal</p>
+<p>4. PHP.ini</p>
+<p>5. GD library<br />
+<code><br />
+yum --enablerepo=c5-testing install gd gd-devel php-gd<br />
+</code></p>
+<p>6. Install drupal</p>

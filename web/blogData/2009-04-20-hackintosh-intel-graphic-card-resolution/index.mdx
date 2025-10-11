@@ -1,0 +1,15 @@
+import { mingster } from "@/app/blog/authors";
+
+export const meta = {
+  title: "hackintosh - Intel graphic card resolution",
+  description: "http://www.insanelymac.com/forum/lofiversion/index.php/t5513.html For G33,Q33 Intel chip, there's no ktext for it; however you can do this to alter the...",
+  date: "2009-04-20T00:00:00.000Z",
+  authors: [mingster],
+};
+
+<p><a href="http://www.insanelymac.com/forum/lofiversion/index.php/t5513.html">http://www.insanelymac.com/forum/lofiversion/index.php/t5513.html</a></p>
+<p>For G33,Q33 Intel chip, there's no ktext for it; however you can do this to alter the resolution:</p>
+<p>vi /Library/Preferences/SystemConfiguration/com.apple.Boot.plist</p>
+<p>Edit string value for Kernel Flags,<br />Kernel Flags<br />"Graphics Mode"="1280×1024×32"</p>
+<p>After reboot, it's default to 1280x1024 instead of 1024x768, much better.</p>
+<p>This works on iDeneb 10.5.6.</p>

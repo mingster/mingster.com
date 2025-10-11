@@ -1,0 +1,17 @@
+import { mingster } from "@/app/blog/authors";
+
+export const meta = {
+  title: "REHL: mount iso images",
+  description: "Below is the way to mount iso image file in REHL system: Before you start to mount your iso image, you need to ensure the folder /mnt/isoimage is available, if...",
+  date: "2009-10-23T00:00:00.000Z",
+  authors: [mingster],
+};
+
+<p>Below is the way to mount iso image file in REHL system:</p>
+<p>Before you start to mount your iso image, you need to ensure the folder /mnt/isoimage is available, if /mnt/isoimage is not available just create one using command below:-</p>
+<p><code>#mkdir /mnt/isoimage </code></p>
+<p>* Once isoimage directory is available, you can use the command below to mount your iso image</p>
+<p><code># mount -o loop -t iso9660 myisoimage.iso /mnt/isoimage/</code></p>
+<p>* You just mount your iso image file to /mnt/isoimage successfully. To access your iso image files, go to /mnt/isoimage</p>
+<p>Once you finish using your files, below is the way to unmount your iso image:-</p>
+<p><code># umount /mnt/isoimage</code></p>

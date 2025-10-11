@@ -1,0 +1,26 @@
+import { mingster } from "@/app/blog/authors";
+
+export const meta = {
+  title: "OSX Yosemite, NTFS Read & Write",
+  description: "Upgrade to Yosemite will break NTFS R&amp;W. Here's how to redo it: Requirement brew brew cask if you don't know or don't have brew, check this out: dotfiles...",
+  date: "2015-05-28T00:00:00.000Z",
+  authors: [mingster],
+};
+
+<p>Upgrade to Yosemite will break NTFS R&amp;W. Here's how to redo it:</p>
+<h1>Requirement</h1>
+<ul>
+<li>brew</li>
+<li>brew cask</li>
+</ul>
+<p>if you don't know or don't have brew, check this out: <a href="https://github.com/mingster/dotfiles" target="_blank">dotfiles</a></p>
+<h1>Installation</h1>
+<p>1. Install a binary osxfuse package from Homebrew Cask:</p>
+<pre><code>brew cask install osxfuse</code></pre>
+<p>2. Install ntfs-3g:</p>
+<pre><code>brew install ntfs-3g</code></pre>
+<p>3. Symlink to correct version of mount_ntfs:</p>
+<pre><code>sudo mv /sbin/mount_ntfs /sbin/mount_ntfs.original
+sudo ln -s /usr/local/sbin/mount_ntfs /sbin/mount_ntfs
+</code></pre>
+<p>4. Remount the NTFS drive and it will work!</p>

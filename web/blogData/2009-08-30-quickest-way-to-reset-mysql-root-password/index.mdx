@@ -1,0 +1,10 @@
+import { mingster } from "@/app/blog/authors";
+
+export const meta = {
+  title: "Quickest way to reset mysql root password",
+  description: "If you forgot root password for MySQL, this is the quickest way to reset it. You need to have root access to the box.service mysql stopwait until MySQL shuts...",
+  date: "2009-08-30T00:00:00.000Z",
+  authors: [mingster],
+};
+
+<p>If you forgot root password for MySQL, this is the quickest way to reset it. You need to have root access to the box.<br /><code><br />service mysql stop<br /></code><br />wait until MySQL shuts down. Then run<br /><code><br />mysqld_safe --skip-grant-tables &amp;<br /></code><br />then you will be able to login as root with no password.<br /><code><br />mysql -u root<br /></code><br />In MySQL command line prompt issue the following command:<br /><code><br />mysql&gt; use mysql;<br />mysql&gt; UPDATE user SET password=PASSWORD('the_new_password') WHERE user='root';<br />mysql&gt; FLUSH PRIVILEGES;<br /></code><br />At this time your root password is reset and MySQL will now know the privileges and you'll be able to login with your new password:<br /><code><br />mysql -u root -p<br /></code></p>
