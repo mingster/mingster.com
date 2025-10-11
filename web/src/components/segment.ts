@@ -27,76 +27,76 @@ const closingBracketStack = new Uint8Array(256);
  *        ╰──────────────┴──┴───────────── Ignored b/c inside >= 1 levels of parens
  */
 export function segment(input: string, separator: string) {
-  // SAFETY: We can use an index into a shared buffer because this function is
-  // synchronous, non-recursive, and runs in a single-threaded environment.
-  let stackPos = 0;
-  let parts: string[] = [];
-  let lastPos = 0;
-  let len = input.length;
+	// SAFETY: We can use an index into a shared buffer because this function is
+	// synchronous, non-recursive, and runs in a single-threaded environment.
+	let stackPos = 0;
+	const parts: string[] = [];
+	let lastPos = 0;
+	const len = input.length;
 
-  let separatorCode = separator.charCodeAt(0);
+	const separatorCode = separator.charCodeAt(0);
 
-  for (let idx = 0; idx < len; idx++) {
-    let char = input.charCodeAt(idx);
+	for (let idx = 0; idx < len; idx++) {
+		const char = input.charCodeAt(idx);
 
-    if (stackPos === 0 && char === separatorCode) {
-      parts.push(input.slice(lastPos, idx));
-      lastPos = idx + 1;
-      continue;
-    }
+		if (stackPos === 0 && char === separatorCode) {
+			parts.push(input.slice(lastPos, idx));
+			lastPos = idx + 1;
+			continue;
+		}
 
-    switch (char) {
-      case BACKSLASH:
-        // The next character is escaped, so we skip it.
-        idx += 1;
-        break;
-      // Strings should be handled as-is until the end of the string. No need to
-      // worry about balancing parens, brackets, or curlies inside a string.
-      case SINGLE_QUOTE:
-      case DOUBLE_QUOTE:
-        // Ensure we don't go out of bounds.
-        while (++idx < len) {
-          let nextChar = input.charCodeAt(idx);
+		switch (char) {
+			case BACKSLASH:
+				// The next character is escaped, so we skip it.
+				idx += 1;
+				break;
+			// Strings should be handled as-is until the end of the string. No need to
+			// worry about balancing parens, brackets, or curlies inside a string.
+			case SINGLE_QUOTE:
+			case DOUBLE_QUOTE:
+				// Ensure we don't go out of bounds.
+				while (++idx < len) {
+					const nextChar = input.charCodeAt(idx);
 
-          // The next character is escaped, so we skip it.
-          if (nextChar === BACKSLASH) {
-            idx += 1;
-            continue;
-          }
+					// The next character is escaped, so we skip it.
+					if (nextChar === BACKSLASH) {
+						idx += 1;
+						continue;
+					}
 
-          if (nextChar === char) {
-            break;
-          }
-        }
-        break;
-      case OPEN_PAREN:
-        closingBracketStack[stackPos] = CLOSE_PAREN;
-        stackPos++;
-        break;
-      case OPEN_BRACKET:
-        closingBracketStack[stackPos] = CLOSE_BRACKET;
-        stackPos++;
-        break;
-      case OPEN_CURLY:
-        closingBracketStack[stackPos] = CLOSE_CURLY;
-        stackPos++;
-        break;
-      case CLOSE_BRACKET:
-      case CLOSE_CURLY:
-      case CLOSE_PAREN:
-        if (stackPos > 0 && char === closingBracketStack[stackPos - 1]) {
-          // SAFETY: The buffer does not need to be mutated because the stack is
-          // only ever read from or written to its current position. Its current
-          // position is only ever incremented after writing to it. Meaning that
-          // the buffer can be dirty for the next use and still be correct since
-          // reading/writing always starts at position `0`.
-          stackPos--;
-        }
-        break;
-    }
-  }
+					if (nextChar === char) {
+						break;
+					}
+				}
+				break;
+			case OPEN_PAREN:
+				closingBracketStack[stackPos] = CLOSE_PAREN;
+				stackPos++;
+				break;
+			case OPEN_BRACKET:
+				closingBracketStack[stackPos] = CLOSE_BRACKET;
+				stackPos++;
+				break;
+			case OPEN_CURLY:
+				closingBracketStack[stackPos] = CLOSE_CURLY;
+				stackPos++;
+				break;
+			case CLOSE_BRACKET:
+			case CLOSE_CURLY:
+			case CLOSE_PAREN:
+				if (stackPos > 0 && char === closingBracketStack[stackPos - 1]) {
+					// SAFETY: The buffer does not need to be mutated because the stack is
+					// only ever read from or written to its current position. Its current
+					// position is only ever incremented after writing to it. Meaning that
+					// the buffer can be dirty for the next use and still be correct since
+					// reading/writing always starts at position `0`.
+					stackPos--;
+				}
+				break;
+		}
+	}
 
-  parts.push(input.slice(lastPos));
+	parts.push(input.slice(lastPos));
 
-  return parts;
+	return parts;
 }

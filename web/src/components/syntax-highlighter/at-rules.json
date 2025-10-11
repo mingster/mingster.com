@@ -1,6 +1,13 @@
 {
   "scopeName": "tailwindcss.at-rules.injection",
-  "injectTo": ["source.css", "source.vue", "source.svelte", "text.html", "source.gjs", "source.gts"],
+  "injectTo": [
+    "source.css",
+    "source.vue",
+    "source.svelte",
+    "text.html",
+    "source.gjs",
+    "source.gts"
+  ],
   "fileTypes": [],
   "injectionSelector": "L:source.css -comment -source.css.scss",
   "name": "TailwindCSS",
