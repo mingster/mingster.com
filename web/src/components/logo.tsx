@@ -1,8 +1,14 @@
 import clsx from "clsx";
+import { IconHome } from "@tabler/icons-react";
 
 export function Logo({ className, ...props }: { className?: string }) {
 	return (
-		<div className="flex items-center gap-1">
+		<div className="flex items-center gap-1"><IconHome />
+		</div>
+	);
+}
+
+/*
 			<svg
 				aria-hidden="true"
 				className={clsx("flex text-slate-900 dark:text-white", className)}
@@ -33,11 +39,7 @@ export function Logo({ className, ...props }: { className?: string }) {
 					xlinkHref="data:img/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGIAAAAdCAMAAABmD0koAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAAAZlBMVEX///+tv7utv7utv7utv7utv7utv7utv7utv7utv7utv7utv7utv7utv7utv7utv7tJSEhJSEhJSEhJSEhJSEhJSEhJSEhJSEhJSEhJSEhJSEhJSEhJSEhJSEhJSEitv7tJSEj///+WS1n9AAAAH3RSTlMAEFCAILBA0ODAcKAw8JBgIDAQQO+fr3BQ34C/YI/PstFk2wAAAAFiS0dEAIgFHUgAAAAHdElNRQfoCRYUJhiFPEmjAAAC2klEQVRIx62V6ZaqMAyAg2WxgAhtKVBE+/5POUlKHRe8Z+Tc/JBGknxkA4ANSQ4iAUgFHbOcJYn3RLjkeTA8wC7JiuMBMLSkiKIUlRSi5jtpARLWU1nK26nZiQAKLhmRnJIaifK8piAiAiHBbpfUsjjJQ0BkN5BNWZ1voYBHKU9SSgHp8QwZ2clyH0Qc65BFUyFCZLIJiAzjxUJVaZ2XRZ6n++p0OhY5I2q4QdZImVWcXpXmOUbN10KlZVHvLNTxIJM0FApO0BTynEe4EEccAD5mKR6zZheirCn4IWWEPFdZ8Xg3dhgfQTyoX1eKHNOGEXAopDyn2OokoQUpwpaUEnKsXpp9Fbjt6FdpLBU6plLSzMuiqiFvcHCw9iJKDSW2+YxNwpXU7K1VjNPpT4TO+B4v1g/fpdyzW+8NPyGMk/f2g6nz3uNl9u47xOxn/EVn9hvxwMx/ZLETEbPAHC4fCwWthv0I0C0/p/fLHzz2IYJo7/UfPP47QvULdP2MhRydCgg12Lm/3C3Gfp4HFW3bJWpPCOVGLLXrsdeO40CHhku7cgfPFQwzgR6GpsJPYQjVlTVzCbZL0LpXhKNxtD4IxenDcQluKJRFRGD0xdk1DhGsWyYuANtahybzJmJYESMTrs5dOSa5hczuCEuqNqur0YE0sy1rljfoHfHbC6oNcC5GkbL2NyJMqDQ6YRrGW03CUdGWWzQ+NnUTYf3Ebo50/FM9I9bdbOlBOn+XkMX73GwizN0tZAHPCPeg493rzNKrbxDYz+BmO9hA/GbhXub8G4R7d/vQi7tt91UW931s2y2Ep5rQW3HivoUduJD2glho1LcRwzoYGKXdQqx7QUlQv43TI465eUUM/N82QuEi9VovhqK8I65hHEyoxWUdDtM9ITpGTJ8Q0E3rRGEyysa3r+Wg3aLUgJNwie+htkfr68Lqsn4RHV1VT+MCeh7p1/CnTtn4xVO02lOPFj+ztFvQ3iGPbAAAAABJRU5ErkJggg=="
 				/>
 			</svg>
-		</div>
-	);
-}
 
-/*
 // https://react-svgr.com/playground/?exportType=named&jsxRuntime=automatic&typescript=true
     <svg
       viewBox="0 0 248 31"

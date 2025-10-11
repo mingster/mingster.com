@@ -1,11 +1,30 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { Author } from "./authors";
 import { format } from "date-fns";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Use process.cwd() for more reliable path resolution in production
+// Handle both monorepo (root/web/blogData) and standalone (root/blogData) structures
+async function getBlogDataDir(): Promise<string> {
+	const cwd = process.cwd();
+	
+	// Check if blogData exists at current directory (most common case)
+	const directPath = path.join(cwd, "blogData");
+	try {
+		await fs.access(directPath);
+		return directPath;
+	} catch {
+		// If not found, check if we're in a monorepo and blogData is in web subdirectory
+		const webPath = path.join(cwd, "web", "blogData");
+		try {
+			await fs.access(webPath);
+			return webPath;
+		} catch {
+			// Fallback to direct path (will error later with more context)
+			return directPath;
+		}
+	}
+}
 
 export async function getBlogPostBySlug(slug: string): Promise<{
 	Component: React.FC;
@@ -23,10 +42,12 @@ export async function getBlogPostBySlug(slug: string): Promise<{
 	slug: string;
 } | null> {
 	try {
+		const blogDataDir = await getBlogDataDir();
+		
 		// Check if the file exists
 		if (
 			!(await fs
-				.stat(path.join(__dirname, `../../../blogData/${slug}/index.mdx`))
+				.stat(path.join(blogDataDir, `${slug}/index.mdx`))
 				.catch(() => null))
 		) {
 			return null;
@@ -54,28 +75,37 @@ export async function getBlogPostBySlug(slug: string): Promise<{
 export async function getBlogPostSlugs(): Promise<string[]> {
 	const posts: { slug: string; date: number }[] = [];
 
-	const folders = await fs.readdir(path.join(__dirname, "../../../blogData"));
+	try {
+		const blogDataDir = await getBlogDataDir();
+		const folders = await fs.readdir(blogDataDir);
 
-	await Promise.allSettled(
-		folders.map(async (folder) => {
-			if (folder.startsWith(".")) return;
-			try {
-				const post = await getBlogPostBySlug(folder);
-				if (!post) return;
+		await Promise.allSettled(
+			folders.map(async (folder) => {
+				if (folder.startsWith(".")) return;
+				try {
+					const post = await getBlogPostBySlug(folder);
+					if (!post) return;
 
-				posts.push({
-					slug: post.slug,
-					date: new Date(post.meta.date).getTime(),
-				});
-			} catch (e) {
-				console.error(e);
-			}
-		}),
-	);
+					posts.push({
+						slug: post.slug,
+						date: new Date(post.meta.date).getTime(),
+					});
+				} catch (e) {
+					console.error(e);
+				}
+			}),
+		);
 
-	posts.sort((a, b) => b.date - a.date);
+		posts.sort((a, b) => b.date - a.date);
 
-	return posts.map((post) => post.slug);
+		return posts.map((post) => post.slug);
+	} catch (error) {
+		console.error("Error reading blog data directory:", error);
+		console.error("Current working directory:", process.cwd());
+		const attemptedPath = await getBlogDataDir();
+		console.error("Looking for directory at:", attemptedPath);
+		return [];
+	}
 }
 
 export function formatDate(timestamp: string) {
