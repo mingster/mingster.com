@@ -64,7 +64,6 @@ export type EmailQueue = Prisma.EmailQueueGetPayload<typeof emailQueueObj>;
 // EmailQueue type definition
 export type EmailQueue = Prisma.EmailQueueGetPayload<{}>;
 
-
 const userObj = Prisma.validator<Prisma.UserDefaultArgs>()({
 	include: {
 		accounts: true,

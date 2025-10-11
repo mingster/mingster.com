@@ -1,9 +1,4 @@
 ---
-description: 
-globs: **/*.js,**/*.jsx,**/*.ts,**/*.tsx
-alwaysApply: false
----
----
 description: Components Directory Guide
 globs: **/*.js,**/*.jsx,**/*.ts,**/*.tsx
 alwaysApply: false
@@ -11,17 +6,221 @@ alwaysApply: false
 
 # Components Directory Guide
 
-The [src/components](mdc:web/src/components) directory contains reusable UI and logic components for the web app.
+## Component Architecture
 
-## Subfolders
-- **[ui](mdc:web/src/components/ui)**: Shared UI elements (e.g., [button.tsx](mdc:web/src/components/ui/button.tsx), [modal.tsx](mdc:web/src/components/ui/modal.tsx), [sidebar.tsx](mdc:web/src/components/ui/sidebar.tsx)).
-- **[modals](mdc:web/src/components/modals)**: Modal dialog components (e.g., [alert-modal.tsx](mdc:web/src/components/modals/alert-modal.tsx)).
-- **[editor](mdc:web/src/components/editor)**: Editor-related components (e.g., [EditorComponent.tsx](mdc:web/src/components/editor/EditorComponent.tsx)).
-- **[oauth](mdc:web/src/components/oauth)**: OAuth login components (e.g., [GoogleLoginButton.tsx](mdc:web/src/components/oauth/GoogleLoginButton.tsx)).
+This project uses a **two-tier component architecture**:
 
-## Example Components
-- [product-option-dialog.tsx](mdc:web/src/components/product-option-dialog.tsx): Product option selection dialog.
-- [cart-item-info.tsx](mdc:web/src/components/cart-item-info.tsx): Displays information about a cart item.
-- [global-navbar.tsx](mdc:web/src/components/global-navbar.tsx): Main navigation bar.
+1. **Shared Components** (from `mingster.backbone` package)
+   - 100+ UI components (shadcn/ui)
+   - DataTable suite
+   - Utility components (Loader, Toast, etc.)
+   - Hooks and utilities
+   - **Always import these from `mingster.backbone`**
 
-For a full list, see the [components directory](mdc:web/src/components).
+2. **Project-Specific Components** (in `src/components`)
+   - Authentication components
+   - Business logic components
+   - Page-specific components
+   - Domain-specific components
+
+## Import Priority
+
+### ✅ Import from mingster.backbone (Preferred)
+
+For any UI component, utility, or hook that's generic and reusable:
+
+```tsx
+import {
+  // UI Components
+  Button,
+  Dialog,
+  Card,
+  Input,
+  Select,
+  Form,
+  Table,
+  Badge,
+  
+  // DataTable
+  DataTable,
+  DataTableColumnHeader,
+  
+  // Utility Components
+  Loader,
+  ThemeToggler,
+  DisplayMarkDown,
+  Currency,
+  Heading,
+  Container,
+  Separator,
+  
+  // Modals
+  AlertModal,
+  ConfirmModal,
+  
+  // Toast
+  toastSuccess,
+  toastError,
+  
+  // Hooks
+  useTheme,
+  useIsMobile,
+  
+  // Utilities
+  cn,
+  formatDateTime,
+  transformBigIntToNumbers,
+} from "mingster.backbone";
+```
+
+### ⚠️ Use Local Components (Only When Necessary)
+
+Only for project-specific functionality that isn't in backbone:
+
+```tsx
+import { AuthComponent } from "@/components/auth/auth-component";
+import { GlobalNavbar } from "@/components/global-navbar";
+import { Logo } from "@/components/logo";
+```
+
+## Project-Specific Components
+
+The `src/components` directory should only contain components that are:
+
+- **Authentication-related**: Login forms, auth providers, session management
+- **Business-specific**: Product dialogs, cart info, order components
+- **Page-specific**: Unique layouts, specialized forms
+- **Domain-specific**: Components tied to your specific domain logic
+
+### Current Structure
+
+```
+src/components/
+├── auth/                    # Authentication components
+│   ├── sign-in-form.tsx
+│   └── passkey-auth.tsx
+├── analytics/               # Analytics components (if project-specific)
+├── editor/                  # Editor components (project-specific)
+├── global-navbar.tsx        # Main navigation (project-specific)
+├── logo.tsx                 # Brand logo
+├── locale-select-items.tsx  # i18n components
+└── ... (other project-specific components)
+```
+
+## What Was Removed
+
+The following were **removed** from `src/components` because they now come from `mingster.backbone`:
+
+### ❌ Removed (Now in backbone)
+
+- `src/components/ui/` - All shadcn/ui components
+- `src/components/dataTable*.tsx` - DataTable suite
+- `src/components/loader.tsx` - Loading spinner
+- `src/components/theme-toggler.tsx` - Theme switcher
+- `src/components/sidebar-toggle.tsx` - Sidebar toggle
+- `src/components/Toaster.tsx` - Toast notifications
+- `src/components/modals/alert-modal.tsx` - Alert modal
+- `src/components/modals/confirm-modal.tsx` - Confirm modal
+
+## Migration Example
+
+### Before (Removed)
+
+```tsx
+// ❌ These files no longer exist locally
+import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
+import { DataTable } from "@/components/dataTable";
+import { Loader } from "@/components/loader";
+import { cn } from "@/lib/utils";
+```
+
+### After (Current)
+
+```tsx
+// ✅ Import from backbone
+import {
+  Button,
+  Dialog,
+  DataTable,
+  Loader,
+  cn,
+} from "mingster.backbone";
+```
+
+## Creating New Components
+
+### Decision Tree
+
+When creating a new component, ask:
+
+1. **Is it UI-related and reusable?**
+   - YES → Add to `mingster.backbone` package
+   - NO → Continue to step 2
+
+2. **Is it project-specific business logic?**
+   - YES → Add to `src/components/`
+   - NO → Reconsider if it's truly needed
+
+3. **Does it depend on project-specific code?**
+   - YES (depends on auth, database, etc.) → `src/components/`
+   - NO (pure UI/utility) → `mingster.backbone`
+
+### Examples
+
+**Should go in backbone:**
+
+- Generic form components
+- Reusable dialogs
+- Chart components
+- Loading indicators
+- UI utilities
+
+**Should stay in project:**
+
+- `AuthForm` - uses Better Auth
+- `ProductOptionDialog` - domain-specific
+- `GlobalNavbar` - project-specific navigation
+- `CartItemInfo` - business logic
+- Components using Prisma models
+
+## Best Practices
+
+1. **Check backbone first**: Before creating a component, check if it exists in `mingster.backbone`
+2. **Don't duplicate**: Never copy components from backbone to local
+3. **Import correctly**: Always use `mingster.backbone` for shared components
+4. **Contribute back**: If you create a generic component locally, consider moving it to backbone
+5. **Keep separation**: Project components should use backbone components, not duplicate them
+
+## Package Reference
+
+For the complete list of available components in backbone:
+
+- See `packages/mingster.backbone/README.md`
+- Check `packages/mingster.backbone/src/index.ts` for all exports
+- View documentation at `packages/mingster.backbone/doc/`
+
+## Current Components Inventory
+
+### In mingster.backbone (Shared)
+
+- 100+ shadcn/ui components (Button, Dialog, Card, etc.)
+- DataTable suite (6 components)
+- 20+ utility components
+- 13 custom hooks
+- Analytics components
+- Modal components
+- Toast system
+
+### In src/components (Project-Specific)
+
+- Authentication components
+- Editor components (if customized)
+- OAuth components
+- Navigation components
+- Domain-specific business components
+- Page-specific components
+
+---
+
+**Remember**: When in doubt, import from `mingster.backbone` first!

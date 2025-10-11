@@ -5,6 +5,9 @@
 		},
 		{
 			"path": "../packages"
+		},
+		{
+			"path": "../../GitHub/react/ts/tailwindcss.com"
 		}
 	],
 	"settings": {}

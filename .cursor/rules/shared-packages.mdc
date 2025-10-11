@@ -1,0 +1,467 @@
+---
+description: Guidelines for using mingster.backbone shared package
+globs: **/*.{js,ts,jsx,tsx}
+alwaysApply: true
+---
+
+# Shared Package: mingster.backbone
+
+## Overview
+
+`mingster.backbone` is a comprehensive shared component library containing 100+ UI components, utilities, hooks, and libraries used across multiple projects. It eliminates code duplication and ensures consistency.
+
+## Package Location
+
+- **Source**: `packages/mingster.backbone/src`
+- **Built**: `packages/mingster.backbone/dist`
+- **Workspace**: Local workspace package, NOT a published npm package (development)
+
+## Installation & Setup
+
+### TypeScript Configuration
+
+Ensure `tsconfig.json` includes the path mapping:
+
+```json
+{
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./src/*"],
+      "mingster.backbone": ["../../packages/mingster.backbone/src"]
+    }
+  }
+}
+```
+
+### Package Dependency
+
+In `package.json`:
+
+```json
+{
+  "dependencies": {
+    "mingster.backbone": "workspace:*"
+  }
+}
+```
+
+## Import Patterns
+
+### Standard Imports (Most Common)
+
+```tsx
+import {
+  // UI Components
+  Button,
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  Card,
+  Badge,
+  Input,
+  Textarea,
+  Select,
+  
+  // DataTable
+  DataTable,
+  DataTableColumnHeader,
+  DataTablePagination,
+  
+  // Utility Components
+  Loader,
+  ThemeToggler,
+  DisplayMarkDown,
+  MarkDownEditor,
+  Currency,
+  Heading,
+  Container,
+  
+  // Modals
+  AlertModal,
+  ConfirmModal,
+  
+  // Toast
+  toaster,
+  toastSuccess,
+  toastError,
+  toastInfo,
+  
+  // Hooks
+  useTheme,
+  useIsMobile,
+  useOrigin,
+  useCart,
+  
+  // Utilities
+  cn,
+  formatDateTime,
+  formatDateTimeFull,
+  transformBigIntToNumbers,
+  transformDecimalsToNumbers,
+  
+  // Analytics
+  PageViewTracker,
+  TrackedButton,
+  analytics,
+} from "mingster.backbone";
+```
+
+### Server-Side Only Imports
+
+Some utilities require Node.js APIs and must be imported directly (not from the main export):
+
+```tsx
+// ✅ In Server Components, API Routes, or Server Actions
+import logger from "mingster.backbone/lib/logger";
+import { verifyRecaptcha } from "mingster.backbone/lib/recaptcha-verify";
+import { uploadToCloudinary } from "mingster.backbone/utils/image-utils";
+
+// ❌ DO NOT use in Client Components
+// These will cause build errors due to Node.js dependencies
+```
+
+**Why?**
+
+- `logger` - Uses `pino` with Node.js streams
+- `verifyRecaptcha` - Uses Google Cloud gRPC
+- `image-utils` - Uses `node:crypto`
+
+**Client-Side Alternatives:**
+
+- Use `clientLogger` from `mingster.backbone` for browser logging
+- Use `analytics` from `mingster.backbone` for client-side tracking
+
+## What's Included
+
+### 1. UI Components (100+)
+
+All shadcn/ui components are available:
+
+```tsx
+import {
+  // Layout
+  Container, Separator, ScrollArea, Tabs,
+  
+  // Forms
+  Form, Input, Textarea, Select, Checkbox, Switch, RadioGroup,
+  Calendar, Slider, Label,
+  
+  // Data Display
+  Table, Card, Badge, Avatar, Progress,
+  
+  // Navigation
+  Breadcrumb, NavigationMenu, Pagination, Sidebar,
+  
+  // Overlays
+  Dialog, Sheet, Drawer, AlertDialog, Popover, HoverCard,
+  Tooltip, DropdownMenu, Command,
+  
+  // Feedback
+  Alert, Toast, Skeleton, Loader,
+  
+  // Interactive
+  Button, Toggle, Accordion, Collapsible, Carousel,
+} from "mingster.backbone";
+```
+
+### 2. DataTable Components
+
+Advanced data tables with sorting, filtering, pagination:
+
+```tsx
+import {
+  DataTable,              // Main table with features
+  DataTableCheckbox,      // Table with row selection
+  DataTableDraggable,     // Draggable rows with @dnd-kit
+  DataTableColumnHeader,  // Sortable column headers
+  DataTableViewOptions,   // Column visibility control
+  DataTablePagination,    // Pagination controls
+} from "mingster.backbone";
+
+// Usage
+<DataTable
+  columns={columns}
+  data={data}
+  searchKey="name"
+/>
+```
+
+### 3. Utility Components
+
+```tsx
+import {
+  Loader,                 // Loading spinner
+  ThemeToggler,           // Dark/light mode toggle
+  DisplayMarkDown,        // Render markdown
+  MarkDownEditor,         // Edit markdown (WYSIWYG)
+  Currency,               // Format currency
+  Heading,                // Page heading with badge
+  AlertModal,             // Confirmation dialog
+  ConfirmModal,           // Custom confirmation
+  TwBankCodeCombobox,     // Taiwan bank selector
+  Scheduled,              // Time-based rendering
+  NotMountSkeleton,       // Skeleton for SSR
+} from "mingster.backbone";
+```
+
+### 4. Hooks
+
+```tsx
+import {
+  useTheme,        // Theme switching
+  useIsMobile,     // Mobile detection
+  useOrigin,       // Get current origin
+  useCart,         // Shopping cart state
+  useCaptcha,      // reCAPTCHA integration
+  useIsHydrated,   // Client hydration check
+  useLang,         // Current language
+  useColorMode,    // Color mode utilities
+  useLocalStorage, // Persistent state
+} from "mingster.backbone";
+```
+
+### 5. Utilities
+
+```tsx
+import {
+  // Class names
+  cn,                              // Merge Tailwind classes
+  
+  // Date/Time
+  formatDateTime,                  // Format date: "2025-01-15 14:30"
+  formatDateTimeFull,              // Full format
+  getUtcNow,                       // Current UTC timestamp
+  getNowTimeInTz,                  // Time in timezone
+  addDays,                         // Date manipulation
+  
+  // Data Transformation
+  transformBigIntToNumbers,        // Convert BigInt to Number
+  transformDecimalsToNumbers,      // Convert Decimal.js to Number
+  
+  // Geo IP (server-side or client with SWR)
+  getGeoLocation,                  // IP geolocation
+  getClientIP,                     // Extract IP from headers
+  
+  // GUID/UUID
+  generateGuid,                    // Generate UUID
+  generateShortCode,               // Generate short code
+} from "mingster.backbone";
+```
+
+### 6. Analytics
+
+```tsx
+import {
+  PageViewTracker,          // Auto page view tracking
+  TrackedButton,            // Button with analytics
+  TrackedForm,              // Form with tracking
+  analytics,                // Analytics helpers
+} from "mingster.backbone";
+
+// Usage
+<PageViewTracker />
+
+<TrackedButton eventName="cta_click" eventParams={{ section: "hero" }}>
+  Get Started
+</TrackedButton>
+
+// Manual tracking
+analytics.trackCustomEvent("purchase_completed", { orderId: "123" });
+```
+
+### 7. Toast Notifications
+
+```tsx
+import {
+  toaster,
+  toastSuccess,
+  toastError,
+  toastInfo,
+} from "mingster.backbone";
+
+// Usage
+toastSuccess({ description: "Item saved successfully!" });
+toastError({ description: "Failed to save item" });
+toastInfo({ description: "Processing..." });
+```
+
+### 8. Taiwan Specific
+
+```tsx
+import {
+  TwBankCodeCombobox,    // Bank code selector
+  type TwBankCode,       // Type definition
+  TwBankCodes,           // 1400+ bank entries
+} from "mingster.backbone";
+```
+
+## What NOT to Import from Backbone
+
+Keep these in your project (they're project-specific):
+
+- **Authentication**: `@/lib/auth`, `@/lib/auth-client`
+- **Database**: `@/lib/prismadb`, all Prisma models
+- **Server Actions**: `@/actions/**`
+- **API Routes**: `@/app/api/**`
+- **i18n Provider**: `@/providers/i18n-provider` (uses project-specific locales)
+- **Session Provider**: `@/providers/session-provider`
+- **Socket Provider**: `@/providers/socket-provider`
+- **Business Logic**: Domain-specific components and utilities
+
+## Migration Pattern
+
+When migrating from local components to backbone:
+
+### Before
+
+```tsx
+import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
+import { useTheme } from "@/hooks/use-theme";
+import { formatDateTime } from "@/utils/datetime-utils";
+import { Loader } from "@/components/loader";
+```
+
+### After
+
+```tsx
+import {
+  Button,
+  Dialog,
+  cn,
+  useTheme,
+  formatDateTime,
+  Loader,
+} from "mingster.backbone";
+```
+
+## Common Patterns
+
+### Form with Validation
+
+```tsx
+import {
+  Form,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormMessage,
+  Input,
+  Button,
+  toastSuccess,
+  toastError,
+} from "mingster.backbone";
+
+<Form {...form}>
+  <form onSubmit={form.handleSubmit(onSubmit)}>
+    <FormField
+      control={form.control}
+      name="email"
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>Email</FormLabel>
+          <FormControl>
+            <Input {...field} />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+    <Button type="submit">Submit</Button>
+  </form>
+</Form>
+```
+
+### DataTable with Actions
+
+```tsx
+import {
+  DataTable,
+  DataTableColumnHeader,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  Button,
+  AlertModal,
+} from "mingster.backbone";
+
+const columns = [
+  {
+    accessorKey: "name",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Name" />
+    ),
+  },
+  {
+    id: "actions",
+    cell: ({ row }) => (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost">Actions</Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuItem>Edit</DropdownMenuItem>
+          <DropdownMenuItem>Delete</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    ),
+  },
+];
+
+<DataTable columns={columns} data={data} />
+```
+
+## Best Practices
+
+1. **Always import from backbone first** for UI components
+2. **Don't duplicate** components that exist in backbone
+3. **Contribute back** reusable components to backbone
+4. **Keep project-specific** business logic out of backbone
+5. **Use server-side imports correctly** to avoid build errors
+6. **Follow TypeScript paths** - use `mingster.backbone` not relative paths
+
+## Adding New Components to Backbone
+
+If you create a reusable component:
+
+1. Add it to `packages/mingster.backbone/src/components/`
+2. Export it in `packages/mingster.backbone/src/index.ts`
+3. Build the package: `bun run build` (in backbone directory)
+4. Use it in your project: `import { NewComponent } from "mingster.backbone"`
+
+## Troubleshooting
+
+### Import Errors
+
+If you get import errors:
+
+1. Check `tsconfig.json` has the correct path mapping
+2. Ensure `mingster.backbone` is in `package.json` dependencies
+3. Try restarting TypeScript server
+
+### Build Errors with Node.js APIs
+
+If you see errors about `node:crypto`, `pino`, or `grpc`:
+
+- You're importing server-side code in a client component
+- Use direct imports for server-side utilities
+- Use client alternatives like `clientLogger` instead of `logger`
+
+### Missing Components
+
+If a component is missing from backbone:
+
+1. Check if it's truly reusable (not project-specific)
+2. Add it to backbone if appropriate
+3. Otherwise, keep it in project `src/components/`
+
+## Reference
+
+See the full documentation:
+
+- `packages/mingster.backbone/README.md` - Complete API reference
+- `packages/mingster.backbone/doc/USAGE_GUIDE.md` - Detailed usage guide
+- `packages/mingster.backbone/src/index.ts` - All exports

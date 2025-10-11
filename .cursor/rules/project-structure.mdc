@@ -5,67 +5,194 @@ alwaysApply: false
 ---
 # Project Structure
 
-## Main Structure
+## Monorepo Structure
 
-- We use Turborepo with pnpm workspaces
-- Main app is in `web/src`
-- Server actions are in `web/src/actions` folder
+This is a monorepo with multiple workspaces:
+
+- **Main app**: `mingster.com/web` - Next.js application
+- **Shared packages**: `packages/mingster.backbone` - Reusable components and utilities
+- Package manager: **Bun** (with workspace support)
+
+## Directory Structure
 
 ```tree
 .
-├── root
-│   ├── .cursor/               # cursor related such rules / features doc
-│   ├── asset/                 # 
-│   ├── bin/                   # cli / shell scripts 
-│   ├── doc/                   # documentation 
+├── mingster.com/              # Main application workspace
+│   ├── .cursor/               # Cursor rules and features documentation
+│   ├── bin/                   # CLI / shell scripts 
+│   ├── doc/                   # Project documentation 
 │   ├── web/                   # Main Next.js application
-│   │   ├── public/            # Static assets (images, fonts)
-│   │   ├── prisma/            # Prisma schema and client
-│   │   ├── src/               # Next.js App Router
-│   │   │   ├── actions/       # server actions
+│   │   ├── public/            # Static assets (images, fonts, blog posts)
+│   │   ├── prisma/            # Prisma schema and migrations
+│   │   │   ├── schema.prisma  # Database schema
+│   │   ├── src/               # Application source code
+│   │   │   ├── actions/       # Server actions (organized by domain)
+│   │   │   │   ├── admin/     # Admin actions
+│   │   │   │   ├── geo/       # Geolocation actions
+│   │   │   │   ├── mail/      # Email actions
+│   │   │   │   ├── store/     # Store actions
+│   │   │   │   ├── sysAdmin/  # System admin actions
+│   │   │   │   └── user/      # User actions
 │   │   │   ├── app/           # Next.js App Router
-│   │   │   │   ├── (auth)     # contain user authenicated content such as My Account
-│   │   │   │   ├── (root)     # Marketing/landing pages and other public accessible pages
-│   │   │   │   ├── (store)    # store homepage by storeId.
-│   │   │   │   ├── admin      # admin home (required admin priv.)
+│   │   │   │   ├── (root)/    # Public pages (privacy, terms, signIn)
 │   │   │   │   ├── api/       # API Routes
-│   │   │   │   ├── storeAdmin # store admin routes for store owners.
-│   │   │   ├── components/    # UI components
-│   │   │   ├── hooks/         # Custom React hooks
-│   │   │   ├── lib/           # helper functions and libraries
+│   │   │   │   │   ├── auth/  # Authentication endpoints
+│   │   │   │   │   └── common/# Common API endpoints
+│   │   │   │   ├── css/       # Global styles
+│   │   │   │   ├── dashboard/ # User dashboard
+│   │   │   │   ├── i18n/      # Internationalization setup
+│   │   │   │   ├── sysAdmin/  # System admin pages (requires admin role)
+│   │   │   │   ├── layout.tsx # Root layout
+│   │   │   │   └── page.tsx   # Homepage
+│   │   │   ├── components/    # Project-specific components
+│   │   │   ├── hooks/         # Project-specific custom hooks
+│   │   │   ├── lib/           # Project-specific libraries
+│   │   │   │   ├── auth.ts            # Better Auth configuration
+│   │   │   │   ├── auth-client.ts     # Auth client utilities
+│   │   │   │   ├── prismadb.ts        # Prisma client
+│   │   │   │   ├── stripe/            # Stripe integration
+│   │   │   ├── middleware.ts  # Next.js middleware
 │   │   │   ├── providers/     # React Context providers
+│   │   │   │   ├── i18n-provider.tsx   # i18n context
+│   │   │   │   ├── session-provider.tsx# Session management
+│   │   │   │   ├── socket-provider.tsx # WebSocket provider
+│   │   │   │   └── theme-provider.tsx  # Theme context
 │   │   │   ├── types/         # TypeScript type definitions
-│   │   │   ├── utils/         # Utility functions and helpers
-│   │   │   ├── auth.ts        # next-auth configuration
-│   │   ├── next.config.mjs
+│   │   │   │   ├── enum.ts    # Enums
+│   │   │   │   └── types.d.ts # Global types
+│   │   │   └── utils/         # Utility functions
+│   │   ├── next.config.ts
 │   │   ├── package.json
-│   │   └── ... (config files)
-│   └── README.md              # 
+│   │   ├── tsconfig.json
+│   │   └── biome.json
+│   └── README.md
+│
+└── packages/                  # Shared packages workspace
+    └── mingster.backbone/     # Shared component library
+        ├── src/
+        │   ├── components/    # 100+ UI components (shadcn/ui)
+        │   │   ├── ui/        # Base UI components
+        │   │   ├── analytics/ # Analytics components
+        │   │   ├── modals/    # Modal dialogs
+        │   │   └── ...        # DataTable, utility components
+        │   ├── hooks/         # 13+ custom hooks
+        │   ├── lib/           # Libraries (analytics, logging, etc.)
+        │   ├── utils/         # 15+ utility modules
+        │   ├── providers/     # Shared providers
+        │   ├── types/         # Shared types
+        │   └── index.ts       # Main export file
+        ├── dist/              # Built output
+        ├── package.json
+        ├── tsconfig.json
+        └── README.md
 ```
 
 ## File Naming and Organization
 
-- Use kebab case for route directories (e.g., `api/hello-world/route`)
-- Use PascalCase for components (e.g. `components/Button.tsx`)
-- Shadcn components are in `components/ui`
-- All other components are in `components/`
-- Colocate files in the folder where they're used unless they can be used across the app
-- If a component can be used in many places, place it in the `components` folder
+### Naming Conventions
 
-## New Pages
+- Use **kebab-case** for route directories (e.g., `api/hello-world/route`)
+- Use **PascalCase** for components (e.g., `components/Button.tsx`)
+- Use **camelCase** for actions with "Action" suffix (e.g., `updateSystemMessageAction`)
+- Validation schemas: `verb-object.validation.ts` (e.g., `update-system-message.validation.ts`)
 
-- Create new pages at: `web/src/app/(root)/PAGE_NAME/page.tsx`
-- Components for the page are either in `page.tsx` or in the `web/src/app/(root)/PAGE_NAME/components` folder
-- Pages are Server components for direct data loading
-- Use `swr` for data fetching in deeply nested components
-- Components with `onClick` must be client components with `use client` directive
-- Server action files must start with `use server`
+### Component Organization
+
+- **Shared components** (UI, hooks, utils): Import from `mingster.backbone`
+- **Project-specific components**: Place in `src/components/`
+- **Page-specific components**: Colocate in `src/app/[route]/components/`
+- **Admin components**: Place in `src/app/sysAdmin/[feature]/components/`
+
+### Import Pattern Hierarchy
+
+```tsx
+// 1. Shared components from backbone (preferred for UI)
+import { Button, Dialog, DataTable, cn, useTheme } from "mingster.backbone";
+
+// 2. Project-specific from local paths
+import { EditSystemMessage } from "@/app/sysAdmin/sysmsg/components/edit-sysmsg";
+import { updateSystemMessageAction } from "@/actions/sysAdmin/systemMessage/update-system-message";
+import { auth } from "@/lib/auth";
+import prismadb from "@/lib/prismadb";
+```
+
+## Creating New Pages
+
+### Page Structure
+
+- Public pages: `web/src/app/(root)/PAGE_NAME/page.tsx`
+- Admin pages: `web/src/app/sysAdmin/PAGE_NAME/page.tsx`
+- Dashboard pages: `web/src/app/dashboard/PAGE_NAME/page.tsx`
+
+### Component Placement
+
+- Page components can be inline in `page.tsx` or in adjacent `components/` folder
+- Pages are **Server Components** by default for direct data loading
+- Use `"use client"` directive only when needed (state, effects, event handlers)
+- Server action files must start with `"use server"`
+
+### Data Fetching Strategy
+
+- **Server Components**: Fetch data directly using Prisma or API calls
+- **Client Components**: Use SWR for data fetching in deeply nested components
+- **Mutations**: Always use Next.js Server Actions
+
+## Shared Package Usage
+
+### What comes from mingster.backbone
+
+- **100+ UI Components**: All shadcn/ui components (Button, Dialog, Card, etc.)
+- **DataTable Suite**: DataTable, DataTableCheckbox, DataTableDraggable, etc.
+- **Utility Components**: Loader, ThemeToggler, DisplayMarkDown, Currency, etc.
+- **Hooks**: useTheme, useMobile, useGeoIP, useCart, etc.
+- **Utilities**: cn, formatDateTime, transformBigIntToNumbers, etc.
+- **Analytics**: PageViewTracker, TrackedButton, analytics helpers
+- **Modals**: AlertModal, ConfirmModal
+- **Toast**: toastSuccess, toastError, toastInfo, toaster
+
+### What stays in project
+
+- Authentication (Better Auth setup)
+- Database models (Prisma)
+- Server actions
+- API routes
+- Project-specific business logic
+- i18n provider and locale files
+- Page components and layouts
 
 ## Utility Functions
 
-- Create utility functions in `utils/` folder for reusable logic
-- Use lodash utilities for common operations (arrays, objects, strings)
-- Import specific lodash functions to minimize bundle size:
+### From mingster.backbone
+
+```tsx
+import {
+  cn,                              // Tailwind class merger
+  formatDateTime,                  // Date formatting
+  transformBigIntToNumbers,        // BigInt conversion
+  getGeoLocation,                  // Geo-IP lookup
+} from "mingster.backbone";
+```
+
+### Project-Specific Utilities
+
+- Create in `src/utils/` for project-specific logic
+- Use lodash utilities for complex operations:
+
   ```ts
   import groupBy from "lodash/groupBy";
   ```
+
+## TypeScript Configuration
+
+Ensure `tsconfig.json` includes path mapping for backbone:
+
+```json
+{
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./src/*"],
+      "mingster.backbone": ["../../packages/mingster.backbone/src"]
+    }
+  }
+}
+```

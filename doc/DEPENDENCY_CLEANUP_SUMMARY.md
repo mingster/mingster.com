@@ -1,6 +1,7 @@
 # Dependency Cleanup Summary
 
 ## Overview
+
 Removed 37 redundant packages from `mingster.com/web` that are now provided by `mingster.backbone` as peer dependencies.
 
 ---
@@ -8,6 +9,7 @@ Removed 37 redundant packages from `mingster.com/web` that are now provided by `
 ## ✅ Removed Packages (37 total)
 
 ### Radix UI Components (23 packages)
+
 These are now peer dependencies of `mingster.backbone`:
 
 - `@radix-ui/react-accordion`
@@ -35,6 +37,7 @@ These are now peer dependencies of `mingster.backbone`:
 - `@radix-ui/react-tooltip`
 
 ### Data & UI Libraries (9 packages)
+
 - `@tanstack/react-table` - Now in mingster.backbone
 - `cmdk` - Command menu component
 - `sonner` - Toast notifications
@@ -46,6 +49,7 @@ These are now peer dependencies of `mingster.backbone`:
 - `react-day-picker` - Date picker
 
 ### Utilities (5 packages)
+
 - `date-fns` - Date utilities
 - `react-markdown` - Markdown renderer
 - `remark-gfm` - GitHub Flavored Markdown
@@ -57,11 +61,13 @@ These are now peer dependencies of `mingster.backbone`:
 ## ✅ Kept Packages (Still needed)
 
 ### Direct Usage
+
 - `@radix-ui/react-icons` - Used in custom components
 - `@radix-ui/react-toast` - Direct usage
 - `lucide-react` - Icon library (version aligned: 0.544.0)
 
 ### Project-Specific
+
 - `@google-cloud/recaptcha-enterprise` - Server-side reCAPTCHA
 - `nodemailer` - Email sending
 - `stripe` - Payments
@@ -75,9 +81,11 @@ These are now peer dependencies of `mingster.backbone`:
 ## 📊 Impact
 
 **Before Cleanup:**
+
 - Total dependencies: ~100+
 
 **After Cleanup:**
+
 - Total dependencies: ~70
 - **Removed: 37 packages** ✅
 - **Size reduction:** Significant
@@ -98,7 +106,8 @@ These are now peer dependencies of `mingster.backbone`:
 ## 🔄 How It Works
 
 **Before:**
-```
+
+```text
 mingster.com/web
 ├── @radix-ui/react-dialog@1.1.15
 ├── @radix-ui/react-avatar@1.1.10
@@ -106,7 +115,8 @@ mingster.com/web
 ```
 
 **After:**
-```
+
+```text
 mingster.com/web
 ├── mingster.backbone (peer deps)
 │   └── declares @radix-ui/* as peers
@@ -120,14 +130,15 @@ mingster.com/web
 ## ✅ Verification
 
 To verify packages are still available:
+
 ```bash
 cd /Users/mtsai/projects/mingster.com/web
 bun run build  # Should build successfully
 ```
 
 All UI components and utilities are still available via:
+
 ```typescript
 import { Button, Dialog, DataTable } from "mingster.backbone"
 import { formatDateTime, getGeoLocation } from "mingster.backbone"
 ```
-

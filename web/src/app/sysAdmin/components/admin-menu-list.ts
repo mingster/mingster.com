@@ -158,7 +158,7 @@ export function GetMenuList(pathname: string): Group[] {
 					icon: IconSettings,
 					submenus: [],
 				},
-			
+
 				{
 					href: `${nav_prefix}/mail-templates`,
 					label: "Mail Templates",
