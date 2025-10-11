@@ -43,7 +43,6 @@ export async function create_locales() {
 	}
 }
 
-
 export async function wipeoutDefaultData() {
 	await sqlClient.locale.deleteMany();
 	await sqlClient.currency.deleteMany();
