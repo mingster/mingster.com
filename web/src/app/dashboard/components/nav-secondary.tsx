@@ -9,7 +9,7 @@ import {
 	SidebarMenu,
 	SidebarMenuButton,
 	SidebarMenuItem,
-} from "mingster.backbone";
+} from "@/components/ui/sidebar";
 
 export function NavSecondary({
 	items,

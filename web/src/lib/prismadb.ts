@@ -5,12 +5,26 @@ import { PrismaClient as sqlPrismaClient } from "@prisma/client";
 //import { withAccelerate } from "@prisma/extension-accelerate";
 //import { withOptimize } from "@prisma/extension-optimize";
 
+/**
+ * Prisma Client Singleton
+ * 
+ * Connection Pooling:
+ * - Prisma manages connection pooling automatically
+ * - Default pool size: 10 connections
+ * - To configure, add to your DATABASE_URL:
+ *   postgresql://user:pass@host:5432/db?connection_limit=5&pool_timeout=20
+ * 
+ * For "too many connections" errors:
+ * 1. Use the global singleton pattern (already implemented below)
+ * 2. Reduce connection_limit in your DATABASE_URL
+ * 3. Run: bun run bin/close-db-connections.ts to clean up stale connections
+ * 4. Restart your dev server
+ */
 const prismaClientSingleton = () => {
-	//return new sqlPrismaClient().$extends(withOptimize({ apiKey: process.env.OPTIMIZE_API_KEY as string}));
 	return new sqlPrismaClient({
-		datasourceUrl: process.env.POSTGRES_PRISMA_URL,
 		log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
 	});
+	//return new sqlPrismaClient().$extends(withOptimize({ apiKey: process.env.OPTIMIZE_API_KEY as string}));
 	//return new sqlPrismaClient().$extends(withAccelerate());
 };
 
@@ -26,3 +40,16 @@ if (process.env.NODE_ENV !== "production") {
 	globalThis.client = sqlClient;
 	//globalThis.mongo = new mongoPrismaClient();
 }
+
+// Gracefully cleanup on hot reload
+if (process.env.NODE_ENV !== "production") {
+	process.on("SIGTERM", async () => {
+		await sqlClient.$disconnect();
+	});
+	process.on("SIGINT", async () => {
+		await sqlClient.$disconnect();
+	});
+}
+
+// Default export for compatibility
+export default sqlClient;

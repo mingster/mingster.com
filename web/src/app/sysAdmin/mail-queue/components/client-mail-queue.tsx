@@ -42,7 +42,7 @@ export default function MailQueueAdminClient({
 
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [currentTime, setCurrentTime] = useState(new Date());
+	const [currentTime, setCurrentTime] = useState<Date | null>(null);
 
 	const [openDeleteSelectedMails, setOpenDeleteSelectedMails] = useState(false);
 
@@ -373,6 +373,9 @@ export default function MailQueueAdminClient({
 		setLoading(true);
 		setError(null);
 
+		// Set initial time on mount (client-side only)
+		setCurrentTime(new Date());
+
 		// Emit immediately and then every 10 seconds
 		//socket.emit("online_peers");
 		const interval = setInterval(() => {
@@ -407,7 +410,7 @@ export default function MailQueueAdminClient({
 				<Heading
 					title="Mail Queue"
 					badge={mailQueueData.length}
-					description={`Manage Mail Queue. (${format(currentTime, "yyyy-MM-dd HH:mm:ss")})`}
+					description={`Manage Mail Queue.${currentTime ? ` (${format(currentTime as Date, "yyyy-MM-dd HH:mm:ss")})` : ""}`}
 				/>
 				<div className="flex items-center gap-2">
 					<Button

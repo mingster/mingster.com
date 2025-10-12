@@ -3,7 +3,8 @@ import { IconHome } from "@tabler/icons-react";
 
 export function Logo({ className, ...props }: { className?: string }) {
 	return (
-		<div className="flex items-center gap-1"><IconHome />
+		<div className="flex items-center gap-1">
+			<IconHome />
 		</div>
 	);
 }

@@ -5,21 +5,20 @@ import { Heading } from "@/components/heading";
 import { AlertModal } from "@/components/modals/alert-modal";
 import { toastError, toastSuccess } from "@/components/toaster";
 import { Button } from "@/components/ui/button";
+import { Loader } from "@/components/loader";
+import { Separator } from "@/components/ui/separator";
+import { formatDateTime } from "@/utils/datetime-utils";
 import { IconAlertCircle, IconCheck, IconX } from "@tabler/icons-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { useEffect, useState } from "react";
-
-import { Loader } from "@/components/loader";
-import { Separator } from "@/components/ui/separator";
 import type { SystemLog } from "@/types";
-import { formatDateTime } from "@/utils/datetime-utils";
 import { format } from "date-fns";
 
 export const SystemLogClient: React.FC = () => {
 	const [data, setData] = useState<SystemLog[]>();
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [currentTime, setCurrentTime] = useState(new Date());
+	const [currentTime, setCurrentTime] = useState<Date | null>(null);
 	const [openDeleteAll, setOpenDeleteAll] = useState(false);
 	//const { lng } = useI18n();
 	//const { t } = useTranslation(lng);
@@ -120,6 +119,9 @@ export const SystemLogClient: React.FC = () => {
 		setLoading(true);
 		setError(null);
 
+		// Set initial time on mount (client-side only)
+		setCurrentTime(new Date());
+
 		// Emit immediately and then every 10 seconds
 		const interval = setInterval(() => {
 			fetchSystemLogs();
@@ -174,7 +176,7 @@ export const SystemLogClient: React.FC = () => {
 				<Heading
 					title="System Logs"
 					badge={data?.length}
-					description={`Manage system logs. (${format(currentTime, "yyyy-MM-dd HH:mm:ss")})`}
+					description={`Manage system logs.${currentTime ? ` (${format(currentTime as Date, "yyyy-MM-dd HH:mm:ss")})` : ""}`}
 				/>
 				<Button variant="destructive" onClick={() => setOpenDeleteAll(true)}>
 					Delete All

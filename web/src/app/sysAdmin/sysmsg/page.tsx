@@ -1,6 +1,4 @@
-import { Suspense } from "react";
 import type { SystemMessage } from "@/types";
-import { Loader } from "@/components/loader";
 import Container from "@/components/ui/container";
 import { sqlClient } from "@/lib/prismadb";
 import { SystemMessageClient } from "./components/client-sysmsg";
@@ -20,10 +18,8 @@ export default async function SystemMessageAdminPage(props: {
 	)) as SystemMessage[];
 	//transformBigIntToNumbers(messages);
 	return (
-		<Suspense fallback={<Loader />}>
-			<Container>
-				<SystemMessageClient serverData={messages} />
-			</Container>
-		</Suspense>
+		<Container>
+			<SystemMessageClient serverData={messages} />
+		</Container>
 	);
 }

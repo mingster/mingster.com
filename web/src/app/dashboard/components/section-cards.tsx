@@ -1,6 +1,6 @@
 import { IconTrendingDown, IconTrendingUp } from "@tabler/icons-react";
 
-import { Badge } from "mingster.backbone";
+import { Badge } from "@/components/ui/badge";
 import {
 	Card,
 	CardAction,
@@ -8,7 +8,7 @@ import {
 	CardFooter,
 	CardHeader,
 	CardTitle,
-} from "mingster.backbone";
+} from "@/components/ui/card";
 
 export function SectionCards() {
 	return (

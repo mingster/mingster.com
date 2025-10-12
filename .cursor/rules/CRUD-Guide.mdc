@@ -88,8 +88,9 @@ See [server-action.mdc](mdc:.cursor/rules/server-action.mdc) for details.
 
 ```tsx
 import { Suspense } from "react";
-import { Container, Loader } from "mingster.backbone";
-import { transformBigIntToNumbers } from "mingster.backbone";
+import { Loader } from "@/components/loader";
+import Container from "@/components/ui/container";
+import { transformBigIntToNumbers } from "@/lib/utils";
 import prismadb from "@/lib/prismadb";
 import { SystemMessageClient } from "./components/client-sysmsg";
 
@@ -124,21 +125,19 @@ File: `components/client-[object].tsx`
 
 import { useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
+import { DataTable, DataTableColumnHeader } from "@/components/data-table";
+import { Heading } from "@/components/heading";
+import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
 import {
-  DataTable,
-  DataTableColumnHeader,
-  Heading,
-  Separator,
-  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
-  AlertModal,
-  toastSuccess,
-  toastError,
-} from "mingster.backbone";
+} from "@/components/ui/dropdown-menu";
+import { AlertModal } from "@/components/modals/alert-modal";
+import { toast } from "@/components/ui/use-toast";
 import { IconDots, IconCopy, IconTrash } from "@tabler/icons-react";
 import type { SystemMessage } from "@/types";
 import { EditSystemMessage } from "./edit-sysmsg";
@@ -239,10 +238,10 @@ const CellAction: React.FC<CellActionProps> = ({ item, onDeleted }) => {
       
       if (!response.ok) throw new Error("Failed to delete");
       
-      toastSuccess({ description: "Item deleted" });
+      toast({ title: "Success", description: "Item deleted" });
       onDeleted?.(item);
     } catch (error) {
-      toastError({ description: "Something went wrong" });
+      toast({ variant: "destructive", title: "Error", description: "Something went wrong" });
     } finally {
       setLoading(false);
       setOpen(false);
@@ -295,19 +294,20 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+} from "@/components/ui/dialog";
+import {
   Form,
   FormControl,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
-  Button,
-  Input,
-  Textarea,
-  Switch,
-  toastSuccess,
-  toastError,
-} from "mingster.backbone";
+} from "@/components/ui/form";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { toast } from "@/components/ui/use-toast";
 import { IconPlus } from "@tabler/icons-react";
 import { updateSystemMessageAction } from "@/actions/sysAdmin/systemMessage/update-system-message";
 import {
@@ -348,9 +348,9 @@ export const EditSystemMessage: React.FC<Props> = ({ item, onUpdated }) => {
     if (isNew) {
       data.id = result.data.id;
       data.createdOn = result.data.createdOn;
-      toastSuccess({ description: "Created successfully" });
+      toast({ title: "Success", description: "Created successfully" });
     } else {
-      toastSuccess({ description: "Updated successfully" });
+      toast({ title: "Success", description: "Updated successfully" });
     }
 
     setLoading(false);
@@ -626,59 +626,47 @@ export const SystemMessageClient: React.FC<Props> = ({ serverData }) => {
 };
 ```
 
-## Key Imports from mingster.backbone
+## Key Imports
 
-All UI components, hooks, and utilities should come from `mingster.backbone`:
+All UI components should come from local component directories:
 
 ```tsx
+// Data Display
+import { DataTable, DataTableColumnHeader } from "@/components/data-table";
+import { Heading } from "@/components/heading";
+import Container from "@/components/ui/container";
+import { Separator } from "@/components/ui/separator";
+import { Loader } from "@/components/loader";
+
+// UI Components
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Select } from "@/components/ui/select";
+
+// Actions
 import {
-  // Data Display
-  DataTable,
-  DataTableColumnHeader,
-  Heading,
-  Container,
-  Separator,
-  Loader,
-  
-  // UI Components
-  Button,
-  Dialog,
-  DialogTrigger,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  Form,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormControl,
-  FormMessage,
-  Input,
-  Textarea,
-  Switch,
-  Select,
-  
-  // Actions
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  AlertModal,
-  
-  // Toast
-  toastSuccess,
-  toastError,
-  
-  // Utilities
-  cn,
-  transformBigIntToNumbers,
-} from "mingster.backbone";
+} from "@/components/ui/dropdown-menu";
+import { AlertModal } from "@/components/modals/alert-modal";
+
+// Toast
+import { toast } from "@/components/ui/use-toast";
+
+// Utilities
+import { cn, transformBigIntToNumbers } from "@/lib/utils";
 ```
 
 ## Summary
 
-- **Import UI from backbone**: All shadcn/ui components come from `mingster.backbone`
+- **Import UI locally**: All shadcn/ui components come from `@/components/ui/`
 - **Local state management**: Hold data array in client component state
 - **Callback pattern**: Pass mutation callbacks to edit/create/delete components
 - **Direct state updates**: Update state array immediately after mutations

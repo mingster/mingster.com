@@ -35,14 +35,38 @@ function getTextContent(node: React.ReactNode): string {
 	return ""; // If the node is neither text nor a React element
 }
 
+/**
+ * Simple hash function for generating deterministic IDs from text
+ * This ensures the same text always produces the same ID (avoiding hydration mismatches)
+ */
+function simpleHash(str: string): string {
+	let hash = 0;
+	for (let i = 0; i < str.length; i++) {
+		const char = str.charCodeAt(i);
+		hash = (hash << 5) - hash + char;
+		hash = hash & hash; // Convert to 32-bit integer
+	}
+	return Math.abs(hash).toString(36);
+}
+
 function slugify(str: React.ReactNode) {
-	return getTextContent(str)
+	const textContent = getTextContent(str);
+	const slug = textContent
 		.toLowerCase()
 		.trim() // Remove whitespace from both ends of a string
 		.replace(/\s+/g, "-") // Replace spaces with -
 		.replace(/&/g, "-and-") // Replace & with 'and'
-		.replace(/[^\w\-]+/g, "") // Remove all non-word characters except for -
-		.replace(/\-\-+/g, "-"); // Replace multiple - with single -
+		.replace(/[^\p{L}\p{N}\-]+/gu, "") // Remove non-letter, non-number chars except hyphens (Unicode-aware)
+		.replace(/\-\-+/g, "-") // Replace multiple - with single -
+		.replace(/^-+/, "") // Trim hyphens from start
+		.replace(/-+$/, ""); // Trim hyphens from end
+
+	// Fallback for empty slugs - use deterministic hash of original text
+	if (!slug) {
+		return `heading-${simpleHash(textContent)}`;
+	}
+
+	return slug;
 }
 
 function createHeading(level: 1 | 2 | 3 | 4 | 5 | 6) {
@@ -73,17 +97,19 @@ const components = {
 			</h1>
 		);
 	},
-	h2(props) {
+	h2({ children }) {
+		const slug = slugify(children);
 		return (
-			<h2 className="text-xl font-bold pt-2 pb-2 capitalize" {...props}>
-				{props.children}
+			<h2 id={slug} className="text-xl font-bold pt-2 pb-2 capitalize">
+				{children}
 			</h2>
 		);
 	},
-	h3(props) {
+	h3({ children }) {
+		const slug = slugify(children);
 		return (
-			<h3 className="text-base font-bold pt-2 pb-2" {...props}>
-				{props.children}
+			<h3 id={slug} className="text-base font-bold pt-2 pb-2">
+				{children}
 			</h3>
 		);
 	},

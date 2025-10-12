@@ -7,7 +7,7 @@ import type { User } from "@/types";
 
 // return user object from database for signed in user.
 //
-const getUser = async (id: string | undefined): Promise<User | null> => {
+const getUserById = async (id: string | undefined): Promise<User | null> => {
 	const session = await auth.api.getSession({
 		headers: await headers(), // you need to pass the headers object.
 	});
@@ -34,4 +34,4 @@ const getUser = async (id: string | undefined): Promise<User | null> => {
 	return obj as User;
 };
 
-export default getUser;
+export default getUserById;

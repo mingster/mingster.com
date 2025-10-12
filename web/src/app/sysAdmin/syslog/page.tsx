@@ -1,5 +1,3 @@
-import { Suspense } from "react";
-import { Loader } from "@/components/loader";
 import Container from "@/components/ui/container";
 import { SystemLogClient } from "./client-syslog";
 
@@ -13,10 +11,8 @@ export default async function SystemLogAdminPage(props: {
 	searchParams: SearchParams;
 }) {
 	return (
-		<Suspense fallback={<Loader />}>
-			<Container>
-				<SystemLogClient />
-			</Container>
-		</Suspense>
+		<Container>
+			<SystemLogClient />
+		</Container>
 	);
 }

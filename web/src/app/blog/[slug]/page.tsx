@@ -4,6 +4,7 @@ import { formatDate, getBlogPostBySlug, getBlogPostSlugs } from "../api";
 import Image from "next/image";
 import GridContainer from "../grid-container";
 import type { Metadata } from "next/types";
+import { TableOfContents } from "../table-of-contents";
 
 type Props = {
 	params: Promise<{
@@ -71,39 +72,47 @@ export default async function DocPage(props: Props) {
 			{/* Add a placeholder div so the Next.js router can find the scrollable element. */}
 			<div hidden />
 
-			<div className="grid grid-cols-1 xl:grid-cols-[22rem_2.5rem_auto] xl:grid-rows-[1fr_auto]">
-				<div className="col-start-2 row-span-2 border-r border-l border-gray-950/5 max-xl:hidden dark:border-white/10"></div>
+			<div className="relative mx-auto max-w-7xl">
+				<div className="flex flex-col">
+					{/* Main Content */}
+					<div className="flex-1 min-w-0 xl:pr-64">
+						<div className="mt-16 px-4 font-mono text-sm/7 font-medium tracking-widest text-gray-500 uppercase lg:px-2">
+							<time dateTime={post.meta.date}>
+								{formatDate(post.meta.date)}
+							</time>
+						</div>
 
-				<div className="max-xl:mx-auto max-xl:w-full max-xl:max-w-(--breakpoint-md)">
-					<div className="mt-16 px-4 font-mono text-sm/7 font-medium tracking-widest text-gray-500 uppercase lg:px-2">
-						<time dateTime={post.meta.date}>{formatDate(post.meta.date)}</time>
+						<GridContainer className="mb-6 px-4 lg:px-2 xl:mb-16">
+							<h1 className="inline-block max-w-(--breakpoint-md) text-[2.5rem]/10 tracking-tight text-pretty text-gray-950 max-lg:font-medium lg:text-4xl dark:text-gray-200">
+								{post.meta.title}
+							</h1>
+						</GridContainer>
+
+						<div className="mb-8 px-4 lg:px-2">
+							<div className="flex flex-col gap-4">
+								{post.meta.authors.map((author) => (
+									<GridContainer
+										direction="to-left"
+										key={author.twitter}
+										className="flex items-center py-2 font-medium whitespace-nowrap"
+									>
+										<Author author={author} />
+									</GridContainer>
+								))}
+							</div>
+						</div>
+
+						<article className="prose prose-blog max-w-(--breakpoint-lg) px-4 lg:px-2">
+							<post.Component />
+						</article>
 					</div>
 
-					<GridContainer className="mb-6 px-4 lg:px-2 xl:mb-16">
-						<h1 className="inline-block max-w-(--breakpoint-md) text-[2.5rem]/10 tracking-tight text-pretty text-gray-950 max-lg:font-medium lg:text-6xl dark:text-gray-200">
-							{post.meta.title}
-						</h1>
-					</GridContainer>
-				</div>
-
-				<div className="max-xl:mx-auto max-xl:w-full max-xl:max-w-(--breakpoint-md)">
-					<div className="flex flex-col gap-4">
-						{post.meta.authors.map((author) => (
-							<GridContainer
-								direction="to-left"
-								key={author.twitter}
-								className="flex items-center px-4 py-2 font-medium whitespace-nowrap max-xl:before:-left-[100vw]! max-xl:after:-left-[100vw]! xl:px-2 xl:before:hidden"
-							>
-								<Author author={author} />
-							</GridContainer>
-						))}
+					{/* Table of Contents - Right Sidebar */}
+					<div className="hidden xl:block">
+						<div className="toc-scrollbar fixed right-10 top-1/2 -translate-y-1/2 w-64 max-h-[100vh] overflow-y-auto">
+							<TableOfContents tableOfContents={post.tableOfContents} />
+						</div>
 					</div>
-				</div>
-
-				<div className="max-xl:mx-auto max-xl:mt-16 max-xl:w-full max-xl:max-w-(--breakpoint-md)">
-					<article className="prose prose-blog max-w-(--breakpoint-md)">
-						<post.Component />
-					</article>
 				</div>
 			</div>
 		</>

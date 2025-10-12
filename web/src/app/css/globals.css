@@ -275,3 +275,40 @@ a:hover {
 	padding-bottom: 100px;
 	display: block;
 }
+
+/* Blog post smooth scrolling */
+html {
+	scroll-behavior: smooth;
+}
+
+/* Add scroll margin to blog headings for proper spacing when jumping to sections */
+article.prose h2,
+article.prose h3 {
+	scroll-margin-top: 100px;
+}
+
+/* Custom scrollbar for TOC */
+.toc-scrollbar::-webkit-scrollbar {
+	width: 6px;
+}
+
+.toc-scrollbar::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.toc-scrollbar::-webkit-scrollbar-thumb {
+	background: rgb(209 213 219 / 0.5);
+	border-radius: 3px;
+}
+
+.toc-scrollbar::-webkit-scrollbar-thumb:hover {
+	background: rgb(156 163 175 / 0.7);
+}
+
+.dark .toc-scrollbar::-webkit-scrollbar-thumb {
+	background: rgb(55 65 81 / 0.5);
+}
+
+.dark .toc-scrollbar::-webkit-scrollbar-thumb:hover {
+	background: rgb(75 85 99 / 0.7);
+}

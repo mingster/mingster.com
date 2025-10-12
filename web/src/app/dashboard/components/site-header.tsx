@@ -1,9 +1,9 @@
 "use client";
 
-import DropdownUser from "@/components/auth/dropdown-user";
-import { ThemeToggler } from "mingster.backbone";
-import { Separator } from "mingster.backbone";
-import { SidebarTrigger } from "mingster.backbone";
+import { DropdownUser } from "@/components/auth/dropdown-user";
+import { ThemeToggler } from "@/components/theme-toggler";
+import { Separator } from "@/components/ui/separator";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { BackgroundImage } from "@/components/BackgroundImage";
 
 export function SiteHeader() {

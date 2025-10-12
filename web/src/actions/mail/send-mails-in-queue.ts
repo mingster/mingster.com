@@ -1,5 +1,5 @@
 import { sendMail } from "./send-mail";
-import { getUtcNow } from "mingster.backbone";
+import { getUtcNow } from "@/utils/datetime-utils";
 import logger from "@/lib/logger";
 import { sqlClient } from "@/lib/prismadb";
 

@@ -1,8 +1,5 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Suspense } from "react";
-
-import { Loader } from "@/components/loader";
 import Container from "@/components/ui/container";
 import { AdminDashboardContent } from "./components/admin-dashboard-content";
 import { sqlClient } from "@/lib/prismadb";
@@ -34,7 +31,7 @@ export default async function AdminPage() {
 	*/
 
 	return (
-		<Suspense fallback={<Loader />}>
+		<>
 			<AdminDashboardContent />
 			<Container>
 				{countryCount === 0 ||
@@ -63,6 +60,6 @@ export default async function AdminPage() {
 					</div>
 				</section>
 			</Container>
-		</Suspense>
+		</>
 	);
 }
