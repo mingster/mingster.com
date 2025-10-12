@@ -1,0 +1,96 @@
+import { mingster } from "@/app/blog/authors";
+
+export const meta = {
+  title: "Table of Contents Feature Demo",
+  description: "Demonstrating the new table of contents feature for blog posts with multiple sections and subsections.",
+  date: "2025-01-15T00:00:00.000Z",
+  authors: [mingster],
+};
+
+# Table of Contents Feature Demo
+
+This blog post demonstrates the new table of contents feature that automatically generates a navigation sidebar for blog posts with headings.
+
+## Introduction
+
+The table of contents automatically extracts H2 and H3 headings from your MDX content and creates an interactive navigation sidebar. It's visible on large screens (XL breakpoint and above) and features:
+
+- Active section highlighting
+- Smooth scroll behavior
+- Hierarchical structure (H2 with nested H3)
+- Intersection Observer for tracking visible sections
+
+## Getting Started
+
+To use this feature in your blog posts, simply add H2 and H3 headings in your MDX files. The system will automatically:
+
+1. Extract all headings from the MDX content
+2. Generate slugs for each heading
+3. Create a hierarchical structure
+4. Display the navigation sidebar
+
+### Writing Headings
+
+Use standard Markdown heading syntax:
+
+```markdown
+## Main Section (H2)
+### Subsection (H3)
+```
+
+### Best Practices
+
+- Use H2 for main sections
+- Use H3 for subsections under H2
+- Keep heading text concise and descriptive
+- Use meaningful heading names for better navigation
+
+## Features
+
+The table of contents component includes several key features that enhance the reading experience.
+
+### Active Section Tracking
+
+The component uses Intersection Observer API to track which section is currently visible in the viewport. The active section is highlighted in the navigation sidebar with a sky-blue color.
+
+### Responsive Design
+
+The table of contents is only visible on large screens (XL breakpoint). On smaller screens, the content takes full width for better readability.
+
+### Sticky Positioning
+
+The navigation sidebar uses sticky positioning to remain visible as you scroll through the article, making it easy to jump between sections at any time.
+
+## Implementation Details
+
+The implementation consists of three main parts that work together to provide the table of contents functionality.
+
+### Server-Side Extraction
+
+On the server side, we read the MDX file content and extract headings using regular expressions. This happens during the build process for optimal performance.
+
+### Client-Side Component
+
+The `TableOfContents` component is a client component that handles the interactive features like active section tracking and scroll behavior.
+
+### Integration
+
+The table of contents is seamlessly integrated into the blog post layout, appearing on the right side of the content area on large screens.
+
+## Conclusion
+
+The table of contents feature provides a better reading experience for longer blog posts, making it easier for readers to navigate and find specific sections.
+
+### Future Enhancements
+
+Possible future enhancements could include:
+
+- Mobile table of contents in a collapsible drawer
+- H4 heading support
+- Estimated reading time per section
+- Share section links
+
+### Feedback Welcome
+
+If you have suggestions for improving this feature, feel free to reach out!
+
