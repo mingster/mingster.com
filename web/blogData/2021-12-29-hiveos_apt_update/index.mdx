@@ -9,18 +9,20 @@ export const meta = {
 
 # hiveos更新
 
-```
+```bash
 nohup bash -c 'apt update; export DEBIAN_FRONTEND=noninteractive; apt-get -y --only-upgrade install hive; hello restartminer; screen -S agent -X quit; agent-screen' > /tmp/nohup.log 2>&1 &
 ```
 
 
 ## Drivers update
-```
+
+```bash
 nvidia-driver-update
 ```
 
 ## Self update
-```
+
+```bash
 selfupgrade
 ```
 

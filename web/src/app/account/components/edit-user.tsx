@@ -62,8 +62,6 @@ export default function EditUser({ serverData }: props) {
 		timezone: dbUser?.timezone || "America/Los_Angeles",
 	};
 
-	console.log("defaultValues", defaultValues);
-	
 	const form = useForm<UpdateUserSettingsInput>({
 		resolver: zodResolver(updateUserSettingsSchema),
 		defaultValues,
