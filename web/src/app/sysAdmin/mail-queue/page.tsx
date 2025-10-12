@@ -1,8 +1,6 @@
-import { Loader } from "@/components/loader";
 import Container from "@/components/ui/container";
 import logger from "@/lib/logger";
 import { sqlClient } from "@/lib/prismadb";
-import { Suspense } from "react";
 import MailQueueAdminClient from "./components/client-mail-queue";
 import ClientMailTester from "./components/client-mail-tester";
 
@@ -25,11 +23,9 @@ export default async function MailQueueAdminPage() {
 	//log.info({ mailQueue });
 
 	return (
-		<Suspense fallback={<Loader />}>
-			<Container>
-				<MailQueueAdminClient />
-				<ClientMailTester />
-			</Container>
-		</Suspense>
+		<Container>
+			<MailQueueAdminClient />
+			<ClientMailTester />
+		</Container>
 	);
 }

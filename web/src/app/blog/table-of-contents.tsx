@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { cn } from "mingster.backbone";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
 
 export type TOCEntry = {

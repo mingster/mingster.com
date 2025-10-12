@@ -1,16 +1,15 @@
-import {
-	Toaster,
-	ThemeProvider as NextThemeProvider,
-	IOSVersionCheck,
-	PageViewTracker,
-} from "mingster.backbone";
+import { PageViewTracker } from "@/components/analytics/page-view-tracker";
+import { IOSVersionCheck } from "@/components/ios-version-check";
+import { Toaster } from "@/components/toaster";
 import I18nProvider from "@/providers/i18n-provider";
-import type { Metadata, Viewport } from "next";
-import { CookiesProvider } from "next-client-cookies/server";
 import { SessionWrapper } from "@/providers/session-provider";
+import ThemeProvider from "@/providers/theme-provider";
+import type { Viewport } from "next";
+import { CookiesProvider } from "next-client-cookies/server";
+import { Suspense } from "react";
 
-import "./css/globals.css";
 import { GoogleAnalytics } from "@next/third-parties/google";
+import "./css/globals.css";
 import { getT } from "./i18n";
 
 export const viewport: Viewport = {
@@ -106,9 +105,9 @@ export default async function RootLayout({
 	children: React.ReactNode;
 }>) {
 	return (
-		<html lang="en" suppressHydrationWarning>
+		<html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
 			<body className={"antialiased"}>
-				<NextThemeProvider
+				<ThemeProvider
 					attribute="class"
 					defaultTheme="dark"
 					enableSystem
@@ -118,13 +117,15 @@ export default async function RootLayout({
 						<I18nProvider>
 							<SessionWrapper>
 								<IOSVersionCheck>
-									<PageViewTracker />
+									<Suspense fallback={null}>
+										<PageViewTracker />
+									</Suspense>
 									{children}
 								</IOSVersionCheck>
 							</SessionWrapper>
 						</I18nProvider>
 					</CookiesProvider>
-				</NextThemeProvider>
+				</ThemeProvider>
 				<Toaster />
 				{process.env.NODE_ENV === "production" &&
 					process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (

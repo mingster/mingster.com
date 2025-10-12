@@ -1,6 +1,4 @@
 "use server";
-import { Suspense } from "react";
-import { Loader } from "@/components/loader";
 import Container from "@/components/ui/container";
 import { sqlClient } from "@/lib/prismadb";
 import type { MessageTemplate, MessageTemplateLocalized } from "@prisma/client";
@@ -42,14 +40,12 @@ export default async function MailTemplateAdminPage(props: {
 	const locales = await sqlClient.locale.findMany();
 
 	return (
-		<Suspense fallback={<Loader />}>
-			<Container>
-				<MessageTemplateClient
-					serverData={messageTemplates}
-					messageTemplateLocalized={messageTemplateLocalized}
-					locales={locales}
-				/>
-			</Container>
-		</Suspense>
+		<Container>
+			<MessageTemplateClient
+				serverData={messageTemplates}
+				messageTemplateLocalized={messageTemplateLocalized}
+				locales={locales}
+			/>
+		</Container>
 	);
 }

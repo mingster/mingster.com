@@ -2,7 +2,7 @@
 
 import { sqlClient } from "@/lib/prismadb";
 import { adminActionClient } from "@/utils/actions/safe-action";
-import { getUtcNow } from "mingster.backbone";
+import { getUtcNow } from "@/utils/datetime-utils";
 
 import { updateSystemMessageSchema } from "./update-system-message.validation";
 

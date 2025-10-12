@@ -2,13 +2,10 @@ import { Suspense } from "react";
 import { GetContentTos } from "@/actions/store/get-content-tos";
 import { getT } from "@/app/i18n";
 import { GlobalNavbar } from "@/components/global-navbar";
-import {
-	Loader,
-	DisplayMarkDown,
-	Card,
-	CardContent,
-	Container,
-} from "mingster.backbone";
+import { Loader } from "@/components/loader";
+import DisplayMarkDown from "@/components/display-mark-down";
+import { Card, CardContent } from "@/components/ui/card";
+import Container from "@/components/ui/container";
 
 // display terms of service
 //

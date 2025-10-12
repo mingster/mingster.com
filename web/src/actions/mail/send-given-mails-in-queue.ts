@@ -2,7 +2,7 @@ import { sqlClient } from "@/lib/prismadb";
 import { EmailQueue } from "@/types";
 import logger from "@/lib/logger";
 import { sendMail } from "./send-mail";
-import { getUtcNow } from "mingster.backbone";
+import { getUtcNow } from "@/utils/datetime-utils";
 
 // send the given mailId(s) fromm the mail queue.
 //

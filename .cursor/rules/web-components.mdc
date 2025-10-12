@@ -1,5 +1,5 @@
 ---
-description: Components Directory Guide
+description: Components Directory Guide - Use Local Components Only
 globs: **/*.js,**/*.jsx,**/*.ts,**/*.tsx
 alwaysApply: false
 ---
@@ -8,219 +8,336 @@ alwaysApply: false
 
 ## Component Architecture
 
-This project uses a **two-tier component architecture**:
+This project uses **local components** only. All components are self-contained within this project.
 
-1. **Shared Components** (from `mingster.backbone` package)
-   - 100+ UI components (shadcn/ui)
-   - DataTable suite
-   - Utility components (Loader, Toast, etc.)
-   - Hooks and utilities
-   - **Always import these from `mingster.backbone`**
+## Important: DO NOT Use mingster.backbone
 
-2. **Project-Specific Components** (in `src/components`)
-   - Authentication components
-   - Business logic components
-   - Page-specific components
-   - Domain-specific components
+**This project does NOT have `mingster.backbone` configured.**
 
-## Import Priority
+- ❌ Do NOT import from `mingster.backbone`
+- ✅ Always use local imports from `@/components/`
 
-### ✅ Import from mingster.backbone (Preferred)
+## Import Patterns
 
-For any UI component, utility, or hook that's generic and reusable:
+### ✅ Local Component Imports (Always Use These)
 
 ```tsx
-import {
-  // UI Components
-  Button,
-  Dialog,
-  Card,
-  Input,
-  Select,
-  Form,
-  Table,
-  Badge,
-  
-  // DataTable
-  DataTable,
-  DataTableColumnHeader,
-  
-  // Utility Components
-  Loader,
-  ThemeToggler,
-  DisplayMarkDown,
-  Currency,
-  Heading,
-  Container,
-  Separator,
-  
-  // Modals
-  AlertModal,
-  ConfirmModal,
-  
-  // Toast
-  toastSuccess,
-  toastError,
-  
-  // Hooks
-  useTheme,
-  useIsMobile,
-  
-  // Utilities
-  cn,
-  formatDateTime,
-  transformBigIntToNumbers,
-} from "mingster.backbone";
-```
+// UI Components (shadcn/ui)
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogTrigger, DialogContent } from "@/components/ui/dialog";
+import { Card, CardHeader, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Form, FormField, FormItem, FormLabel, FormControl } from "@/components/ui/form";
+import { Table } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-### ⚠️ Use Local Components (Only When Necessary)
+// Utility Components
+import { Loader } from "@/components/loader";
+import Container from "@/components/ui/container";
+import { Separator } from "@/components/ui/separator";
 
-Only for project-specific functionality that isn't in backbone:
+// Toast
+import { Toaster } from "@/components/toaster";
+import { toast } from "@/components/ui/use-toast";
 
-```tsx
-import { AuthComponent } from "@/components/auth/auth-component";
+// Project-Specific
 import { GlobalNavbar } from "@/components/global-navbar";
 import { Logo } from "@/components/logo";
+
+// Utilities
+import { cn } from "@/lib/utils";
+
+// Hooks
+import { useTheme } from "next-themes";
 ```
 
-## Project-Specific Components
-
-The `src/components` directory should only contain components that are:
-
-- **Authentication-related**: Login forms, auth providers, session management
-- **Business-specific**: Product dialogs, cart info, order components
-- **Page-specific**: Unique layouts, specialized forms
-- **Domain-specific**: Components tied to your specific domain logic
-
-### Current Structure
+## Project Structure
 
 ```
-src/components/
-├── auth/                    # Authentication components
-│   ├── sign-in-form.tsx
-│   └── passkey-auth.tsx
-├── analytics/               # Analytics components (if project-specific)
-├── editor/                  # Editor components (project-specific)
-├── global-navbar.tsx        # Main navigation (project-specific)
-├── logo.tsx                 # Brand logo
-├── locale-select-items.tsx  # i18n components
-└── ... (other project-specific components)
+src/
+├── components/
+│   ├── ui/                      # shadcn/ui components
+│   │   ├── button.tsx
+│   │   ├── dialog.tsx
+│   │   ├── card.tsx
+│   │   ├── input.tsx
+│   │   ├── form.tsx
+│   │   ├── table.tsx
+│   │   ├── tabs.tsx
+│   │   ├── badge.tsx
+│   │   ├── separator.tsx
+│   │   ├── container.tsx
+│   │   ├── use-toast.tsx
+│   │   └── ... (all shadcn/ui components)
+│   ├── auth/                    # Authentication components
+│   │   ├── sign-in-form.tsx
+│   │   └── passkey-auth.tsx
+│   ├── analytics/               # Analytics components
+│   │   └── page-view-tracker.tsx
+│   ├── editor/                  # Editor components
+│   ├── loader.tsx               # Loading spinner
+│   ├── toaster.tsx              # Toast notifications
+│   ├── global-navbar.tsx        # Main navigation
+│   ├── logo.tsx                 # Brand logo
+│   ├── locale-select-items.tsx  # i18n components
+│   └── ios-version-check.tsx    # iOS version checker
+├── lib/
+│   ├── utils.ts                 # Utility functions (includes cn)
+│   ├── auth.ts                  # Auth configuration
+│   ├── auth-client.ts           # Auth client
+│   └── prismadb.ts              # Prisma client
+└── hooks/
+    └── ... (custom hooks)
 ```
 
-## What Was Removed
+## Component Categories
 
-The following were **removed** from `src/components` because they now come from `mingster.backbone`:
+### 1. UI Components (shadcn/ui)
 
-### ❌ Removed (Now in backbone)
-
-- `src/components/ui/` - All shadcn/ui components
-- `src/components/dataTable*.tsx` - DataTable suite
-- `src/components/loader.tsx` - Loading spinner
-- `src/components/theme-toggler.tsx` - Theme switcher
-- `src/components/sidebar-toggle.tsx` - Sidebar toggle
-- `src/components/Toaster.tsx` - Toast notifications
-- `src/components/modals/alert-modal.tsx` - Alert modal
-- `src/components/modals/confirm-modal.tsx` - Confirm modal
-
-## Migration Example
-
-### Before (Removed)
+All UI components are in `src/components/ui/` and should be imported from there:
 
 ```tsx
-// ❌ These files no longer exist locally
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { DataTable } from "@/components/dataTable";
-import { Loader } from "@/components/loader";
-import { cn } from "@/lib/utils";
+import { Card } from "@/components/ui/card";
+// ... etc.
 ```
 
-### After (Current)
+### 2. Authentication Components
+
+Authentication-related components in `src/components/auth/`:
 
 ```tsx
-// ✅ Import from backbone
-import {
-  Button,
-  Dialog,
-  DataTable,
-  Loader,
-  cn,
-} from "mingster.backbone";
+import { SignInForm } from "@/components/auth/sign-in-form";
+import { PasskeyAuth } from "@/components/auth/passkey-auth";
 ```
 
-## Creating New Components
+### 3. Utility Components
 
-### Decision Tree
+Utility components at root of `src/components/`:
 
-When creating a new component, ask:
+```tsx
+import { Loader } from "@/components/loader";
+import { GlobalNavbar } from "@/components/global-navbar";
+import { IOSVersionCheck } from "@/components/ios-version-check";
+```
 
-1. **Is it UI-related and reusable?**
-   - YES → Add to `mingster.backbone` package
-   - NO → Continue to step 2
+### 4. Analytics Components
 
-2. **Is it project-specific business logic?**
-   - YES → Add to `src/components/`
-   - NO → Reconsider if it's truly needed
+Analytics components in `src/components/analytics/`:
 
-3. **Does it depend on project-specific code?**
-   - YES (depends on auth, database, etc.) → `src/components/`
-   - NO (pure UI/utility) → `mingster.backbone`
+```tsx
+import { PageViewTracker } from "@/components/analytics/page-view-tracker";
+```
 
-### Examples
+## Common Patterns
 
-**Should go in backbone:**
+### Form with Validation
 
-- Generic form components
-- Reusable dialogs
-- Chart components
-- Loading indicators
-- UI utilities
+```tsx
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  Form,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormControl,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/use-toast";
 
-**Should stay in project:**
+<Form {...form}>
+  <form onSubmit={form.handleSubmit(onSubmit)}>
+    <FormField
+      control={form.control}
+      name="email"
+      render={({ field }) => (
+        <FormItem>
+          <FormLabel>Email</FormLabel>
+          <FormControl>
+            <Input {...field} />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+    <Button type="submit">Submit</Button>
+  </form>
+</Form>
+```
 
-- `AuthForm` - uses Better Auth
-- `ProductOptionDialog` - domain-specific
-- `GlobalNavbar` - project-specific navigation
-- `CartItemInfo` - business logic
-- Components using Prisma models
+### DataTable
+
+Use `@tanstack/react-table` directly:
+
+```tsx
+import { DataTable } from "@/components/data-table";
+import type { ColumnDef } from "@tanstack/react-table";
+
+const columns: ColumnDef<DataType>[] = [
+  {
+    accessorKey: "name",
+    header: "Name",
+  },
+  // ... more columns
+];
+
+<DataTable columns={columns} data={data} />
+```
+
+### Toast Notifications
+
+```tsx
+import { toast } from "@/components/ui/use-toast";
+import { Toaster } from "@/components/toaster";
+
+// In your root layout
+<Toaster />
+
+// Usage in components
+toast({
+  title: "Success",
+  description: "Item saved successfully!",
+});
+
+toast({
+  variant: "destructive",
+  title: "Error",
+  description: "Failed to save item",
+});
+```
+
+### Dialog/Modal
+
+```tsx
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+
+<Dialog>
+  <DialogTrigger asChild>
+    <Button>Open Dialog</Button>
+  </DialogTrigger>
+  <DialogContent>
+    <DialogHeader>
+      <DialogTitle>Are you sure?</DialogTitle>
+      <DialogDescription>
+        This action cannot be undone.
+      </DialogDescription>
+    </DialogHeader>
+    {/* Dialog content */}
+  </DialogContent>
+</Dialog>
+```
 
 ## Best Practices
 
-1. **Check backbone first**: Before creating a component, check if it exists in `mingster.backbone`
-2. **Don't duplicate**: Never copy components from backbone to local
-3. **Import correctly**: Always use `mingster.backbone` for shared components
-4. **Contribute back**: If you create a generic component locally, consider moving it to backbone
-5. **Keep separation**: Project components should use backbone components, not duplicate them
+1. **Use local imports**: Always import from `@/components/`, `@/lib/`, etc.
+2. **Don't try to use mingster.backbone**: It's not configured in this project
+3. **Check src/components first**: Before creating a component, check if it exists locally
+4. **Follow shadcn/ui patterns**: For new UI components, follow shadcn/ui conventions
+5. **Keep components organized**: Place components in appropriate subdirectories
 
-## Package Reference
+## Adding New Components
 
-For the complete list of available components in backbone:
+### Adding a New UI Component (from shadcn/ui)
 
-- See `packages/mingster.backbone/README.md`
-- Check `packages/mingster.backbone/src/index.ts` for all exports
-- View documentation at `packages/mingster.backbone/doc/`
+Use the shadcn/ui CLI:
 
-## Current Components Inventory
+```bash
+npx shadcn@latest add [component-name]
+```
 
-### In mingster.backbone (Shared)
+This will add the component to `src/components/ui/`.
 
-- 100+ shadcn/ui components (Button, Dialog, Card, etc.)
-- DataTable suite (6 components)
-- 20+ utility components
-- 13 custom hooks
-- Analytics components
-- Modal components
-- Toast system
+### Creating Custom Components
 
-### In src/components (Project-Specific)
+1. **UI Components**: Add to `src/components/ui/`
+2. **Feature Components**: Add to appropriate subdirectory (auth, analytics, etc.)
+3. **Utility Components**: Add to root of `src/components/`
 
-- Authentication components
-- Editor components (if customized)
-- OAuth components
-- Navigation components
-- Domain-specific business components
-- Page-specific components
+## Utilities
 
----
+```tsx
+// Class name utility
+import { cn } from "@/lib/utils";
 
-**Remember**: When in doubt, import from `mingster.backbone` first!
+const className = cn("base-class", conditionalClass && "conditional", props.className);
+```
+
+## Hooks
+
+```tsx
+// Theme
+import { useTheme } from "next-themes";
+const { theme, setTheme } = useTheme();
+
+// i18n
+import { useTranslation } from "@/app/i18n/client";
+import { useI18n } from "@/providers/i18n-provider";
+```
+
+## Server vs Client Components
+
+### Server Components (default)
+- Use for data fetching
+- No need for "use client" directive
+- Can import server-side utilities
+
+### Client Components
+- Require "use client" at top of file
+- Use for interactivity (useState, useEffect, event handlers)
+- Components using `useSearchParams()` need Suspense boundary
+
+```tsx
+"use client";
+
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
+import { Loader } from "@/components/loader";
+
+// Wrap in Suspense when using useSearchParams
+<Suspense fallback={<Loader />}>
+  <YourComponent />
+</Suspense>
+```
+
+## Error Prevention
+
+If you see this error:
+
+```
+Cannot find module 'mingster.backbone'
+```
+
+**You're trying to import from mingster.backbone - this is wrong!**
+
+Fix it by using local imports:
+
+```tsx
+// ❌ Wrong
+import { Button } from "mingster.backbone";
+
+// ✅ Correct
+import { Button } from "@/components/ui/button";
+```
+
+## Summary
+
+- ✅ Use local imports from `@/components/`
+- ✅ All UI components are in `src/components/ui/`
+- ✅ Use shadcn/ui CLI to add new UI components
+- ✅ Follow Next.js 15 App Router patterns
+- ❌ Never import from `mingster.backbone`
+- ❌ This project is self-contained with its own components

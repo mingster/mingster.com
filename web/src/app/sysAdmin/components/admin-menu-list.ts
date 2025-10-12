@@ -92,8 +92,8 @@ export function GetMenuList(pathname: string): Group[] {
 			menus: [
 				{
 					href: `${nav_prefix}/blog`,
-					label: "Stores",
-					active: pathname.includes(`${nav_prefix}/stores`),
+					label: "blog",
+					active: pathname.includes(`${nav_prefix}/blog`),
 					icon: IconBuildingStore,
 					submenus: [],
 				},

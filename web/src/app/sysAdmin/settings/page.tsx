@@ -1,6 +1,4 @@
-import { Suspense } from "react";
 import type Stripe from "stripe";
-import { Loader } from "@/components/loader";
 import { sqlClient } from "@/lib/prismadb";
 import { stripe } from "@/lib/stripe/config";
 import type { StringNVType } from "@/types/enum";
@@ -59,11 +57,9 @@ export default async function SettingsAdminPage(props: {
 	}
 
 	return (
-		<Suspense fallback={<Loader />}>
-			<ClientSettings
-				platformSettings={setting as PlatformSettings}
-				prices={prices}
-			/>
-		</Suspense>
+		<ClientSettings
+			platformSettings={setting as PlatformSettings}
+			prices={prices}
+		/>
 	);
 }
