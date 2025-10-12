@@ -1,8 +1,8 @@
 "use client";
 import clsx from "clsx";
 //import { cn } from '@/lib/utils';
-import DropdownUser from "@/components/auth/dropdown-user";
-import ThemeToggler from "@/components/theme-toggler";
+import { DropdownUser } from "@/components/auth/dropdown-user";
+import { ThemeToggler } from "@/components/theme-toggler";
 import {
 	Sheet,
 	SheetContent,
@@ -19,7 +19,7 @@ import { authClient } from "@/lib/auth-client";
 import ClipLoader from "react-spinners/ClipLoader";
 import { BackgroundImage } from "./BackgroundImage";
 import DialogSignIn from "./auth/dialog-sign-in";
-import LanguageToggler from "./language-toggler";
+import { LanguageToggler } from "./language-toggler";
 import { Logo } from "./logo";
 
 interface NavbarProps {

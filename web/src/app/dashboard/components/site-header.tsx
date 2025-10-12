@@ -1,6 +1,6 @@
 "use client";
 
-import DropdownUser from "@/components/auth/dropdown-user";
+import { DropdownUser } from "@/components/auth/dropdown-user";
 import { ThemeToggler } from "mingster.backbone";
 import { Separator } from "mingster.backbone";
 import { SidebarTrigger } from "mingster.backbone";

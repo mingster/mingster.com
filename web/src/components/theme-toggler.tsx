@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import useColorMode from "@/hooks/useColorMode";
 import { NotMountSkeleton } from "@/components/not-mount-skeleton";
 
-const ThemeToggler = () => {
+export const ThemeToggler = () => {
 	const [mounted, setMounted] = useState(false);
 
 	const [colorMode, setColorMode] = useColorMode();
@@ -74,5 +74,3 @@ const ThemeToggler = () => {
 		</label>
 	);
 };
-
-export default ThemeToggler;

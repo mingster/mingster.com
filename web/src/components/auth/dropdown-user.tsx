@@ -32,7 +32,7 @@ interface UserButtonProps {
 	db_user?: User | undefined | null;
 }
 
-export default function DropdownUser({ db_user }: UserButtonProps) {
+export function DropdownUser({ db_user }: UserButtonProps) {
 	const [mounted, setMounted] = useState(false);
 	const { lng } = useI18n();
 	const { t } = useTranslation(lng);
