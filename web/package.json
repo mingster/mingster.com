@@ -108,7 +108,7 @@
     "@shikijs/transformers": "^3.13.0",
     "@tailwindcss/postcss": "^4.1.14",
     "@types/crypto-js": "^4.2.2",
-    "@types/node": "^20.19.20",
+    "@types/node": "^20.19.21",
     "@types/nodemailer": "^6.4.20",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.1",
