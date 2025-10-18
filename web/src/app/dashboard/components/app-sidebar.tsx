@@ -1,21 +1,6 @@
 "use client";
 
 import {
-	IconChartBar,
-	IconDashboard,
-	IconDatabase,
-	IconFileWord,
-	IconFolder,
-	IconHelp,
-	IconInnerShadowTop,
-	IconListDetails,
-	IconReport,
-	IconSearch,
-	IconSettings,
-	IconUsers,
-} from "@tabler/icons-react";
-import Link from "next/link";
-import {
 	Sidebar,
 	SidebarContent,
 	SidebarFooter,
@@ -24,6 +9,21 @@ import {
 	SidebarMenuButton,
 	SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import {
+	IconDashboard,
+	IconDatabase,
+	IconFileText,
+	IconFileWord,
+	IconFolder,
+	IconHelp,
+	IconInnerShadowTop,
+	IconQrcode,
+	IconReport,
+	IconSearch,
+	IconSettings,
+	IconUsers
+} from "@tabler/icons-react";
+import Link from "next/link";
 import { NavDocuments } from "./nav-documents";
 import { NavMain } from "./nav-main";
 import { NavSecondary } from "./nav-secondary";
@@ -32,18 +32,18 @@ const data = {
 	navMain: [
 		{
 			title: "Dashboard",
-			url: "#",
+			url: "/dashboard",
 			icon: IconDashboard,
 		},
 		{
-			title: "Lifecycle",
-			url: "#",
-			icon: IconListDetails,
+			title: "QR Code Generator",
+			url: "/qr-generator",
+			icon: IconQrcode,
 		},
 		{
-			title: "Analytics",
-			url: "#",
-			icon: IconChartBar,
+			title: "Blog",
+			url: "/blog",
+			icon: IconFileText,
 		},
 		{
 			title: "Projects",

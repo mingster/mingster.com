@@ -58,6 +58,7 @@
         "pino": "^9.13.1",
         "pino-pretty": "^13.1.2",
         "postcss-focus-visible": "^10.0.1",
+        "qrcode": "^1.5.4",
         "react": "^19.2.0",
         "react-apexcharts": "^1.7.0",
         "react-dom": "^19.2.0",
@@ -94,6 +95,7 @@
         "@types/crypto-js": "^4.2.2",
         "@types/node": "^20.19.21",
         "@types/nodemailer": "^6.4.20",
+        "@types/qrcode": "^1.5.5",
         "@types/react": "^19.2.2",
         "@types/react-dom": "^19.2.1",
         "@types/react-google-recaptcha": "^2.1.9",
@@ -930,6 +932,8 @@
     "@types/node-fetch": ["@types/node-fetch@2.6.12", "", { "dependencies": { "@types/node": "*", "form-data": "^4.0.0" } }, "sha512-8nneRWKCg3rMtF69nLQJnOYUcbafYeFSjqkw3jCRLsqkWFlHaoQrr5mXmofFGOx3DKn7UfmBMyov8ySvLRVldA=="],
 
     "@types/nodemailer": ["@types/nodemailer@6.4.20", "", { "dependencies": { "@aws-sdk/client-ses": "^3.731.1", "@types/node": "*" } }, "sha512-uj83z0GqwqMUE6RI4EKptPlav0FYE6vpIlqJAnxzu+/sSezRdbH69rSBCMsdW6DdsCAzoFQZ52c2UIlhRVQYDA=="],
+
+    "@types/qrcode": ["@types/qrcode@1.5.5", "", { "dependencies": { "@types/node": "*" } }, "sha512-CdfBi/e3Qk+3Z/fXYShipBT13OJ2fDO2Q2w5CIP5anLTLIndQG9z6P1cnm+8zCWSpm5dnxMFd/uREtb0EXuQzg=="],
 
     "@types/react": ["@types/react@19.2.2", "", { "dependencies": { "csstype": "^3.0.2" } }, "sha512-6mDvHUFSjyT2B2yeNx2nUgMxh9LtOWvkhIU3uePn2I2oyNymUAX1NIsdgviM4CH+JSrp2D2hsMvJOkxY+0wNRA=="],
 
