@@ -21,7 +21,7 @@ import {
 	IconReport,
 	IconSearch,
 	IconSettings,
-	IconUsers
+	IconUsers,
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { NavDocuments } from "./nav-documents";
@@ -104,9 +104,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 						>
 							<Link href="#">
 								<IconInnerShadowTop className="!size-5" />
-								<span className="text-base font-semibold">
-									Affiliate Dashboard
-								</span>
+								<span className="text-base font-semibold">Dashboard</span>
 							</Link>
 						</SidebarMenuButton>
 					</SidebarMenuItem>

@@ -7,13 +7,13 @@ import { PrismaClient as sqlPrismaClient } from "@prisma/client";
 
 /**
  * Prisma Client Singleton
- * 
+ *
  * Connection Pooling:
  * - Prisma manages connection pooling automatically
  * - Default pool size: 10 connections
  * - To configure, add to your DATABASE_URL:
  *   postgresql://user:pass@host:5432/db?connection_limit=5&pool_timeout=20
- * 
+ *
  * For "too many connections" errors:
  * 1. Use the global singleton pattern (already implemented below)
  * 2. Reduce connection_limit in your DATABASE_URL

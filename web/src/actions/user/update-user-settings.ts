@@ -14,7 +14,7 @@ export const updateUserSettingsAction = userRequiredActionClient
 				where: { id: userId },
 				data: { name, locale, timezone, updatedAt: getUtcNow() },
 			});
-			
+
 			return updatedUser;
 		},
 	);

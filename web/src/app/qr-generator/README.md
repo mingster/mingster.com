@@ -22,6 +22,10 @@ A free online QR code generator with advanced customization options for creating
 - **Transparency**: Optional transparent background
 - **Error Correction**: 4 levels (L, M, Q, H) from 7% to 30% recovery
 - **Border**: Adjustable margin from 0 to 10 modules
+- **Corner Squares**: Customize outer and inner corner patterns
+  - Outer frame styles: Default, Square, Rounded, Dot
+  - Inner frame styles: Default, Square, Rounded, Dot
+  - Independent color customization for each
 
 ### Download
 
@@ -33,7 +37,7 @@ A free online QR code generator with advanced customization options for creating
 
 - **Framework**: Next.js 15 (App Router)
 - **Language**: TypeScript
-- **QR Library**: `qrcode` v1.5.4
+- **QR Library**: `qr-code-styling` v1.9.2 (advanced customization support)
 - **UI Components**: Shadcn/ui + Tailwind CSS
 - **Icons**: Tabler Icons React
 
@@ -41,18 +45,19 @@ A free online QR code generator with advanced customization options for creating
 
 ```
 src/app/qr-generator/
-├── page.tsx                        # Server component (main page)
-├── README.md                       # This file
+├── page.tsx                          # Server component (main page)
+├── README.md                         # This file
 └── components/
-    ├── qr-generator-client.tsx    # Main client component
-    ├── url-input.tsx              # URL input with validation
-    ├── qr-preview.tsx             # Real-time QR preview
-    ├── qr-settings.tsx            # Customization settings
-    └── download-button.tsx        # Download dialog
+    ├── qr-generator-client.tsx      # Main client component
+    ├── url-input.tsx                # URL input with validation
+    ├── qr-preview.tsx               # Real-time QR preview
+    ├── qr-settings.tsx              # QR code customization settings
+    ├── qr-corner-square-settings.tsx   # QR corner square customization
+    └── download-button.tsx          # Download dialog
 
 src/lib/qr/
-├── types.ts                       # TypeScript type definitions
-└── generator.ts                   # QR generation logic
+├── types.ts                         # TypeScript type definitions
+└── generator.ts                     # QR generation logic
 ```
 
 ## Usage
@@ -114,7 +119,7 @@ export function PhoneInput({ value, onChange }) {
 
 - [ ] Additional content types (see spec)
 - [ ] Dot style customization (rounded, dots)
-- [ ] Corner square styling
+- [x] Corner square styling ✅
 - [ ] Logo embedding (text & image)
 - [ ] Multiple export formats (JPEG, WEBP, SVG)
 - [ ] Camera QR scanner
