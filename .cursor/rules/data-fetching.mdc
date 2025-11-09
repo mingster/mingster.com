@@ -1,387 +1,49 @@
 ---
-description: Data fetching patterns with Server Components, SWR, and Server Actions
-globs: **/*.{js,ts,jsx,tsx}
-alwaysApply: false
+description: Fetching data from the API using SWR
+globs: 
+alwaysApply: true
 ---
 # Data Fetching
 
-## Overview
+There are two ways we fetch data in the app:
 
-This project uses multiple data fetching strategies depending on the use case:
+1. SWR (default)
+2. Server Components
 
-1. **Server Components** (preferred for initial page loads)
-2. **SWR** (for client-side data fetching and revalidation)
-3. **Server Actions** (for mutations)
+Default to SWR as it makes it easier to refetch data we need.
 
-## 1. Server Components (Preferred)
+Here's how we use SWR:
 
-Use Server Components for initial page loads and static data:
+- For API GET requests to server, use the `swr` package
+- If we're in a server file, you can fetch the data inline
+- For mutating data, use Next.js server actions
 
-### Basic Pattern
+## SWR Example
 
-```tsx
-// app/sysAdmin/sysmsg/page.tsx
-import { Suspense } from "react";
-import { Container, Loader } from "mingster.backbone";
-import { transformBigIntToNumbers } from "mingster.backbone";
-import prismadb from "@/lib/prismadb";
-import { SystemMessageClient } from "./components/client-sysmsg";
-
-export default async function SystemMessagePage() {
-  // Fetch data directly on server
-  const data = await prismadb.systemMessage.findMany({
-    orderBy: { createdOn: "desc" },
-  });
-  
-  // Transform BigInt fields for JSON serialization
-  transformBigIntToNumbers(data);
-
-  return (
-    <Suspense fallback={<Loader />}>
-      <Container>
-        <SystemMessageClient serverData={data} />
-      </Container>
-    </Suspense>
-  );
-}
-```
-
-### With Error Handling
-
-```tsx
-import { notFound } from "next/navigation";
-
-export default async function UserPage({ params }: { params: { id: string } }) {
-  const user = await prismadb.user.findUnique({
-    where: { id: params.id },
-  });
-
-  if (!user) {
-    notFound();
-  }
-
-  return <UserProfile user={user} />;
-}
-```
-
-### Benefits
-
-- ✅ Fast initial page load
-- ✅ SEO friendly
-- ✅ No client-side loading state needed
-- ✅ Direct database access
-- ✅ Automatic caching by Next.js
-
-## 2. SWR (Client-Side Data Fetching)
-
-Use SWR for:
-
-- Real-time data that needs frequent updates
-- Client-side filtering/pagination
-- Data that depends on user interaction
-- Polling/auto-refresh scenarios
-
-### Basic Pattern
-
-```tsx
-"use client";
-
-import useSWR from "swr";
-import { Loader } from "mingster.backbone";
-
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
-
-export function UserList() {
-  const { data, error, isLoading } = useSWR<User[]>("/api/users", fetcher);
-
-  if (isLoading) return <Loader />;
-  if (error) return <div>Failed to load users</div>;
-  if (!data) return null;
-
-  return (
-    <ul>
-      {data.map((user) => (
-        <li key={user.id}>{user.name}</li>
-      ))}
-    </ul>
-  );
-}
-```
-
-### With Search Params
-
-```tsx
-"use client";
-
-import { useSearchParams } from "next/navigation";
-import useSWR from "swr";
-
-export function PaginatedList() {
-  const searchParams = useSearchParams();
-  const page = searchParams.get("page") || "1";
-  const limit = searchParams.get("limit") || "10";
-  
-  const { data, error, isLoading } = useSWR(
-    `/api/items?page=${page}&limit=${limit}`,
-    fetcher
-  );
-
-  // ... render logic
-}
-```
-
-### With Auto-Refresh
-
-```tsx
-const { data, error } = useSWR(
-  "/api/status",
-  fetcher,
-  {
-    refreshInterval: 3000, // Refresh every 3 seconds
-    revalidateOnFocus: true,
-    revalidateOnReconnect: true,
-  }
+```typescript
+const searchParams = useSearchParams();
+const page = searchParams.get("page") || "1";
+const { data, isLoading, error } = useSWR<PlanHistoryResponse>(
+  `/api/user/planned/history?page=${page}`
 );
-```
-
-### Manual Revalidation
-
-```tsx
-const { data, mutate } = useSWR("/api/users", fetcher);
-
-const handleRefresh = () => {
-  mutate(); // Manually trigger revalidation
-};
-```
-
-## 3. Server Actions (Mutations)
-
-Use Server Actions for all data mutations (create, update, delete):
-
-### Basic Pattern
-
-```tsx
-"use client";
-
-import { useState } from "react";
-import { toastSuccess, toastError } from "mingster.backbone";
-import { updateSystemMessageAction } from "@/actions/sysAdmin/systemMessage/update-system-message";
-
-export function EditForm({ item, onUpdated }) {
-  const [loading, setLoading] = useState(false);
-
-  async function handleSubmit(data: FormData) {
-    setLoading(true);
-    
-    const result = await updateSystemMessageAction(data);
-    
-    if (result?.serverError) {
-      toastError({ description: result.serverError });
-    } else {
-      toastSuccess({ description: "Updated successfully" });
-      onUpdated?.(result.data);
-    }
-    
-    setLoading(false);
-  }
-
-  return (
-    <form action={handleSubmit}>
-      {/* form fields */}
-    </form>
-  );
-}
-```
-
-### With React Hook Form
-
-```tsx
-"use client";
-
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  Form,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormControl,
-  Button,
-  toastSuccess,
-  toastError,
-} from "mingster.backbone";
-
-export function UserForm() {
-  const form = useForm({
-    resolver: zodResolver(userSchema),
-    defaultValues: { name: "", email: "" },
-  });
-
-  async function onSubmit(data: UserInput) {
-    const result = await updateUserAction(data);
-    
-    if (result?.serverError) {
-      toastError({ description: result.serverError });
-      return;
-    }
-    
-    toastSuccess({ description: "User updated!" });
-  }
-
-  return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)}>
-        {/* form fields */}
-        <Button type="submit" disabled={form.formState.isSubmitting}>
-          Submit
-        </Button>
-      </form>
-    </Form>
-  );
-}
 ```
 
 ## Error Handling
 
-### Standard Pattern
+Use `result?.serverError` with `toastError` and `toastSuccess`. Success toast is optional:
 
-Always use `toastSuccess` and `toastError` from `mingster.backbone`:
+```typescript
+import { toastError, toastSuccess } from "@/components/Toast";
 
-```tsx
-import { toastSuccess, toastError } from "mingster.backbone";
-
-const result = await someAction(data);
-
-if (result?.serverError) {
-  toastError({
-    title: "Error",  // optional
-    description: result.serverError,
-  });
-  return;
-}
-
-toastSuccess({ 
-  description: "Operation successful!" 
-});
-```
-
-### With Try/Catch
-
-```tsx
-try {
-  const response = await fetch("/api/data");
-  if (!response.ok) throw new Error("Failed to fetch");
-  const data = await response.json();
-  toastSuccess({ description: "Data loaded" });
-} catch (error) {
-  toastError({ 
-    description: error instanceof Error ? error.message : "Unknown error" 
-  });
-}
-```
-
-## Loading States
-
-### Server Components
-
-Use `Suspense` with fallback:
-
-```tsx
-import { Suspense } from "react";
-import { Loader } from "mingster.backbone";
-
-<Suspense fallback={<Loader />}>
-  <AsyncComponent />
-</Suspense>
-```
-
-### Client Components (SWR)
-
-```tsx
-const { data, isLoading } = useSWR("/api/data", fetcher);
-
-if (isLoading) return <Loader />;
-```
-
-### Form Submissions
-
-```tsx
-const [loading, setLoading] = useState(false);
-
-<Button disabled={loading || form.formState.isSubmitting}>
-  {loading ? "Saving..." : "Save"}
-</Button>
-```
-
-## Best Practices
-
-1. **Prefer Server Components**: Use for initial page loads and SEO
-2. **Use SWR for dynamic data**: Real-time updates, user-dependent data
-3. **Server Actions for mutations**: All create/update/delete operations
-4. **Transform BigInt**: Always use `transformBigIntToNumbers` before passing to client
-5. **Error handling**: Always use `toastError` and `toastSuccess`
-6. **Loading states**: Show `<Loader />` during async operations
-7. **Revalidation**: Use SWR's `mutate` to refresh data after mutations
-8. **Type safety**: Use TypeScript for all data interfaces
-
-## Common Patterns
-
-### CRUD with Server Components + Client State
-
-```tsx
-// page.tsx (Server Component)
-export default async function UsersPage() {
-  const users = await prismadb.user.findMany();
-  transformBigIntToNumbers(users);
-  
-  return <UsersClient serverData={users} />;
-}
-
-// client-users.tsx (Client Component)
-"use client";
-
-export function UsersClient({ serverData }: { serverData: User[] }) {
-  const [data, setData] = useState(serverData);
-  
-  const handleUpdated = (updated: User) => {
-    setData(prev => prev.map(u => u.id === updated.id ? updated : u));
-  };
-  
-  return <DataTable columns={columns} data={data} />;
-}
-```
-
-### Optimistic Updates with SWR
-
-```tsx
-const { data, mutate } = useSWR("/api/users", fetcher);
-
-async function handleUpdate(user: User) {
-  // Optimistically update UI
-  mutate(
-    data?.map(u => u.id === user.id ? user : u),
-    false  // Don't revalidate immediately
-  );
-  
-  // Make API call
-  const result = await updateUserAction(user);
-  
+const onSubmit: SubmitHandler<TestRulesInputs> = useCallback(async (data) => {
+  const result = await testAiCustomContentAction({ content: data.message });
   if (result?.serverError) {
-    mutate(); // Revert on error
-    toastError({ description: result.serverError });
+    toastError({
+      title: "Error testing email",
+      description: result?.serverError || "",
+    });
   } else {
-    mutate(); // Revalidate to get fresh data
-    toastSuccess({ description: "Updated!" });
+    toastSuccess({ description: "Saved!" });
   }
-}
+}, []);
 ```
-
-## Migration Notes
-
-Previously, the project may have used:
-
-- `@/components/Toast` → Now use `mingster.backbone` for toast functions
-- Local `cn` utility → Now use `cn` from `mingster.backbone`
-- Custom loading components → Now use `Loader` from `mingster.backbone`
-
-All toast and utility imports should come from `mingster.backbone`.

@@ -1,7 +1,7 @@
 ---
 description: Components Directory Guide - Use Local Components Only
 globs: **/*.js,**/*.jsx,**/*.ts,**/*.tsx
-alwaysApply: false
+alwaysApply: true
 ---
 
 # Components Directory Guide
@@ -291,11 +291,13 @@ import { useI18n } from "@/providers/i18n-provider";
 ## Server vs Client Components
 
 ### Server Components (default)
+
 - Use for data fetching
 - No need for "use client" directive
 - Can import server-side utilities
 
 ### Client Components
+
 - Require "use client" at top of file
 - Use for interactivity (useState, useEffect, event handlers)
 - Components using `useSearchParams()` need Suspense boundary

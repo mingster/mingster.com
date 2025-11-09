@@ -1,7 +1,7 @@
 ---
 description: Guidelines for implementing Next.js Server Actions with Better Auth
 globs: **/*.ts
-alwaysApply: false
+alwaysApply: true
 ---
 # Server Action Guide
 
