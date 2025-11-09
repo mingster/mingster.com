@@ -5,6 +5,16 @@
 	  "enabled": true,
 	  "indentStyle": "tab"
 	},
+	"css": {
+	  "formatter": {
+		"enabled": true,
+		"indentStyle": "space",
+		"indentWidth": 2
+	  },
+	  "parser": {
+		"tailwindDirectives": true
+	  }
+	},
 	"assist": { "actions": { "source": { "organizeImports": "off" } } },
 	"linter": {
 	  "enabled": true,
