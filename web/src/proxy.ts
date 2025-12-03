@@ -42,7 +42,7 @@ const badRequest = new NextResponse(null, {
 	headers: { "Content-Type": "text/plain" },
 });
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
 	// Prevent storeAdmin routes from being matched by (store)/[storeId] pattern
 	const pathname = req.nextUrl.pathname;
 
