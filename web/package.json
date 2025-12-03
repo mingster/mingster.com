@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack -p 3001",
-    "debugdev": "bun run postinstall; NODE_OPTIONS='--inspect' next dev --turbopack -p 3001",
+    "dev": "next dev -p 3001",
+    "debugdev": "bun run postinstall; NODE_OPTIONS='--inspect' next dev -p 3001",
     "build": "bun run postinstall; next build",
     "start": "next start -p 3001",
     "format": "npx biome format --write ./src",
@@ -23,6 +23,7 @@
     "bio_lint": "npx biome check --fix ./src"
   },
   "dependencies": {
+    "@better-auth/passkey": "^1.4.5",
     "@better-auth/stripe": "^1.4.5",
     "@daveyplate/better-auth-ui": "^3.2.13",
     "@dnd-kit/core": "^6.3.1",
