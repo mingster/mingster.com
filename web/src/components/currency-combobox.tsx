@@ -89,7 +89,7 @@ export const CurrencyCombobox = ({
 										<CommandItem
 											key={currency.id}
 											value={currency.id.toLocaleUpperCase()}
-											onSelect={(newValue) => {
+											onSelect={(newValue: string) => {
 												//console.log('onSelect: ' + value);
 												setSelected(newValue.toLocaleUpperCase());
 												//setSelected(currencies.find((o) => o.id === value)?.id || null);

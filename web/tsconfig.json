@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
+    "target": "ESNext",
     "lib": [
       "dom",
       "dom.iterable",
@@ -27,7 +27,25 @@
       "@/*": [
         "./src/*"
       ]
-    }
+    },
+    // Performance optimizations
+    "assumeChangesOnlyAffectDirectDependencies": true,
+    "disableSourceOfProjectReferenceRedirect": true,
+    "disableSolutionSearching": true,
+    "noEmitOnError": false,
+    "preserveWatchOutput": false,
+    // Additional build optimizations
+    "forceConsistentCasingInFileNames": true,
+    "exactOptionalPropertyTypes": false,
+    "noImplicitReturns": false,
+    "noFallthroughCasesInSwitch": false,
+    "noUncheckedIndexedAccess": false,
+    "noImplicitOverride": false,
+    // Faster compilation
+    "importsNotUsedAsValues": "remove",
+    "verbatimModuleSyntax": false,
+    "allowSyntheticDefaultImports": true,
+    "useDefineForClassFields": true
   },
   "include": [
     "next-env.d.ts",
@@ -37,6 +55,9 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    ".next",
+    "out",
+    "dist"
   ]
 }

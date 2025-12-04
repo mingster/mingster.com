@@ -64,7 +64,7 @@ export const TwBankCodeCombobox = ({
 									<CommandItem
 										key={obj.Value}
 										value={obj.Value}
-										onSelect={(value) => {
+										onSelect={(value: string) => {
 											//console.log('onSelect: ' + value);
 											setSelected(value);
 											//setSelected(currencies.find((o) => o.id === value)?.id || null);

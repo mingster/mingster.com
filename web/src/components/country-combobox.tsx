@@ -94,7 +94,7 @@ export const CountryCombobox = ({
 										<CommandItem
 											key={obj.alpha3}
 											value={obj.alpha3}
-											onSelect={(value) => {
+											onSelect={(value: string) => {
 												//console.log('onSelect: ' + value);
 												setSelected(value);
 												//setSelected(currencies.find((o) => o.id === value)?.id || null);
