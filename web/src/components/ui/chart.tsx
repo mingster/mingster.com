@@ -132,7 +132,13 @@ function ChartTooltipContent({
 		}>;
 		label?: unknown;
 		labelFormatter?: (label: unknown, payload: unknown) => React.ReactNode;
-		formatter?: (value: unknown, name: unknown, props: unknown, index?: number, payload?: unknown) => React.ReactNode;
+		formatter?: (
+			value: unknown,
+			name: unknown,
+			props: unknown,
+			index?: number,
+			payload?: unknown,
+		) => React.ReactNode;
 		color?: string;
 		hideLabel?: boolean;
 		hideIndicator?: boolean;
@@ -206,8 +212,17 @@ function ChartTooltipContent({
 								indicator === "dot" && "items-center",
 							)}
 						>
-							{formatter && item?.value !== undefined && item?.value !== null && item.name ? (
-								formatter(item.value as never, item.name as never, item as never, index, item.payload)
+							{formatter &&
+							item?.value !== undefined &&
+							item?.value !== null &&
+							item.name ? (
+								formatter(
+									item.value as never,
+									item.name as never,
+									item as never,
+									index,
+									item.payload,
+								)
 							) : (
 								<>
 									{itemConfig?.icon ? (
@@ -248,8 +263,9 @@ function ChartTooltipContent({
 										</div>
 										{item.value !== undefined && item.value !== null && (
 											<span className="text-foreground font-mono font-medium tabular-nums">
-												{typeof item.value === 'number' || typeof item.value === 'bigint' 
-													? item.value.toLocaleString() 
+												{typeof item.value === "number" ||
+												typeof item.value === "bigint"
+													? item.value.toLocaleString()
 													: String(item.value)}
 											</span>
 										)}
