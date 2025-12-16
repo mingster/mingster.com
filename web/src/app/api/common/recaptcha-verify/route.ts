@@ -1,8 +1,8 @@
 import { verifyRecaptcha } from "@/lib/recaptcha-verify";
-
 import { RecaptchaEnterpriseServiceClient } from "@google-cloud/recaptcha-enterprise";
 import logger from "@/lib/logger";
 import { NextResponse } from "next/server";
+import { getUtcNowEpoch, epochToDate } from "@/utils/datetime-utils";
 
 /**
  * Endpoint for verifying reCAPTCHA tokens
@@ -89,7 +89,7 @@ export async function POST(request: Request) {
 			hasEnterpriseConfig
 		) {
 			try {
-				const projectID = process.env.GOOGLE_CLOUD_PROJECT_ID || "pstv-web";
+				const projectID = process.env.GOOGLE_CLOUD_PROJECT_ID || "riben-web";
 				const recaptchaKey = process.env.NEXT_PUBLIC_RECAPTCHA as string;
 
 				// Create the reCAPTCHA client
@@ -222,7 +222,9 @@ export async function POST(request: Request) {
 				userIpAddress,
 				userAgent,
 			},
-			timestamp: new Date().toISOString(),
+			timestamp:
+				epochToDate(getUtcNowEpoch())?.toISOString() ||
+				new Date().toISOString(),
 		});
 	} catch (error) {
 		log.error("reCAPTCHA verification test failed", {
