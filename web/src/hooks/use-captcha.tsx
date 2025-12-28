@@ -1,9 +1,8 @@
 "use client";
 
 import { AuthUIContext } from "@daveyplate/better-auth-ui";
-import { useGoogleReCaptcha } from "@wojtekmaj/react-recaptcha-v3";
-import type ReCAPTCHA from "react-google-recaptcha";
-import { type RefObject, useContext, useRef } from "react";
+import { useContext, useRef } from "react";
+import { useRecaptcha } from "./use-recaptcha";
 
 // Default captcha endpoints
 const DEFAULT_CAPTCHA_ENDPOINTS = [
@@ -33,7 +32,7 @@ export function useCaptcha() {
 	const { captcha } = useContext(AuthUIContext);
 
 	const captchaRef = useRef<any>(null);
-	const { executeRecaptcha } = useGoogleReCaptcha();
+	const { executeRecaptcha } = useRecaptcha(true);
 
 	const executeCaptcha = async (action: string) => {
 		if (!captcha) {
@@ -60,26 +59,26 @@ export function useCaptcha() {
 				break;
 			}
 			/*
-            case "google-recaptcha-v2-checkbox": {
-                const recaptchaRef = captchaRef as RefObject<ReCAPTCHA>
-                response = recaptchaRef.current.getValue()
-                break
-            }
-            case "google-recaptcha-v2-invisible": {
-                const recaptchaRef = captchaRef as RefObject<ReCAPTCHA>
-                response = await recaptchaRef.current.executeAsync()
-                break
-            }
-            case "cloudflare-turnstile": {
-                const turnstileRef = captchaRef as RefObject<TurnstileInstance>
-                response = turnstileRef.current.getResponse()
-                break
-            }
-            case "hcaptcha": {
-                const hcaptchaRef = captchaRef as RefObject<HCaptcha>
-                response = hcaptchaRef.current.getResponse()
-                break
-            }
+			case "google-recaptcha-v2-checkbox": {
+				const recaptchaRef = captchaRef as RefObject<ReCAPTCHA>
+				response = recaptchaRef.current.getValue()
+				break
+			}
+			case "google-recaptcha-v2-invisible": {
+				const recaptchaRef = captchaRef as RefObject<ReCAPTCHA>
+				response = await recaptchaRef.current.executeAsync()
+				break
+			}
+			case "cloudflare-turnstile": {
+				const turnstileRef = captchaRef as RefObject<TurnstileInstance>
+				response = turnstileRef.current.getResponse()
+				break
+			}
+			case "hcaptcha": {
+				const hcaptchaRef = captchaRef as RefObject<HCaptcha>
+				response = hcaptchaRef.current.getResponse()
+				break
+			}
 			*/
 			default: {
 				break;

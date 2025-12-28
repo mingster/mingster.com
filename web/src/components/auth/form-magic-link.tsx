@@ -2,14 +2,16 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { BetterFetchOption } from "better-auth/react";
-import { useGoogleReCaptcha } from "@wojtekmaj/react-recaptcha-v3";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod/v4";
 import { useTranslation } from "@/app/i18n/client";
 import { useIsHydrated } from "@/hooks/use-hydrated";
+import { useRecaptcha } from "@/hooks/use-recaptcha";
+import { analytics } from "@/lib/analytics";
 import { authClient } from "@/lib/auth-client";
+import { clientLogger } from "@/lib/client-logger";
 import { useI18n } from "@/providers/i18n-provider";
 import { toastError, toastSuccess } from "../toaster";
 import { Button } from "../ui/button";
@@ -22,15 +24,12 @@ import {
 	FormMessage,
 } from "../ui/form";
 import { Input } from "../ui/input";
-import { RecaptchaV3 } from "./recaptcha-v3";
-import { clientLogger } from "@/lib/client-logger";
-import { analytics } from "@/lib/analytics";
 
 function FormMagicLinkInner({ callbackUrl = "/" }: { callbackUrl?: string }) {
 	const { lng } = useI18n();
 	const { t } = useTranslation(lng);
 	const isHydrated = useIsHydrated();
-	const { executeRecaptcha } = useGoogleReCaptcha();
+	const { executeRecaptcha } = useRecaptcha(true);
 
 	const formSchema = z.object({
 		email: z
@@ -182,9 +181,5 @@ export default function FormMagicLink({
 }: {
 	callbackUrl?: string;
 }) {
-	return (
-		<RecaptchaV3 actionName="magic-link">
-			<FormMagicLinkInner callbackUrl={callbackUrl} />
-		</RecaptchaV3>
-	);
+	return <FormMagicLinkInner callbackUrl={callbackUrl} />;
 }

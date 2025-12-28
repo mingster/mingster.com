@@ -1,16 +1,19 @@
+import { GoogleAnalytics } from "@next/third-parties/google";
+import type { Viewport } from "next";
+import { cookies } from "next/headers";
+import Script from "next/script";
+import { CookiesProvider } from "next-client-cookies/server";
+import { ThemeProvider } from "next-themes";
+import { Suspense } from "react";
+import { cookieName, fallbackLng } from "@/app/i18n/settings";
 import { PageViewTracker } from "@/components/analytics/page-view-tracker";
 import { IOSVersionCheck } from "@/components/ios-version-check";
+import { RecaptchaScript } from "@/components/recaptcha-script";
 import { Toaster } from "@/components/toaster";
 import I18nProvider from "@/providers/i18n-provider";
 import { SessionWrapper } from "@/providers/session-provider";
-import ThemeProvider from "@/providers/theme-provider";
-import type { Viewport } from "next";
-import { CookiesProvider } from "next-client-cookies/server";
-import { Suspense } from "react";
-
-import { GoogleAnalytics } from "@next/third-parties/google";
 import "./css/globals.css";
-import { getT } from "./i18n";
+import { getT } from "@/app/i18n";
 
 export const viewport: Viewport = {
 	width: "device-width",
@@ -104,9 +107,46 @@ export default async function RootLayout({
 }: Readonly<{
 	children: React.ReactNode;
 }>) {
+	const cookieStore = await cookies();
+	const langCookie = cookieStore.get(cookieName);
+	const htmlLang = langCookie?.value ?? fallbackLng;
+
+	//</RecaptchaProvider>
 	return (
-		<html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
+		<html lang={htmlLang} suppressHydrationWarning>
+			<head suppressHydrationWarning={true} />
 			<body className={"antialiased"}>
+				<Script
+					id="theme-init"
+					strategy="beforeInteractive"
+					// biome-ignore lint/security/noDangerouslySetInnerHtml: Theme initialization must run before hydration to prevent flash
+					dangerouslySetInnerHTML={{
+						__html: `
+							(function() {
+								try {
+									var theme = localStorage.getItem('theme');
+									var isDark = false;
+									
+									if (theme === 'dark') {
+										isDark = true;
+									} else if (theme === 'light') {
+										isDark = false;
+									} else if (theme === 'system' || !theme) {
+										// Use system preference or default to dark
+										isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+									}
+									
+									if (isDark) {
+										document.documentElement.classList.add('dark');
+									} else {
+										document.documentElement.classList.remove('dark');
+									}
+								} catch (e) {}
+							})();
+						`,
+					}}
+				/>
+				<RecaptchaScript useEnterprise={true} />
 				<ThemeProvider
 					attribute="class"
 					defaultTheme="dark"
@@ -114,7 +154,7 @@ export default async function RootLayout({
 					disableTransitionOnChange
 				>
 					<CookiesProvider>
-						<I18nProvider>
+						<I18nProvider initialLng={htmlLang}>
 							<SessionWrapper>
 								<IOSVersionCheck>
 									<Suspense fallback={null}>
@@ -127,10 +167,9 @@ export default async function RootLayout({
 					</CookiesProvider>
 				</ThemeProvider>
 				<Toaster />
-				{process.env.NODE_ENV === "production" &&
-					process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
-						<GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID} />
-					)}
+				{process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
+					<GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID} />
+				)}
 			</body>
 		</html>
 	);
