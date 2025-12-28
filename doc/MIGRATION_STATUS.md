@@ -278,7 +278,7 @@ git restore src/hooks/
 After migration:
 - **~15,000 lines of code** removed
 - **~80 files** deleted
-- **Shared maintenance** with riben.life
+- **Shared maintenance** with mingster.com
 - **Consistent UI/UX** across projects
 - **Faster development** (reuse components)
 - **Better type safety** (centralized types)

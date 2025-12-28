@@ -1,10 +1,10 @@
+import type { PlatformSettings } from "@prisma/client";
 import type Stripe from "stripe";
+import logger from "@/lib/logger";
 import { sqlClient } from "@/lib/prismadb";
 import { stripe } from "@/lib/stripe/config";
 import type { StringNVType } from "@/types/enum";
-import logger from "@/lib/logger";
 import ClientSettings from "./components/client-settings";
-import type { PlatformSettings } from "@prisma/client";
 
 type Params = Promise<{ storeId: string }>;
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
@@ -30,8 +30,8 @@ export default async function SettingsAdminPage(props: {
 		// init if empty
 		if (!setting.settings) {
 			const settingsKV: StringNVType[] = [];
-			settingsKV.push({ label: "App.Name", value: "riben.life" });
-			settingsKV.push({ label: "Support.Email", value: "support@riben.life" });
+			settingsKV.push({ label: "App.Name", value: "mingster.com" });
+			settingsKV.push({ label: "Support.Email", value: "support@mingster.com" });
 
 			setting.settings = JSON.stringify(settingsKV);
 			console.log("setting.settings", setting.settings);

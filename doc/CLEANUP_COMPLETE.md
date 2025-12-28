@@ -127,7 +127,7 @@ The following were **NOT** deleted as they are specific to mingster.com:
 - **Reduction**: ~80 files / ~15,000 LOC
 
 ### Benefits
-- ✅ **Shared Codebase**: Components now shared with riben.life
+- ✅ **Shared Codebase**: Components now shared with mingster.com
 - ✅ **Consistency**: Same UI/UX across projects
 - ✅ **Maintainability**: Update once, benefit everywhere
 - ✅ **Type Safety**: Full TypeScript support

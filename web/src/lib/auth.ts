@@ -28,9 +28,32 @@ const options = {
 } satisfies BetterAuthOptions;
 
 export const auth = betterAuth({
+	baseURL:
+		process.env.NEXT_PUBLIC_BASE_URL ||
+		process.env.NEXT_PUBLIC_API_URL ||
+		(process.env.NODE_ENV === "production"
+			? "https://mingster.com"
+			: "http://localhost:3002"),
 	database: prismaAdapter(prisma, {
 		provider: "postgresql", // or "mysql", "postgresql", ...etc
 	}),
+	roles: [
+		{ name: "user" },
+		{ name: "owner" },
+		{ name: "staff" },
+		{ name: "storeAdmin" },
+		{ name: "admin" },
+	],
+	advanced: {
+		cookies: {
+			state: {
+				attributes: {
+					sameSite: "none",
+					secure: true,
+				},
+			},
+		},
+	},
 	session: {
 		expiresIn: 60 * 60 * 24 * 365, // 365 days
 		updateAge: 60 * 60 * 24, // 1 day (every 1 day the session expiration is updated)
@@ -39,7 +62,7 @@ export const auth = betterAuth({
 		accountLinking: {
 			enabled: true,
 			allowDifferentEmails: true,
-			trustedProviders: ["google", "line"],
+			trustedProviders: ["google", "line", "apple"],
 		},
 	},
 	emailAndPassword: {
@@ -74,7 +97,14 @@ export const auth = betterAuth({
 			clientSecret: process.env.AUTH_LINE_SECRET as string,
 			scopes: ["openid", "profile", "email"],
 		},
+		apple: {
+			clientId: process.env.AUTH_APPLE_ID as string,
+			clientSecret: process.env.AUTH_APPLE_SECRET as string,
+			// Optional
+			appBundleIdentifier: process.env.APPLE_APP_BUNDLE_IDENTIFIER as string,
+		},
 	},
+	trustedOrigins: ["https://appleid.apple.com", "https://mingster.com"],
 	plugins: [
 		...(options.plugins ?? []),
 		customSession(async ({ user, session }, ctx) => {
@@ -146,7 +176,7 @@ export const auth = betterAuth({
 		organization(),
 		admin({
 			adminRoles: ["admin"],
-			//sysAdminUserIds: ["Nz6WKKKMKvadXXmgZgaHiqIYOuXr31w1"],
+			//adminUserIds: ["Nz6WKKKMKvadXXmgZgaHiqIYOuXr31w1"],
 			//impersonationSessionDuration: 60 * 60 * 24, // 1 day
 		}),
 	],
@@ -181,7 +211,6 @@ export const auth = betterAuth({
 			stripeCustomerId: {
 				type: "string",
 				required: false,
-				defaultValue: "",
 				input: false, // don't allow user to set role
 			},
 		},

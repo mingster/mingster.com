@@ -13,10 +13,17 @@ generator client {
 
 datasource db {
   provider     = "postgres"
-  url          = env("PRISMA_DATABASE_URL")
+  url          = env("POSTGRES_PRISMA_URL")
   relationMode = "prisma"
 }
 
+enum Role {
+  user
+  owner
+  staff
+  storeAdmin
+  admin
+}
 
 model User {
   id            String   @id @default(cuid())
@@ -27,10 +34,12 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  role             String? @default("user")
+  role             String?  @default("user")
   locale           String?
   timezone         String?
-  stripeCustomerId String? @unique
+  stripeCustomerId String?  @unique
+  phone            String?
+  phoneVerified    Boolean? @default(false)
 
   twoFactorEnabled Boolean? @default(false)
 
@@ -50,6 +59,8 @@ model User {
 
   @@unique([normalizedEmail])
   @@index([email])
+  @@index([createdAt])
+  @@index([updatedAt])
   @@map("user")
 }
 
@@ -91,12 +102,6 @@ model Session {
   @@unique([token])
   @@index([userId])
   @@map("session")
-}
-
-enum Role {
-  user
-  admin
-  owner
 }
 
 model Verification {
@@ -197,6 +202,8 @@ model Member {
 
   @@index([userId])
   @@index([organizationId])
+  // Composite indexes for common query patterns
+  @@index([organizationId, role]) // For role-based access checks
   @@map("member")
 }
 
@@ -277,30 +284,30 @@ model PlatformSettings {
 
 model Country {
   name          String
-  unCode        String  @unique @db.VarChar(3)
-  allowBilling  Boolean @default(false)
-  allowShipping Boolean @default(false)
-  allowInStore  Boolean @default(false)
-  alpha3        String  @id @unique @db.VarChar(3)
+  unCode        String    @unique @db.VarChar(3)
+  allowBilling  Boolean   @default(false)
+  allowShipping Boolean   @default(false)
+  allowInStore  Boolean   @default(false)
+  alpha3        String    @id @unique @db.VarChar(3)
 
   @@index([name])
   @@index([alpha3])
 }
 
 model Currency {
-  id           String  @id @unique
-  name         String
-  symbol       String?
-  ISOdigits    Int?
-  ISOnum       Int?
-  decimals     Int?
-  demonym      String
-  majorPlural  String?
-  majorSingle  String?
-  minorPlural  String?
-  minorSingle  String?
-  numToBasic   Int?
-  symbolNative String
+  id             String           @id @unique
+  name           String
+  symbol         String?
+  ISOdigits      Int?
+  ISOnum         Int?
+  decimals       Int?
+  demonym        String
+  majorPlural    String?
+  majorSingle    String?
+  minorPlural    String?
+  minorSingle    String?
+  numToBasic     Int?
+  symbolNative   String
 
   @@index([name])
   @@index([demonym])
@@ -321,7 +328,6 @@ model Locale {
   @@index([name])
 }
 
-
 model SystemMessage {
   id        String   @id @default(uuid())
   localeId  String   @unique
@@ -334,7 +340,6 @@ model SystemMessage {
   @@index([localeId])
   @@index([createdOn])
 }
-
 
 model MessageTemplate {
   id                       String                     @id @default(uuid())

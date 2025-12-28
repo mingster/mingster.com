@@ -228,7 +228,7 @@ To test the integration:
 
 ## 📈 Benefits
 
-- ✅ **Code Reuse**: Share components between riben.life and mingster.com
+- ✅ **Code Reuse**: Share components between mingster.com and mingster.com
 - ✅ **Consistency**: Same UI/UX across projects
 - ✅ **Maintainability**: Update once, benefit everywhere
 - ✅ **Type Safety**: Full TypeScript support
