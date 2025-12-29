@@ -34,12 +34,12 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  role             String?  @default("user")
-  locale           String?
-  timezone         String?
-  stripeCustomerId String?  @unique
-  phone            String?
-  phoneVerified    Boolean? @default(false)
+  role                String?  @default("user")
+  locale              String?
+  timezone            String?
+  stripeCustomerId    String?  @unique
+  phoneNumber         String?
+  phoneNumberVerified Boolean? @default(false)
 
   twoFactorEnabled Boolean? @default(false)
 
@@ -284,30 +284,30 @@ model PlatformSettings {
 
 model Country {
   name          String
-  unCode        String    @unique @db.VarChar(3)
-  allowBilling  Boolean   @default(false)
-  allowShipping Boolean   @default(false)
-  allowInStore  Boolean   @default(false)
-  alpha3        String    @id @unique @db.VarChar(3)
+  unCode        String  @unique @db.VarChar(3)
+  allowBilling  Boolean @default(false)
+  allowShipping Boolean @default(false)
+  allowInStore  Boolean @default(false)
+  alpha3        String  @id @unique @db.VarChar(3)
 
   @@index([name])
   @@index([alpha3])
 }
 
 model Currency {
-  id             String           @id @unique
-  name           String
-  symbol         String?
-  ISOdigits      Int?
-  ISOnum         Int?
-  decimals       Int?
-  demonym        String
-  majorPlural    String?
-  majorSingle    String?
-  minorPlural    String?
-  minorSingle    String?
-  numToBasic     Int?
-  symbolNative   String
+  id           String  @id @unique
+  name         String
+  symbol       String?
+  ISOdigits    Int?
+  ISOnum       Int?
+  decimals     Int?
+  demonym      String
+  majorPlural  String?
+  majorSingle  String?
+  minorPlural  String?
+  minorSingle  String?
+  numToBasic   Int?
+  symbolNative String
 
   @@index([name])
   @@index([demonym])

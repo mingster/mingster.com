@@ -1,6 +1,7 @@
 import { stripe } from "@better-auth/stripe";
 import { PrismaClient } from "@prisma/client";
 import { prismaAdapter } from "better-auth/adapters/prisma";
+import { phoneNumber } from "better-auth/plugins"
 
 import { passkey } from "@better-auth/passkey";
 import { betterAuth, type BetterAuthOptions } from "better-auth";
@@ -155,6 +156,23 @@ export const auth = betterAuth({
 						}));
 					});
 			},
+		}),
+		phoneNumber({
+			sendOTP: ({ phoneNumber, code }, ctx) => {
+				// TODO: Implement sending OTP code via SMS
+			},
+			verifyOTP: async ({ phoneNumber, code }, ctx) => {
+				// TODO: Verify OTP with your desired logic (e.g., Twilio Verify)
+				// This is just an example, not a real implementation.
+				/*
+				  const isValid = await twilioClient.verify 
+					  .services('YOUR_SERVICE_SID') 
+					  .verificationChecks 
+					  .create({ to: phoneNumber, code }); 
+				  return isValid.status === 'approved'; 
+				  */
+				return true;
+			}
 		}),
 		twoFactor(),
 		magicLink({
