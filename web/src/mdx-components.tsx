@@ -1,7 +1,7 @@
 import type { MDXComponents } from "mdx/types";
+import Link from "next/link";
 import React from "react";
 import { CodeExample } from "./components/code-example";
-import Link from "next/link";
 
 declare module "mdx/types" {
 	// Augment the MDX types to make it understand React.

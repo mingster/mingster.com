@@ -1,24 +1,22 @@
+import { passkey } from "@better-auth/passkey";
 import { stripe } from "@better-auth/stripe";
 import { PrismaClient } from "@prisma/client";
+import { type BetterAuthOptions, betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { phoneNumber } from "better-auth/plugins"
-
-import { passkey } from "@better-auth/passkey";
-import { betterAuth, type BetterAuthOptions } from "better-auth";
-import { emailHarmony } from "better-auth-harmony";
 import {
 	admin,
 	apiKey,
 	bearer,
+	customSession,
 	magicLink,
 	organization,
+	phoneNumber,
 	twoFactor,
 } from "better-auth/plugins";
-
+import { emailHarmony } from "better-auth-harmony";
 import { sendAuthMagicLink } from "@/actions/mail/send-auth-magic-link";
 import { sendAuthPasswordReset } from "@/actions/mail/send-auth-password-reset";
 import { stripe as stripeClient } from "@/lib/stripe/config";
-import { customSession } from "better-auth/plugins";
 import { sqlClient } from "./prismadb";
 
 const prisma = new PrismaClient();
@@ -74,7 +72,7 @@ export const auth = betterAuth({
 				enabled: true,
 			},
 		},
-		sendResetPassword: async ({ user, url, token }, request) => {
+		sendResetPassword: async ({ user, url, token }, _request) => {
 			await sendAuthPasswordReset(user.email, url);
 		},
 	},
@@ -105,10 +103,14 @@ export const auth = betterAuth({
 			appBundleIdentifier: process.env.APPLE_APP_BUNDLE_IDENTIFIER as string,
 		},
 	},
-	trustedOrigins: ["https://appleid.apple.com", "https://mingster.com"],
+	trustedOrigins: [
+		"https://appleid.apple.com",
+		"https://mingster.com",
+		"http://localhost:3002",
+	],
 	plugins: [
 		...(options.plugins ?? []),
-		customSession(async ({ user, session }, ctx) => {
+		customSession(async ({ user, session }, _ctx) => {
 			// Include role and other user fields in the session
 			const typedUser = user as any;
 			const typedSession = session as any;
@@ -138,7 +140,7 @@ export const auth = betterAuth({
 					return [];
 				}
 
-				const pricesResponse = await stripeClient.prices
+				const _pricesResponse = await stripeClient.prices
 					.list({
 						product: setting.stripeProductId as string,
 					})
@@ -158,10 +160,10 @@ export const auth = betterAuth({
 			},
 		}),
 		phoneNumber({
-			sendOTP: ({ phoneNumber, code }, ctx) => {
+			sendOTP: ({ phoneNumber, code }, _ctx) => {
 				// TODO: Implement sending OTP code via SMS
 			},
-			verifyOTP: async ({ phoneNumber, code }, ctx) => {
+			verifyOTP: async ({ phoneNumber, code }, _ctx) => {
 				// TODO: Verify OTP with your desired logic (e.g., Twilio Verify)
 				// This is just an example, not a real implementation.
 				/*
@@ -172,11 +174,11 @@ export const auth = betterAuth({
 				  return isValid.status === 'approved'; 
 				  */
 				return true;
-			}
+			},
 		}),
 		twoFactor(),
 		magicLink({
-			sendMagicLink: async ({ email, url, token }, request) => {
+			sendMagicLink: async ({ email, url, token }, _request) => {
 				await sendAuthMagicLink(email, url);
 			},
 			expiresIn: 60 * 60 * 24, // 24 hours
@@ -200,12 +202,12 @@ export const auth = betterAuth({
 	],
 	user: {
 		additionalFields: {
-			phone: {
+			phoneNumber: {
 				type: "string",
 				required: false,
 				defaultValue: "",
 			},
-			phoneVerified: {
+			phoneNumberVerified: {
 				type: "boolean",
 				required: false,
 				defaultValue: false,

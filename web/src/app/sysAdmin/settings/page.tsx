@@ -31,7 +31,10 @@ export default async function SettingsAdminPage(props: {
 		if (!setting.settings) {
 			const settingsKV: StringNVType[] = [];
 			settingsKV.push({ label: "App.Name", value: "mingster.com" });
-			settingsKV.push({ label: "Support.Email", value: "support@mingster.com" });
+			settingsKV.push({
+				label: "Support.Email",
+				value: "support@mingster.com",
+			});
 
 			setting.settings = JSON.stringify(settingsKV);
 			console.log("setting.settings", setting.settings);

@@ -6,12 +6,8 @@
 	  "indentStyle": "tab"
 	},
 	"css": {
-	  "formatter": {
-		"enabled": true,
-		"indentStyle": "space",
-		"indentWidth": 2
-	  },
 	  "parser": {
+		"cssModules": true,
 		"tailwindDirectives": true
 	  }
 	},

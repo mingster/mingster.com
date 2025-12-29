@@ -82,6 +82,7 @@ model Account {
   user      User?    @relation(fields: [userId], references: [id])
 
   @@index([userId])
+  @@map("account")
 }
 
 model Session {
@@ -113,6 +114,7 @@ model Verification {
   updatedAt  DateTime @default(now()) @updatedAt
 
   @@map("verification")
+  @@index([identifier])
 }
 
 model TwoFactor {
@@ -126,6 +128,7 @@ model TwoFactor {
 
   @@index([userId])
   @@map("twoFactor")
+  @@index([secret])
 }
 
 model Passkey {
@@ -145,6 +148,7 @@ model Passkey {
 
   @@index([userId])
   @@map("passkey")
+  @@index([credentialID])
 }
 
 model Apikey {
@@ -173,6 +177,7 @@ model Apikey {
 
   @@index([userId])
   @@map("apikey")
+  @@index([key])
 }
 
 model Organization {
@@ -200,10 +205,11 @@ model Member {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // Composite indexes for common query patterns
+  // For role-based access checks
   @@index([userId])
   @@index([organizationId])
-  // Composite indexes for common query patterns
-  @@index([organizationId, role]) // For role-based access checks
+  @@index([organizationId, role])
   @@map("member")
 }
 
@@ -219,9 +225,12 @@ model Invitation {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
 
+  createdAt DateTime @default(now())
+
   @@index([inviterId])
   @@index([organizationId])
   @@map("invitation")
+  @@index([email])
 }
 
 model Subscription {

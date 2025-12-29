@@ -1,40 +1,50 @@
-//export { auth as middleware } from "@/auth"
-
-//Protect all routes
 import { type NextRequest, NextResponse } from "next/server";
+import logger from "./lib/logger";
 
 export const config = {
-	matcher: [
-		/*
-		 * Match all request paths except for the ones starting with:
-		 * - api (API routes)
-		 * - _next/static (static files)
-		 * - _next/image (image optimization files)
-		 * - favicon.ico (favicon file)
-		 */
-		"/((?!api|_next/static|_next/image|favicon.ico).*)",
-	],
+	//matcher: ["/((>!api|?!_next/static|_next/image|favicon.ico).*)"],
+	matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
 
-// specify the path regex to apply the middleware to
-//export const config = {
-//This ensures that any route other than those for the register, login, and api directories will be protected.
-//matcher: ['/((?!register|api|signin/#).*)'],
-//matcher: ['/((?!register|signin/#).*)'],
-//};
+const CORS_HEADERS = {
+	"Access-Control-Allow-Credentials": "true",
+	"Access-Control-Allow-Methods": "POST, PUT, PATCH, GET, DELETE, OPTIONS",
+	"Content-Type": "application/json",
+	Allow: "GET, POST, PATCH, OPTIONS",
+	"Access-Control-Allow-Headers":
+		"Origin, X-Api-Key, X-Requested-With, Content-Type, Accept, Authorization",
+};
 
-// the list of all allowed origins
-const furls = process.env.FRONTEND_URLS;
+// Pre-compile regex patterns for better performance
+const API_PATH_REGEX = /\/api\//;
+const TRACKER_PATH_REGEX = /\/api\/tracker\//;
 
-//allow localhost:3000 if in development mode
-const allowedOrigins =
-	process.env.NODE_ENV === "production"
-		? (furls?.split(",") as string[])
-		: [
-				"http://localhost:3000",
-				"http://localhost:3001",
-				"https://api.stripe.com",
-			];
+// Cache allowed origins to avoid parsing on every request
+let cachedAllowedOrigins: Set<string> | null = null;
+let cachedFrontendUrls: string | null = null;
+
+/**
+ * Get allowed origins as a Set for O(1) lookup performance
+ * Cached to avoid parsing environment variable on every request
+ */
+const getAllowedOrigins = (): Set<string> => {
+	const furls = process.env.FRONTEND_URLS;
+
+	// Return cached result if environment variable hasn't changed
+	if (cachedAllowedOrigins && cachedFrontendUrls === furls) {
+		return cachedAllowedOrigins;
+	}
+
+	// Parse and cache the result
+	const origins = furls
+		? (furls.split(",") as string[]).map((url) => url.trim()).filter(Boolean)
+		: [];
+
+	cachedAllowedOrigins = new Set(origins);
+	cachedFrontendUrls = furls ?? null;
+
+	return cachedAllowedOrigins;
+};
 
 const badRequest = new NextResponse(null, {
 	status: 400,
@@ -42,69 +52,106 @@ const badRequest = new NextResponse(null, {
 	headers: { "Content-Type": "text/plain" },
 });
 
-export function proxy(req: NextRequest) {
-	// Prevent storeAdmin routes from being matched by (store)/[storeId] pattern
-	const pathname = req.nextUrl.pathname;
-
-	// If path contains storeAdmin but might be hitting store routes, ensure proper handling
-	if (pathname.startsWith("/storeAdmin")) {
-		// Let storeAdmin routes pass through normally
-		const res = NextResponse.next();
-		res.headers.set("x-current-path", pathname);
-		return res;
+/**
+ * Apply CORS headers to response in a single batch operation
+ * More efficient than multiple append() calls
+ */
+function applyCorsHeaders(response: NextResponse, origin: string | null): void {
+	if (origin) {
+		response.headers.set("Access-Control-Allow-Origin", origin);
 	}
 
-	// retrieve the current response
-	const res = NextResponse.next();
+	// Batch set all CORS headers at once
+	for (const [key, value] of Object.entries(CORS_HEADERS)) {
+		response.headers.set(key, value);
+	}
+}
 
-	// Add a new header x-current-path which passes the path to downstream components
-	res.headers.set("x-current-path", pathname);
+export function proxy(req: NextRequest) {
+	//#region csp - https://nextjs.org/docs/pages/guides/content-security-policy
+	/*
+	const nonce = Buffer.from(crypto.randomUUID()).toString('base64')
+	const cspHeader = `
+    default-src 'self';
+    script-src 'self' 'nonce-${nonce}' 'strict-dynamic';
+    style-src 'self' 'nonce-${nonce}';
+    img-src 'self' blob: data:;
+    font-src 'self';
+    object-src 'none';
+    base-uri 'self';
+    form-action 'self';
+    frame-ancestors 'none';
+    upgrade-insecure-requests;
+`
+	// Replace newline characters and spaces
+	const contentSecurityPolicyHeaderValue = cspHeader
+		.replace(/\s{2,}/g, ' ')
+		.trim()
 
-	// CORS apply only to api routes
-	//
-	const regex = /\/api\/*/;
-	if (regex.test(req.url)) {
-		const origin = req.headers.get("origin");
-		//console.log('origin: ' + origin);
+	const requestHeaders = new Headers(req.headers)
+	requestHeaders.set('x-nonce', nonce)
 
-		//this will block api tools like postman or thunderclient
-		//if ((origin && !allowedOrigins.includes(origin)) || !origin) {
-		if (origin && !allowedOrigins.includes(origin)) {
+	requestHeaders.set(
+		'Content-Security-Policy',
+		contentSecurityPolicyHeaderValue
+	)
+
+	const response = NextResponse.next({
+		request: {
+			headers: requestHeaders,
+		},
+	})
+	response.headers.set(
+		'Content-Security-Policy',
+		contentSecurityPolicyHeaderValue
+	)
+	*/
+	//#endregion
+
+	const response = NextResponse.next();
+
+	response.headers.set("x-current-path", req.nextUrl.pathname);
+
+	// Early return for non-API routes using pre-compiled regex
+	if (!API_PATH_REGEX.test(req.url)) {
+		return response;
+	}
+
+	//#region cors
+	// Skip CORS check for tracker API routes (allow Java clients)
+	if (TRACKER_PATH_REGEX.test(req.url)) {
+		applyCorsHeaders(response, "*");
+		return response;
+	}
+
+	const origin = req.headers.get("origin");
+
+	// Only process CORS if origin is present
+	if (origin) {
+		const allowedOrigins = getAllowedOrigins();
+
+		// Use Set.has() for O(1) lookup instead of array.includes() O(n)
+		if (!allowedOrigins.has(origin)) {
+			logger.warn("CORS blocked for origin", {
+				tags: ["cors"],
+				metadata: {
+					origin,
+					allowedOrigins: Array.from(allowedOrigins),
+				},
+				service: "proxy",
+				environment: process.env.NODE_ENV,
+				version: process.env.npm_package_version,
+				url: req.url || "",
+				method: req.method || "",
+			});
+
 			return badRequest;
 		}
 
-		// if the origin is an allowed one,
-		// add it to the 'Access-Control-Allow-Origin' header
-		if (origin && furls) {
-			const allowedOrigins = furls.split(",") as string[];
-			if (allowedOrigins.includes(origin)) {
-				res.headers.append("Access-Control-Allow-Origin", origin);
-
-				res.headers.append("Access-Control-Allow-Credentials", "true");
-				res.headers.append(
-					"Access-Control-Allow-Methods",
-					"POST, PUT, PATCH, GET, DELETE, OPTIONS",
-				);
-
-				// add the remaining CORS headers to the response
-				res.headers.append("Content-Type", "application/json");
-				res.headers.append("Allow", "GET, POST, PATCH, OPTIONS");
-
-				//Access-Control-Allow-Headers: Origin, X-Api-Key, X-Requested-With, Content-Type, Accept, Authorization
-				res.headers.append(
-					"Access-Control-Allow-Headers",
-					"Origin, X-Api-Key, X-Requested-With, Content-Type, Accept, Authorization",
-				);
-
-				//res.headers.append(
-				//'Access-Control-Allow-Headers',
-				//'Access-Control-Allow-Headers, Origin,Accept, X-Requested-With, Authorization, Content-Type, Access-Control-Request-Method, Access-Control-Request-Headers',
-				//);
-
-				//console.log('allow origin: ' + origin);
-			}
-		}
+		// Apply CORS headers for allowed origin
+		applyCorsHeaders(response, origin);
 	}
+	//#endregion
 
-	return res;
+	return response;
 }
