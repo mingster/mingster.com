@@ -7,7 +7,7 @@ This guide covers setting up and initializing the mingster.com database.
 1. **Database Setup**
    - PostgreSQL database configured
    - Environment variables set in `.env`:
-     - `POSTGRES_PRISMA_URL` or `DATABASE_URL`
+     - `POSTGRES_URL` or `DATABASE_URL`
      - `PRISMA_DATABASE_URL` (for schema)
 
 2. **Dependencies Installed**
@@ -242,7 +242,7 @@ bun run install:data
 Ensure these are set in production:
 
 - `DATABASE_URL` - PostgreSQL connection string
-- `POSTGRES_PRISMA_URL` - Prisma-specific URL (if different)
+- `POSTGRES_URL` - Prisma-specific URL (if different)
 - `STRIPE_SECRET_KEY` - Stripe API key
 - `STRIPE_PUBLISHABLE_KEY` - Stripe public key
 - Other app-specific variables
