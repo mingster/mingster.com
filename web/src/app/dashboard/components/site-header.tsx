@@ -1,10 +1,10 @@
 "use client";
 
-import { DropdownUser } from "@/components/auth/dropdown-user";
+import DropdownUser from "@/components/auth/dropdown-user";
+import { BackgroundImage } from "@/components/BackgroundImage";
 import { ThemeToggler } from "@/components/theme-toggler";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { BackgroundImage } from "@/components/BackgroundImage";
 
 export function SiteHeader() {
 	return (

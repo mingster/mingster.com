@@ -1,22 +1,24 @@
-import { passkey } from "@better-auth/passkey";
 import { stripe } from "@better-auth/stripe";
 import { PrismaClient } from "@prisma/client";
-import { type BetterAuthOptions, betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
+import { phoneNumber } from "better-auth/plugins";
+
+import { passkey } from "@better-auth/passkey";
+import { betterAuth, type BetterAuthOptions } from "better-auth";
+import { emailHarmony } from "better-auth-harmony";
 import {
 	admin,
 	apiKey,
 	bearer,
-	customSession,
 	magicLink,
 	organization,
-	phoneNumber,
 	twoFactor,
 } from "better-auth/plugins";
-import { emailHarmony } from "better-auth-harmony";
+
 import { sendAuthMagicLink } from "@/actions/mail/send-auth-magic-link";
 import { sendAuthPasswordReset } from "@/actions/mail/send-auth-password-reset";
 import { stripe as stripeClient } from "@/lib/stripe/config";
+import { customSession } from "better-auth/plugins";
 import { sqlClient } from "./prismadb";
 
 const prisma = new PrismaClient();
@@ -31,8 +33,8 @@ export const auth = betterAuth({
 		process.env.NEXT_PUBLIC_BASE_URL ||
 		process.env.NEXT_PUBLIC_API_URL ||
 		(process.env.NODE_ENV === "production"
-			? "https://mingster.com"
-			: "http://localhost:3002"),
+			? "https://riben.life"
+			: "http://localhost:3001"),
 	database: prismaAdapter(prisma, {
 		provider: "postgresql", // or "mysql", "postgresql", ...etc
 	}),
@@ -47,8 +49,10 @@ export const auth = betterAuth({
 		cookies: {
 			state: {
 				attributes: {
-					sameSite: "none",
-					secure: true,
+					// In development, use lax to allow cookies on localhost
+					// In production, use none with secure for cross-site OAuth
+					sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+					secure: process.env.NODE_ENV === "production",
 				},
 			},
 		},
@@ -61,7 +65,7 @@ export const auth = betterAuth({
 		accountLinking: {
 			enabled: true,
 			allowDifferentEmails: true,
-			trustedProviders: ["google", "line", "apple"],
+			trustedProviders: ["google", "line", "apple", "phone"],
 		},
 	},
 	emailAndPassword: {
@@ -72,7 +76,7 @@ export const auth = betterAuth({
 				enabled: true,
 			},
 		},
-		sendResetPassword: async ({ user, url, token }, _request) => {
+		sendResetPassword: async ({ user, url, token }, request) => {
 			await sendAuthPasswordReset(user.email, url);
 		},
 	},
@@ -103,14 +107,10 @@ export const auth = betterAuth({
 			appBundleIdentifier: process.env.APPLE_APP_BUNDLE_IDENTIFIER as string,
 		},
 	},
-	trustedOrigins: [
-		"https://appleid.apple.com",
-		"https://mingster.com",
-		"http://localhost:3002",
-	],
+	trustedOrigins: ["https://appleid.apple.com", "https://riben.life"],
 	plugins: [
 		...(options.plugins ?? []),
-		customSession(async ({ user, session }, _ctx) => {
+		customSession(async ({ user, session }, ctx) => {
 			// Include role and other user fields in the session
 			const typedUser = user as any;
 			const typedSession = session as any;
@@ -140,7 +140,7 @@ export const auth = betterAuth({
 					return [];
 				}
 
-				const _pricesResponse = await stripeClient.prices
+				const pricesResponse = await stripeClient.prices
 					.list({
 						product: setting.stripeProductId as string,
 					})
@@ -160,25 +160,60 @@ export const auth = betterAuth({
 			},
 		}),
 		phoneNumber({
-			sendOTP: ({ phoneNumber, code }, _ctx) => {
-				// TODO: Implement sending OTP code via SMS
+			sendOTP: async ({ phoneNumber, code }, ctx) => {
+				// Better Auth provides the OTP code, we use our existing sendOTP function
+				// which handles storing in database and sending via Twilio
+				const { sendOTP } = await import("./otp/send-otp");
+				const { getClientIP } = await import("@/utils/geo-ip");
+
+				// Get locale from request context if available
+				const locale =
+					ctx?.request?.headers
+						?.get("accept-language")
+						?.split(",")[0]
+						?.split("-")[0] || "tw";
+
+				// Extract IP address from request headers for rate limiting
+				const ipAddress = ctx?.request?.headers
+					? (getClientIP(ctx.request.headers) ?? undefined)
+					: undefined;
+
+				// Extract user agent from request headers for logging
+				const userAgent = ctx?.request?.headers?.get("user-agent") || undefined;
+
+				// Call our existing sendOTP function with the code provided by Better Auth
+				const result = await sendOTP({
+					phoneNumber,
+					locale,
+					code, // Use the code provided by Better Auth
+					ipAddress, // Pass IP address for rate limiting
+					userAgent, // Pass user agent for logging
+				});
+
+				if (!result.success) {
+					throw new Error(result.error || "Failed to send OTP");
+				}
 			},
-			verifyOTP: async ({ phoneNumber, code }, _ctx) => {
-				// TODO: Verify OTP with your desired logic (e.g., Twilio Verify)
-				// This is just an example, not a real implementation.
-				/*
-				  const isValid = await twilioClient.verify 
-					  .services('YOUR_SERVICE_SID') 
-					  .verificationChecks 
-					  .create({ to: phoneNumber, code }); 
-				  return isValid.status === 'approved'; 
-				  */
-				return true;
+			// No custom verifyOTP callback - Better Auth handles verification internally
+			// When auth.api.verifyPhoneNumber is called, Better Auth will verify
+			// the OTP against its own storage (created when sendPhoneNumberOTP was called)
+			signUpOnVerification: {
+				getTempEmail: (phoneNumber) => {
+					// Generate temporary email for phone-based sign-up
+					return `${phoneNumber.replace(/[^0-9]/g, "")}@phone.riben.life`;
+				},
+				getTempName: (phoneNumber) => {
+					// Use masked phone number as temporary name
+					return phoneNumber.replace(
+						/(\+\d{1,3})(\d{3})(\d{3})(\d+)/,
+						"$1$2***$4",
+					);
+				},
 			},
 		}),
 		twoFactor(),
 		magicLink({
-			sendMagicLink: async ({ email, url, token }, _request) => {
+			sendMagicLink: async ({ email, url, token }, request) => {
 				await sendAuthMagicLink(email, url);
 			},
 			expiresIn: 60 * 60 * 24, // 24 hours

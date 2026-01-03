@@ -1,7 +1,10 @@
 "use client";
 import clsx from "clsx";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import ClipLoader from "react-spinners/ClipLoader";
 //import { cn } from '@/lib/utils';
-import { DropdownUser } from "@/components/auth/dropdown-user";
+import DropdownUser from "@/components/auth/dropdown-user";
 import { ThemeToggler } from "@/components/theme-toggler";
 import {
 	Sheet,
@@ -11,14 +14,11 @@ import {
 	SheetTitle,
 	SheetTrigger,
 } from "@/components/ui/sheet";
-import Link from "next/link";
-import { useEffect, useState } from "react";
 //import { useI18n } from '@/providers/i18n-provider';
 //import { useTranslation } from '@/app/i18n/client';
 import { authClient } from "@/lib/auth-client";
-import ClipLoader from "react-spinners/ClipLoader";
-import { BackgroundImage } from "./BackgroundImage";
 import DialogSignIn from "./auth/dialog-sign-in";
+import { BackgroundImage } from "./BackgroundImage";
 import { LanguageToggler } from "./language-toggler";
 import { Logo } from "./logo";
 

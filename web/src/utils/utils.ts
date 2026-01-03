@@ -2,7 +2,7 @@ import { type ClassValue, clsx } from "clsx";
 import crypto from "crypto";
 import { twMerge } from "tailwind-merge";
 
-//import type { StoreTables } from "@prisma/client";
+//import type { StoreFacility } from "@prisma/client";
 import Decimal from "decimal.js"; // gets added if installed
 import { z } from "zod";
 import { getNumOfDaysInTheMonth, getUtcNow } from "./datetime-utils";
@@ -10,8 +10,8 @@ import { getNumOfDaysInTheMonth, getUtcNow } from "./datetime-utils";
 export const highlight_css = "border-dashed border-green-500 border-2";
 
 /*
-export function getTableName(tables: StoreTables[], tableId: string) {
-  return tables.find((table) => table.id === tableId)?.tableName || "";
+export function getTableName(tables: StoreFacility[], facilityId: string) {
+  return tables.find((table) => table.id === facilityId)?.facilityName || "";
 }
 */
 
@@ -34,16 +34,26 @@ export function GetSubscriptionLength(totalCycles: number) {
 	return days;
 }
 
-export function getRandomNum(length: number) {
-	const randomNum = (
-		(10 ** length).toString().slice(length - 1) +
-		Math.floor(Math.random() * 10 ** length + 1).toString()
-	).slice(-length);
-
-	return randomNum;
+export function maskPhoneNumber(phoneNumber: string): string {
+	// Mask phone number for logging: +886****5678
+	if (phoneNumber.length <= 4) return "****";
+	return phoneNumber.slice(0, -4) + "****";
 }
 
-// recursive function looping deeply throug an object to find Decimals
+export function generateOTPCode(): string {
+	// Generate 6-digit OTP code
+	return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+export function getRandomNum(length: number): string {
+	const min = 10 ** (length - 1);
+	const max = 10 ** length - 1;
+	return Math.floor(min + Math.random() * (max - min + 1))
+		.toString()
+		.padStart(length, "0");
+}
+
+// recursive function looping deeply through an object to find Decimals and convert to numbers
 export const transformDecimalsToNumbers = (obj: any) => {
 	if (!obj) {
 		return;
@@ -52,10 +62,40 @@ export const transformDecimalsToNumbers = (obj: any) => {
 	for (const key of Object.keys(obj)) {
 		if (Decimal.isDecimal(obj[key])) {
 			obj[key] = obj[key].toNumber();
-		} else if (typeof obj[key] === "object") {
+		} else if (Array.isArray(obj[key])) {
+			obj[key].forEach((item: any) => transformDecimalsToNumbers(item));
+		} else if (typeof obj[key] === "object" && obj[key] !== null) {
 			transformDecimalsToNumbers(obj[key]);
 		}
 	}
+};
+
+// recursive function looping deeply through an object to find BigInt values and convert to numbers
+// This is needed because JSON.stringify() doesn't support BigInt natively
+export const transformBigIntToNumbers = (obj: any) => {
+	if (!obj) {
+		return;
+	}
+
+	for (const key of Object.keys(obj)) {
+		if (typeof obj[key] === "bigint") {
+			obj[key] = Number(obj[key]);
+		} else if (Array.isArray(obj[key])) {
+			obj[key].forEach((item: any) => transformBigIntToNumbers(item));
+		} else if (typeof obj[key] === "object" && obj[key] !== null) {
+			transformBigIntToNumbers(obj[key]);
+		}
+	}
+};
+
+// Transform both Decimals and BigInts to numbers (useful for API responses)
+export const transformPrismaDataForJson = (obj: any) => {
+	if (!obj) {
+		return;
+	}
+
+	transformDecimalsToNumbers(obj);
+	transformBigIntToNumbers(obj);
 };
 
 function nullable<TSchema extends z.ZodObject<any>>(schema: TSchema) {

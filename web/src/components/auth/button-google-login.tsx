@@ -2,11 +2,11 @@
 
 import { GoogleIcon } from "@daveyplate/better-auth-ui";
 //import { signIn } from '@/auth';
-import { useTranslation } from "react-i18next";
+import { analytics } from "@/lib/analytics";
 import { authClient } from "@/lib/auth-client";
 import { useI18n } from "@/providers/i18n-provider";
+import { useTranslation } from "react-i18next";
 import { Button } from "../ui/button";
-import { analytics } from "@/lib/analytics";
 
 const GoogleLoginButton = ({ callbackUrl = "/" }: { callbackUrl?: string }) => {
 	const { lng } = useI18n();
