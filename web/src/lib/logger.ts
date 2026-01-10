@@ -1,10 +1,9 @@
+import pino from "pino";
 import {
 	transformBigIntToNumbers,
 	transformDecimalsToNumbers,
 } from "@/utils/edge-utils";
-import pino from "pino";
 import { analytics } from "./analytics";
-import { sqlClient } from "./prismadb";
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -71,7 +70,11 @@ class Logger {
 	}
 
 	private async logToDatabase(entry: LogEntry): Promise<void> {
+		if (typeof window !== "undefined") {
+			return;
+		}
 		try {
+			const { sqlClient } = await import("./prismadb");
 			await sqlClient.system_logs.create({
 				data: {
 					timestamp: entry.timestamp ? new Date(entry.timestamp) : new Date(),
@@ -139,7 +142,7 @@ class Logger {
 			try {
 				logMessage = JSON.stringify(message);
 				logMetadata = { ...metadata, metadata: message };
-			} catch (error) {
+			} catch (_error) {
 				transformBigIntToNumbers(message);
 				transformDecimalsToNumbers(message);
 				logMessage = JSON.stringify(message);
