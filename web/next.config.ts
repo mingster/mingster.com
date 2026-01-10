@@ -1,6 +1,5 @@
+import createMDX from "@next/mdx";
 import type { NextConfig } from "next";
-
-import createMDX from '@next/mdx'
 
 const nextConfig: NextConfig = {
 	pageExtensions: ["js", "jsx", "ts", "tsx", "mdx"],
@@ -23,6 +22,10 @@ const nextConfig: NextConfig = {
 		"pino-worker",
 		"pino-file",
 		"pino-pretty",
+		"pg",
+		"prisma",
+		"@prisma/client",
+		"@prisma/adapter-pg",
 	],
 	/*
 	video: {
@@ -85,7 +88,7 @@ const nextConfig: NextConfig = {
 const withMDX = createMDX({
 	// Add markdown plugins here, as desired
 	extension: /\.(md|mdx)$/,
-})
+});
 
 // Merge MDX config with Next.js config
 export default withMDX(nextConfig);

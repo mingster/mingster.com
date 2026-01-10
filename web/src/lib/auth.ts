@@ -1,27 +1,22 @@
 import { stripe } from "@better-auth/stripe";
-import { PrismaClient } from "@prisma/client";
+import { type BetterAuthOptions, betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import { phoneNumber } from "better-auth/plugins";
-
-import { passkey } from "@better-auth/passkey";
-import { betterAuth, type BetterAuthOptions } from "better-auth";
-import { emailHarmony } from "better-auth-harmony";
 import {
 	admin,
 	apiKey,
 	bearer,
+	customSession,
 	magicLink,
 	organization,
+	phoneNumber,
 	twoFactor,
 } from "better-auth/plugins";
-
+import { passkey } from "@better-auth/passkey";
+import { emailHarmony } from "better-auth-harmony";
 import { sendAuthMagicLink } from "@/actions/mail/send-auth-magic-link";
 import { sendAuthPasswordReset } from "@/actions/mail/send-auth-password-reset";
 import { stripe as stripeClient } from "@/lib/stripe/config";
-import { customSession } from "better-auth/plugins";
 import { sqlClient } from "./prismadb";
-
-const prisma = new PrismaClient();
 
 const options = {
 	//...config options
@@ -35,7 +30,7 @@ export const auth = betterAuth({
 		(process.env.NODE_ENV === "production"
 			? "https://riben.life"
 			: "http://localhost:3001"),
-	database: prismaAdapter(prisma, {
+	database: prismaAdapter(sqlClient, {
 		provider: "postgresql", // or "mysql", "postgresql", ...etc
 	}),
 	roles: [
@@ -76,7 +71,7 @@ export const auth = betterAuth({
 				enabled: true,
 			},
 		},
-		sendResetPassword: async ({ user, url, token }, request) => {
+		sendResetPassword: async ({ user, url, token }, _request) => {
 			await sendAuthPasswordReset(user.email, url);
 		},
 	},
@@ -110,7 +105,7 @@ export const auth = betterAuth({
 	trustedOrigins: ["https://appleid.apple.com", "https://riben.life"],
 	plugins: [
 		...(options.plugins ?? []),
-		customSession(async ({ user, session }, ctx) => {
+		customSession(async ({ user, session }, _ctx) => {
 			// Include role and other user fields in the session
 			const typedUser = user as any;
 			const typedSession = session as any;
@@ -140,23 +135,23 @@ export const auth = betterAuth({
 					return [];
 				}
 
-				const pricesResponse = await stripeClient.prices
-					.list({
-						product: setting.stripeProductId as string,
-					})
-					.then((obj) => {
-						return obj.data.map((price) => ({
-							name: price.nickname,
-							priceId: price.id,
-							//limits: JSON.parse(price.metadata.limits),
-							freeTrial: {
-								days: price.metadata.freeTrial,
-							},
-							active: price.active,
-							lookup_key: price.lookup_key,
-							group: price.metadata.group,
-						}));
-					});
+				const pricesResponse = await stripeClient.prices.list({
+					product: setting.stripeProductId as string,
+				});
+
+				return pricesResponse.data.map((price) => ({
+					name: price.nickname,
+					priceId: price.id,
+					//limits: JSON.parse(price.metadata.limits),
+					freeTrial: {
+						days: price.metadata.freeTrial
+							? parseInt(price.metadata.freeTrial, 10)
+							: 0,
+					},
+					active: price.active,
+					lookup_key: price.lookup_key,
+					group: price.metadata.group,
+				}));
 			},
 		}),
 		phoneNumber({
@@ -195,8 +190,6 @@ export const auth = betterAuth({
 				}
 			},
 			// No custom verifyOTP callback - Better Auth handles verification internally
-			// When auth.api.verifyPhoneNumber is called, Better Auth will verify
-			// the OTP against its own storage (created when sendPhoneNumberOTP was called)
 			signUpOnVerification: {
 				getTempEmail: (phoneNumber) => {
 					// Generate temporary email for phone-based sign-up
@@ -213,7 +206,7 @@ export const auth = betterAuth({
 		}),
 		twoFactor(),
 		magicLink({
-			sendMagicLink: async ({ email, url, token }, request) => {
+			sendMagicLink: async ({ email, url, token }, _request) => {
 				await sendAuthMagicLink(email, url);
 			},
 			expiresIn: 60 * 60 * 24, // 24 hours

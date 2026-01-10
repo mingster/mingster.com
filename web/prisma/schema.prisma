@@ -13,7 +13,6 @@ generator client {
 
 datasource db {
   provider     = "postgres"
-  url          = env("POSTGRES_URL")
   relationMode = "prisma"
 }
 
@@ -113,8 +112,8 @@ model Verification {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @default(now()) @updatedAt
 
-  @@map("verification")
   @@index([identifier])
+  @@map("verification")
 }
 
 model TwoFactor {
@@ -127,8 +126,8 @@ model TwoFactor {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-  @@map("twoFactor")
   @@index([secret])
+  @@map("twoFactor")
 }
 
 model Passkey {
@@ -147,8 +146,8 @@ model Passkey {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-  @@map("passkey")
   @@index([credentialID])
+  @@map("passkey")
 }
 
 model Apikey {
@@ -176,8 +175,8 @@ model Apikey {
   metadata            String?
 
   @@index([userId])
-  @@map("apikey")
   @@index([key])
+  @@map("apikey")
 }
 
 model Organization {
@@ -229,8 +228,8 @@ model Invitation {
 
   @@index([inviterId])
   @@index([organizationId])
-  @@map("invitation")
   @@index([email])
+  @@map("invitation")
 }
 
 model Subscription {
