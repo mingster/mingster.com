@@ -4,6 +4,8 @@ import { PhaseTags } from "./phase-tags";
 import { loadOuterHtmTemplate } from "./load-outer-htm-template";
 import type { StringNVType } from "@/types/enum";
 import { phasePlaintextToHtm } from "./phase-plaintext-to-htm";
+import { User } from "@/types";
+import { getUtcNowEpoch } from "@/utils/datetime-utils";
 
 // send auth magic link email to customer
 //
@@ -58,10 +60,17 @@ export const sendAuthMagicLink = async (
 	// 3. phase the message template with the data
 	const phased_subject = await PhaseTags(
 		message_content_template.subject,
-		user,
+		null,
+		null,
+		user as User,
 	);
 
-	let textMessage = await PhaseTags(message_content_template.body, user);
+	let textMessage = await PhaseTags(
+		message_content_template.body,
+		null,
+		null,
+		user as User,
+	);
 
 	// replace %Customer.MagicLinkURL% with regex
 	textMessage = textMessage.replace(/%Customer\.MagicLinkURL%/gi, magicLinkUrl);
@@ -89,8 +98,8 @@ export const sendAuthMagicLink = async (
 
 	const email_queue = await sqlClient.emailQueue.create({
 		data: {
-			from: supportEmail?.value || "support@5ik.tv",
-			fromName: supportEmail?.value || "5ik.TV",
+			from: supportEmail?.value || "support@riben.life",
+			fromName: supportEmail?.value || "riben.life",
 			to: email,
 			toName: user?.name || email,
 			cc: "",
@@ -98,7 +107,7 @@ export const sendAuthMagicLink = async (
 			subject: phased_subject,
 			textMessage: textMessage,
 			htmMessage: htmMessage,
-			createdOn: new Date(),
+			createdOn: getUtcNowEpoch(),
 			sendTries: 0,
 		},
 	});

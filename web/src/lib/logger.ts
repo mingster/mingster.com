@@ -1,4 +1,5 @@
 import pino from "pino";
+import { dateToEpoch, getUtcNowEpoch } from "@/utils/datetime-utils";
 import {
 	transformBigIntToNumbers,
 	transformDecimalsToNumbers,
@@ -75,9 +76,20 @@ class Logger {
 		}
 		try {
 			const { sqlClient } = await import("./prismadb");
+			// Convert timestamp to BigInt epoch milliseconds
+			let timestamp: bigint;
+			if (entry.timestamp) {
+				const parsedDate = new Date(entry.timestamp);
+				const epoch = dateToEpoch(parsedDate);
+				timestamp = epoch ?? getUtcNowEpoch();
+			} else {
+				timestamp = getUtcNowEpoch();
+			}
+
 			await sqlClient.system_logs.create({
 				data: {
-					timestamp: entry.timestamp ? new Date(entry.timestamp) : new Date(),
+					timestamp,
+					createdAt: getUtcNowEpoch(),
 					level: entry.level,
 					message: entry.message,
 					service: entry.service || this.service,

@@ -4,6 +4,8 @@ import { loadOuterHtmTemplate } from "./load-outer-htm-template";
 import { phasePlaintextToHtm } from "./phase-plaintext-to-htm";
 import { PhaseTags } from "./phase-tags";
 import { sqlClient } from "@/lib/prismadb";
+import { User } from "@/types";
+import { getUtcNowEpoch } from "@/utils/datetime-utils";
 
 // send auth validation email to customer
 //
@@ -66,10 +68,17 @@ export const sendAuthEmailValidation = async (
 	// 3. phase the message template with the data
 	const phased_subject = await PhaseTags(
 		message_content_template?.subject || "",
-		user,
+		null,
+		null,
+		user as User,
 	);
 
-	let textMessage = await PhaseTags(message_content_template?.body || "", user);
+	let textMessage = await PhaseTags(
+		message_content_template?.body || "",
+		null,
+		null,
+		user as User,
+	);
 
 	// replace %Customer.AccountActivationURL% with regex
 	textMessage = textMessage.replace(
@@ -100,8 +109,8 @@ export const sendAuthEmailValidation = async (
 
 	const email_queue = await sqlClient.emailQueue.create({
 		data: {
-			from: supportEmail?.value || "support@5ik.tv",
-			fromName: supportEmail?.value || "5ik.TV",
+			from: supportEmail?.value || "support@riben.life",
+			fromName: supportEmail?.value || "riben.life",
 			to: email,
 			toName: user?.name || email,
 			cc: "",
@@ -109,7 +118,7 @@ export const sendAuthEmailValidation = async (
 			subject: phased_subject,
 			textMessage: textMessage,
 			htmMessage: htmMessage,
-			createdOn: new Date(),
+			createdOn: getUtcNowEpoch(),
 			sendTries: 0,
 		},
 	});

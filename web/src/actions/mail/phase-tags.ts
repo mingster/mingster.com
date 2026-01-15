@@ -1,6 +1,7 @@
 import { sqlClient } from "@/lib/prismadb";
-import { User } from "@/types";
+import { StoreOrder, User } from "@/types";
 import { StringNVType } from "@/types/enum";
+import { formatDateTime, epochToDate } from "@/utils/datetime-utils";
 
 // Cache for database queries to avoid repeated calls
 const queryCache = new Map<string, any>();
@@ -14,7 +15,9 @@ interface TagReplacement {
 //
 export async function PhaseTags(
 	messageToBePhased: string,
-	user: User | null,
+	customer?: User | null,
+	order?: StoreOrder | null,
+	user?: User | null,
 ): Promise<string> {
 	const result = messageToBePhased;
 
@@ -50,8 +53,8 @@ export async function PhaseTags(
 
 	/*
 	replacements.push(
-		{ pattern: /%Support\.Email%/gi, value: "support@5ik.tv" },
-		{ pattern: /%App\.Name%/gi, value: "5ik.TV" },
+		{ pattern: /%Support\.Email%/gi, value: "support@riben.life" },
+		{ pattern: /%App\.Name%/gi, value: "riben.life" },
 	);
 	*/
 
@@ -59,11 +62,42 @@ export async function PhaseTags(
 	if (user) {
 		replacements.push(
 			{ pattern: /%Customer\.Email%/gi, value: user.email || "" },
-			{ pattern: /%Customer\.FullName%/gi, value: user.fullName || "" },
+			{ pattern: /%Customer\.FullName%/gi, value: user.name || "" },
 			{ pattern: /%Customer\.Username%/gi, value: user.email || "" },
 			{
 				pattern: /%Customer\.CustomerId%/gi,
 				value: user.id || "",
+			},
+		);
+	}
+
+	// Order data replacements
+	if (order) {
+		// Parallel database queries for better performance
+		const [orderCustomer] = await Promise.allSettled([
+			getCachedCustomer(order.User?.id || ""),
+		]);
+
+		replacements.push(
+			{ pattern: /%Order\.OrderId%/gi, value: order.id?.toString() || "" },
+			{ pattern: /%Order\.OrderNumber%/gi, value: order.id || "" },
+			{
+				pattern: /%Order\.CreatedOn%/gi,
+				value:
+					formatDateTime(
+						typeof order.createdAt === "number"
+							? (epochToDate(BigInt(order.createdAt)) ?? new Date())
+							: order.createdAt instanceof Date
+								? order.createdAt
+								: new Date(),
+					) || "",
+			},
+			{
+				pattern: /%Order\.CustomerFullName%/gi,
+				value:
+					orderCustomer.status === "fulfilled"
+						? orderCustomer.value?.name || ""
+						: "",
 			},
 		);
 	}

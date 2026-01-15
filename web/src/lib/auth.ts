@@ -1,8 +1,14 @@
 import { stripe } from "@better-auth/stripe";
 import { type BetterAuthOptions, betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
+
+import { passkey } from "@better-auth/passkey";
+import { betterAuth, type BetterAuthOptions } from "better-auth";
+import { emailHarmony } from "better-auth-harmony";
+
 import {
 	admin,
+	anonymous,
 	apiKey,
 	bearer,
 	customSession,
@@ -17,6 +23,8 @@ import { sendAuthMagicLink } from "@/actions/mail/send-auth-magic-link";
 import { sendAuthPasswordReset } from "@/actions/mail/send-auth-password-reset";
 import { stripe as stripeClient } from "@/lib/stripe/config";
 import { sqlClient } from "./prismadb";
+import { linkAnonymousAccount } from "@/utils/account-linking";
+import logger from "./logger";
 
 const options = {
 	//...config options
@@ -28,9 +36,9 @@ export const auth = betterAuth({
 		process.env.NEXT_PUBLIC_BASE_URL ||
 		process.env.NEXT_PUBLIC_API_URL ||
 		(process.env.NODE_ENV === "production"
-			? "https://riben.life"
-			: "http://localhost:3001"),
-	database: prismaAdapter(sqlClient, {
+			? "https://mingster.com"
+			: "http://localhost:3002"),
+	database: prismaAdapter(prisma, {
 		provider: "postgresql", // or "mysql", "postgresql", ...etc
 	}),
 	roles: [
@@ -210,6 +218,39 @@ export const auth = betterAuth({
 				await sendAuthMagicLink(email, url);
 			},
 			expiresIn: 60 * 60 * 24, // 24 hours
+		}),
+		anonymous({
+			generateRandomEmail: () => {
+				const id = crypto.randomUUID();
+				return `guest-${id}@riben.life`;
+			},
+			onLinkAccount: async ({ anonymousUser, newUser }) => {
+				// Extract user IDs from the callback parameters
+				// Better Auth passes user objects - handle both direct user object and nested structure
+				const anonymousUserId =
+					typeof anonymousUser === "object" && "id" in anonymousUser
+						? anonymousUser.id
+						: (anonymousUser as any).user?.id;
+				const newUserId =
+					typeof newUser === "object" && "id" in newUser
+						? newUser.id
+						: (newUser as any).user?.id;
+
+				if (!anonymousUserId || !newUserId) {
+					logger.error("Account linking failed: missing user IDs", {
+						metadata: {
+							anonymousUser: anonymousUser,
+							newUser: newUser,
+						},
+						tags: ["auth", "anonymous", "account-linking", "error"],
+					});
+					return;
+				}
+
+				// Call utility function to handle account linking
+				await linkAnonymousAccount(anonymousUserId, newUserId);
+			},
+			//emailDomainName: "riben.life", // -> temp-{id}@example.com
 		}),
 		bearer(),
 		passkey(),

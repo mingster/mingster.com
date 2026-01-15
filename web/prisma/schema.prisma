@@ -37,7 +37,7 @@ model User {
   locale              String?
   timezone            String?
   stripeCustomerId    String?  @unique
-  phoneNumber         String?
+  phoneNumber         String? // E.164 format (e.g., +886912345678)
   phoneNumberVerified Boolean? @default(false)
 
   twoFactorEnabled Boolean? @default(false)
@@ -47,6 +47,7 @@ model User {
   banExpires DateTime?
 
   normalizedEmail String?
+  isAnonymous     Boolean? @default(false)
 
   sessions    Session[]
   accounts    Account[]
@@ -55,6 +56,29 @@ model User {
   apikeys     Apikey[]
   members     Member[]
   invitations Invitation[]
+
+  Addresses         Address[]
+  SupportTicketFrom SupportTicket[] @relation("SupportTicketFrom")
+  SupportTicketTo   SupportTicket[] @relation("SupportTicketTo")
+  NotificationFrom  MessageQueue[]  @relation("NotificationFrom")
+  NotificationTo    MessageQueue[]  @relation("NotificationTo")
+  Store             Store[]
+  Orders            StoreOrder[]    @relation("UserOrders")
+  Reservations      Rsvp[]
+  RsvpCreator       Rsvp[]          @relation("RsvpCreatedBy")
+
+  CustomerCredit             CustomerCredit?
+  CustomerCreditLedger       CustomerCreditLedger[] @relation("UserCustomerCreditLogs")
+  CustomerCreditLogsCreator  CustomerCreditLedger[] @relation("UserCustomerCreditLogsCreator")
+  CustomerFiatLedger         CustomerFiatLedger[]   @relation("UserFiatAccountLogs")
+  UserFiatAccountLogsCreator CustomerFiatLedger[]   @relation("UserFiatAccountLogsCreator")
+
+  StoreLedgerCreated      StoreLedger[]
+  NotificationPreferences NotificationPreferences[]
+  ServiceStaff            ServiceStaff[]
+
+  Invitee         CustomerInvite[] @relation("UserCustomerInvite")
+  CustomerInviter CustomerInvite[] @relation("CustomerInviter")
 
   @@unique([normalizedEmail])
   @@index([email])
@@ -81,7 +105,6 @@ model Account {
   user      User?    @relation(fields: [userId], references: [id])
 
   @@index([userId])
-  @@map("account")
 }
 
 model Session {
@@ -112,7 +135,6 @@ model Verification {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @default(now()) @updatedAt
 
-  @@index([identifier])
   @@map("verification")
 }
 
@@ -126,7 +148,6 @@ model TwoFactor {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-  @@index([secret])
   @@map("twoFactor")
 }
 
@@ -146,7 +167,6 @@ model Passkey {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-  @@index([credentialID])
   @@map("passkey")
 }
 
@@ -175,7 +195,6 @@ model Apikey {
   metadata            String?
 
   @@index([userId])
-  @@index([key])
   @@map("apikey")
 }
 
@@ -189,6 +208,7 @@ model Organization {
 
   members     Member[]
   invitations Invitation[]
+  stores      Store[]
 
   @@unique([slug])
   @@map("organization")
@@ -204,11 +224,10 @@ model Member {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // Composite indexes for common query patterns
-  // For role-based access checks
   @@index([userId])
   @@index([organizationId])
-  @@index([organizationId, role])
+  // Composite indexes for common query patterns
+  @@index([organizationId, role]) // For role-based access checks
   @@map("member")
 }
 
@@ -224,11 +243,8 @@ model Invitation {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
 
-  createdAt DateTime @default(now())
-
   @@index([inviterId])
   @@index([organizationId])
-  @@index([email])
   @@map("invitation")
 }
 
@@ -247,33 +263,62 @@ model Subscription {
   trialEnd             DateTime?
 }
 
+model CustomerInvite {
+  id             String @id @default(cuid())
+  token          String @unique // Unique 6-character alphanumeric invite code
+  userId         String // User ID of imported/existing customer
+  storeId        String // Store that sent the invite
+  organizationId String // Organization ID (for member relationship)
+
+  // Invite metadata
+  invitedBy String // User ID of store admin who created invite
+  invitedAt BigInt // Epoch timestamp when invite was created
+  expiresAt BigInt // Epoch timestamp when invite expires
+  usedAt    BigInt? // Epoch timestamp when invite was used (null if unused)
+
+  // Usage tracking
+  accessedAt  BigInt? // First time invite URL was accessed
+  accessCount Int     @default(0) // Number of times invite URL was accessed
+
+  // Relations
+  User    User  @relation("UserCustomerInvite", fields: [userId], references: [id], onDelete: Cascade)
+  Store   Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  Inviter User  @relation("CustomerInviter", fields: [invitedBy], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@index([storeId])
+  @@index([expiresAt])
+  @@map("CustomerInvite")
+}
+
 /// Next.js application logs for log drain functionality
 
 model system_logs {
-  id          String   @id @default(cuid())
-  timestamp   DateTime @default(now())
-  level       String   @db.VarChar(10) // error, warn, info, debug
+  id          String  @id @default(cuid())
+  timestamp   BigInt
+  level       String  @db.VarChar(10) // error, warn, info, debug
   message     String
-  service     String   @db.VarChar(100) // service name (e.g., "web", "api")
-  environment String   @db.VarChar(20) // production, development, staging
-  version     String?  @db.VarChar(50) // app version
-  requestId   String?  @db.VarChar(100) // request correlation ID
-  userId      String?  @db.VarChar(100) // user ID if available
-  sessionId   String?  @db.VarChar(100) // session ID if available
-  ip          String?  @db.VarChar(45) // IPv4 or IPv6
-  userAgent   String?  @db.VarChar(500)
-  url         String?  @db.VarChar(1000) // request URL
-  method      String?  @db.VarChar(10) // HTTP method
+  service     String  @db.VarChar(100) // service name (e.g., "web", "api")
+  environment String  @db.VarChar(20) // production, development, staging
+  version     String? @db.VarChar(50) // app version
+  requestId   String? @db.VarChar(100) // request correlation ID
+  userId      String? @db.VarChar(100) // user ID if available
+  sessionId   String? @db.VarChar(100) // session ID if available
+  ip          String? @db.VarChar(45) // IPv4 or IPv6
+  userAgent   String? @db.VarChar(500)
+  url         String? @db.VarChar(1000) // request URL
+  method      String? @db.VarChar(10) // HTTP method
   statusCode  Int? // HTTP status code
   duration    Int? // request duration in ms
-  errorCode   String?  @db.VarChar(100) // error code if applicable
+  errorCode   String? @db.VarChar(100) // error code if applicable
   stackTrace  String?
   metadata    String?
   tags        String?
-  source      String?  @db.VarChar(100) // source file/component
+  source      String? @db.VarChar(100) // source file/component
   line        Int? // line number
   column      Int? // column number
-  createdAt   DateTime @default(now())
+  createdAt   BigInt
 
   @@index([timestamp])
   @@index([level])
@@ -281,6 +326,7 @@ model system_logs {
   @@index([environment])
   @@index([requestId])
   @@index([userId])
+  @@index([createdAt])
 }
 
 model PlatformSettings {
@@ -292,30 +338,32 @@ model PlatformSettings {
 
 model Country {
   name          String
-  unCode        String  @unique @db.VarChar(3)
-  allowBilling  Boolean @default(false)
-  allowShipping Boolean @default(false)
-  allowInStore  Boolean @default(false)
-  alpha3        String  @id @unique @db.VarChar(3)
+  unCode        String    @unique @db.VarChar(3)
+  allowBilling  Boolean   @default(false)
+  allowShipping Boolean   @default(false)
+  allowInStore  Boolean   @default(false)
+  alpha3        String    @id @unique @db.VarChar(3)
+  Address       Address[]
 
   @@index([name])
   @@index([alpha3])
 }
 
 model Currency {
-  id           String  @id @unique
-  name         String
-  symbol       String?
-  ISOdigits    Int?
-  ISOnum       Int?
-  decimals     Int?
-  demonym      String
-  majorPlural  String?
-  majorSingle  String?
-  minorPlural  String?
-  minorSingle  String?
-  numToBasic   Int?
-  symbolNative String
+  id             String           @id @unique
+  name           String
+  symbol         String?
+  ISOdigits      Int?
+  ISOnum         Int?
+  decimals       Int?
+  demonym        String
+  majorPlural    String?
+  majorSingle    String?
+  minorPlural    String?
+  minorSingle    String?
+  numToBasic     Int?
+  symbolNative   String
+  ShippingMethod ShippingMethod[]
 
   @@index([name])
   @@index([demonym])
@@ -336,34 +384,1079 @@ model Locale {
   @@index([name])
 }
 
-model SystemMessage {
-  id        String   @id @default(uuid())
-  localeId  String   @unique
-  published Boolean  @default(false)
-  message   String
-  createdOn DateTime @default(now())
+model Address {
+  id          String  @id @default(uuid())
+  userId      String
+  firstName   String
+  lastName    String
+  company     String?
+  countryId   String
+  streetLine1 String
+  streetLine2 String?
+  city        String
+  district    String?
+  province    String?
+  postalCode  String?
+  phoneNumber String
+  isDefault   Boolean @default(true)
+  createdAt   BigInt
+  updatedAt   BigInt
+  reference   String?
+  type        String?
 
-  Locale Locale @relation(fields: [localeId], references: [id])
+  User    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Country Country @relation(fields: [countryId], references: [alpha3])
+
+  @@index([userId])
+  @@index([countryId])
+  @@index([createdAt])
+  @@index([isDefault])
+  @@index([updatedAt])
+}
+
+model PaymentMethod {
+  id                String  @id @default(uuid())
+  name              String  @unique
+  payUrl            String  @default("")
+  priceDescr        String  @default("")
+  fee               Decimal @default("0.029")
+  feeAdditional     Decimal @default("0")
+  clearDays         Int     @default(3)
+  isDeleted         Boolean @default(false)
+  isDefault         Boolean @default(false)
+  canDelete         Boolean @default(false) //store owner cannot delete this method
+  visibleToCustomer Boolean @default(false)
+
+  createdAt                 BigInt
+  updatedAt                 BigInt
+  StorePaymentMethodMapping StorePaymentMethodMapping[]
+  StoreOrder                StoreOrder[]
+
+  @@index([isDefault])
+  @@index([name])
+  @@index([payUrl])
+  @@index([isDeleted])
+  @@index([updatedAt])
+  @@index([createdAt])
+}
+
+model StorePaymentMethodMapping {
+  id                 String  @id @default(uuid())
+  storeId            String
+  methodId           String
+  paymentDisplayName String?
+
+  Store         Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  PaymentMethod PaymentMethod @relation(fields: [methodId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, methodId])
+  @@index([storeId])
+  @@index([methodId])
+}
+
+model ShippingMethod {
+  id           String                   @id @default(uuid())
+  identifier   String                   @default("") //used in the code to identify default methods
+  name         String                   @unique
+  description  String?
+  basic_price  Decimal                  @default(0)
+  currencyId   String                   @default("twd")
+  isDeleted    Boolean                  @default(false)
+  isDefault    Boolean                  @default(false)
+  canDelete    Boolean                  @default(false) //store owner cannot delete this method
+  shipRequired Boolean                  @default(true)
+  createdAt    BigInt
+  updatedAt    BigInt
+  currency     Currency                 @relation(fields: [currencyId], references: [id])
+  stores       StoreShipMethodMapping[] @relation("ShipMethodStoreMapping")
+  prices       ShippingMethodPrice[]    @relation("ShipMethodPrices")
+
+  Shipment   Shipment[]   @relation("ShipmentToShipMethod")
+  StoreOrder StoreOrder[]
+
+  @@index([name])
+  @@index([identifier])
+  @@index([currencyId])
+  @@index([isDefault])
+  @@index([isDeleted])
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+model ShippingMethodPrice {
+  id               String  @id @default(uuid())
+  methodId         String
+  dimension_length Int //measurement in cm 長寬高
+  dimension_width  Int //measurement in cm
+  dimension_height Int //measurement in cm
+  dimension_weight Int //measurement in kg
+  price            Decimal
+
+  ShippingMethod ShippingMethod @relation("ShipMethodPrices", fields: [methodId], references: [id])
+
+  @@index([methodId])
+}
+
+model StoreShipMethodMapping {
+  id       String @id @default(uuid())
+  storeId  String
+  methodId String
+
+  ShippingMethod ShippingMethod @relation("ShipMethodStoreMapping", fields: [methodId], references: [id])
+  Store          Store          @relation(fields: [storeId], references: [id])
+
+  @@unique([storeId, methodId])
+  @@index([storeId])
+  @@index([methodId])
+}
+
+model Shipment {
+  id                 String         @id @default(uuid())
+  orderId            String
+  shippingMethodId   String
+  trackingNumber     String?
+  trackingUrl        String?
+  shippingCost       Decimal
+  shippingStatus     Int            @default(10) //should be value in @/lib/enum/ShippingStatus
+  totalWeight        Decimal?
+  shippedDate        BigInt?
+  deliveryDate       BigInt?
+  readyForPickupDate BigInt?
+  createdAt          BigInt
+  updatedAt          BigInt
+  Order              StoreOrder     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  ShippingMethod     ShippingMethod @relation("ShipmentToShipMethod", fields: [shippingMethodId], references: [id])
+
+  @@index([orderId])
+  @@index([shippingMethodId])
+  @@index([shippingStatus])
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+model StoreSubscription {
+  id              String  @id @default(cuid())
+  storeId         String  @unique
+  userId          String
+  expiration      BigInt
+  status          Int
+  invoiceNumber   String?
+  billingProvider String
+  subscriptionId  String?
+  note            String
+
+  createdAt BigInt
+  updatedAt BigInt
+
+  @@index([userId])
+  @@index([storeId])
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+model SubscriptionPayment {
+  id                 String  @id @default(cuid())
+  userId             String
+  storeId            String
+  isPaid             Boolean
+  amount             Decimal
+  currency           String  @default("twd")
+  checkoutAttributes String  @default("")
+  paidAt             BigInt?
+  createdAt          BigInt
+  note               String?
+
+  @@index([userId])
+  @@index([storeId])
+  @@index([isPaid])
+  @@index([createdAt])
+}
+
+model CustomerCredit {
+  id        String  @id @default(uuid())
+  userId    String  @unique //userId of the customer (one credit account per user, usable across stores)
+  point     Decimal @default(0) //store credit point on account
+  fiat      Decimal @default(0) //store fiat balance on account
+  updatedAt BigInt
+  User      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([updatedAt])
+}
+
+model CustomerCreditLedger {
+  id          String      @id @default(uuid())
+  storeId     String
+  userId      String //userId of the customer
+  amount      Decimal //point amount of this transaction
+  balance     Decimal //point after this transaction
+  type        String // TOPUP, BONUS, SPEND, REFUND, ADJUSTMENT
+  referenceId String? //store order id
+  note        String? //optional note for this transaction
+  creatorId   String? //userId who created this transaction
+  createdAt   BigInt
+  Store       Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  User        User        @relation("UserCustomerCreditLogs", fields: [userId], references: [id], onDelete: Cascade)
+  Creator     User?       @relation("UserCustomerCreditLogsCreator", fields: [creatorId], references: [id], onDelete: SetNull)
+  StoreOrder  StoreOrder? @relation(fields: [referenceId], references: [id], onDelete: SetNull)
+
+  @@index([storeId])
+  @@index([userId])
+  @@index([creatorId])
+  @@index([referenceId])
+  @@index([createdAt])
+  @@map("CustomerCreditLedger")
+}
+
+model CustomerFiatLedger {
+  id          String  @id @default(uuid())
+  storeId     String
+  userId      String // userId of the customer
+  amount      Decimal // Transaction amount (positive for credit, negative for debit)
+  balance     Decimal // Balance after this transaction
+  type        String // PAYMENT, REFUND, TOPUP, ADJUSTMENT
+  referenceId String? // RSVP ID, StoreOrder ID, or other reference
+  note        String? // Optional note/description
+  creatorId   String? // userId who created this transaction
+  createdAt   BigInt // Epoch milliseconds
+
+  Store      Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  User       User        @relation("UserFiatAccountLogs", fields: [userId], references: [id], onDelete: Cascade)
+  Creator    User?       @relation("UserFiatAccountLogsCreator", fields: [creatorId], references: [id], onDelete: SetNull)
+  StoreOrder StoreOrder? @relation(fields: [referenceId], references: [id], onDelete: SetNull)
+
+  @@index([storeId])
+  @@index([userId])
+  @@index([creatorId])
+  @@index([referenceId])
+  @@index([createdAt])
+  @@map("CustomerFiatLedger")
+}
+
+model CreditBonusRule {
+  id        String  @id @default(uuid())
+  storeId   String
+  threshold Decimal
+  bonus     Decimal
+  isActive  Boolean @default(true)
+  createdAt BigInt
+  updatedAt BigInt
+  Store     Store   @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+model Store {
+  id             String @id @default(uuid())
+  organizationId String
+  name           String
+  ownerId        String
+
+  defaultCountry  String  @default("TW")
+  defaultCurrency String  @default("twd")
+  isDeleted       Boolean @default(false)
+  defaultLocale   String  @default("tw")
+  defaultTimezone String  @default("Asia/Taipei")
+
+  autoAcceptOrder      Boolean @default(true)
+  isOpen               Boolean @default(true)
+  acceptAnonymousOrder Boolean @default(true)
+
+  requireSeating Boolean @default(false) //需要帶位or not
+  requirePrepaid Boolean @default(false) //先付款再出貨
+
+  useBusinessHours Boolean @default(true)
+
+  useOrderSystem Boolean @default(false) //使用訂單系統
+
+  useCustomerCredit         Boolean @default(false) //使用儲值系統 use CustomerCredit.point
+  creditExchangeRate        Decimal @default(0) // 1點 = ??元
+  creditServiceExchangeRate Decimal @default(0) // 1點 = ??分鍾的服務
+  creditMaxPurchase         Decimal @default(0) // 最多一次可購買的點數
+  creditMinPurchase         Decimal @default(0) // 一次最少需購買的點數
+  creditExpiration          Int     @default(365) // 儲值點數的有效期限(天)
+
+  payoutSchedule  Int     @default(0)
+  bankCode        String?
+  bankAccount     String?
+  bankAccountName String?
+
+  level             Int     @default(0) //store's subscription level
+  customDomain      String? @unique
+  LINE_PAY_ID       String?
+  LINE_PAY_SECRET   String?
+  STRIPE_SECRET_KEY String?
+
+  logo                       String?
+  logoPublicId               String?
+  createdAt                  BigInt
+  updatedAt                  BigInt
+  Owner                      User                         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  Organization               Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  Products                   Product[]                    @relation("StoreToProduct")
+  Categories                 Category[]
+  StoreOrders                StoreOrder[]                 @relation("StoreToOrder")
+  FaqCategories              FaqCategory[]
+  StoreAnnouncement          StoreAnnouncement[]
+  SupportTicket              SupportTicket[]
+  MessageQueue               MessageQueue[]
+  StoreShippingMethods       StoreShipMethodMapping[]
+  NotificationPreferences    NotificationPreferences[]
+  NotificationChannelConfigs NotificationChannelConfig[]
+  MessageTemplates           MessageTemplate[]
+  EmailQueues                EmailQueue[]
+  StorePaymentMethods        StorePaymentMethodMapping[]
+  StoreFacilities            StoreFacility[]
+  ServiceStaffs              ServiceStaff[]
+  StoreProductOptionTemplate StoreProductOptionTemplate[]
+  Rsvp                       Rsvp[]
+  StoreSettings              StoreSettings?
+  rsvpSettings               RsvpSettings?
+  rsvpBlacklists             RsvpBlacklist[]
+  rsvpTags                   RsvpTag[]
+  CreditBonusRules           CreditBonusRule[]
+  CustomerCreditLogs         CustomerCreditLedger[]
+  CustomerFiatLedgers        CustomerFiatLedger[]
+  FacilityPricingRules       FacilityPricingRule[]
+  customerInvites            CustomerInvite[]
+
+  @@index([ownerId])
+  @@index([organizationId])
+  @@index([name])
+  @@index([defaultCountry])
+  @@index([defaultCurrency])
+  @@index([level])
+  @@index([customDomain])
+  @@index([createdAt])
+  @@index([updatedAt])
+  // Composite indexes for common query patterns
+  @@index([ownerId, isDeleted]) // For owner store listings
+}
+
+model StoreSettings {
+  id                  String  @id @default(uuid())
+  storeId             String  @unique
+  orderNoteToCustomer String?
+  privacyPolicy       String?
+  tos                 String?
+  aboutUs             String?
+  description         String?
+  aboutUsVideoUrl     String?
+  supportEmail        String?
+  supportPhoneNumber  String?
+  facebookUrl         String?
+  igUrl               String?
+  lineId              String?
+  telegramId          String?
+  twitterId           String?
+  whatsappId          String?
+  wechatId            String?
+
+  firstName   String?
+  lastName    String?
+  company     String?
+  country     String?
+  streetLine1 String?
+  streetLine2 String?
+  city        String?
+  district    String?
+  province    String?
+  postalCode  String?
+  phoneNumber String?
+
+  businessHours String?
+
+  createdAt BigInt
+  updatedAt BigInt
+  Store     Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+}
+
+model RsvpSettings {
+  id      String @id @default(uuid())
+  storeId String @unique
+
+  acceptReservation Boolean @default(true) // turn on/off the reservation system
+  singleServiceMode Boolean @default(false) // for personal shop: only ONE reservation per time slot
+
+  minPrepaidPercentage Int     @default(0) //最低預付百分比；0 表示不需預付，100 表示全額預付
+  noNeedToConfirm      Boolean @default(false) //若已付清預約金額，不需要店家再確認預約。
+
+  canCancel   Boolean @default(true) //可否取消預約?
+  cancelHours Int     @default(24) //最慢免費取消預約時間：幾小時前可免費取消?
+
+  canReserveBefore Int @default(2) //從現在起，可預約幾小時後的時間。 e.g. 現在7PM，只能預約9PM後的時間。
+  canReserveAfter  Int @default(2190) //從現在起，最多可預約未來幾小時。 e.g. ㄧ年後=8760小時; 一個月後=730. 預設值：3個月後。
+
+  defaultDuration    Int     @default(60) //預約時間：60分鐘
+  requireSignature   Boolean @default(false) //需要簽名
+  showCostToCustomer Boolean @default(false) //顯示預約金額
+
+  mustSelectFacility   Boolean @default(false) //必須要選擇設施 
+  mustHaveServiceStaff Boolean @default(false) //必須要選擇服務人員(e.g. 美容師, 按摩師, 髮型師, 等等)
+
+  useBusinessHours Boolean @default(true)
+  rsvpHours        String? //營業時間：M-F 09:00-18:00
+
+  //預約提醒與通知
+  reminderHours    Int     @default(24) //預約提醒時間：??小時前發送確認通知
+  useReminderSMS   Boolean @default(false) //使用簡訊通知
+  useReminderLine  Boolean @default(false) //使用Line通知
+  useReminderEmail Boolean @default(false) //使用email通知
+
+  syncWithGoogle Boolean @default(false) //同步Google月曆
+  syncWithApple  Boolean @default(false) //同步Apple日曆
+
+  // Reserve with Google integration fields
+  reserveWithGoogleEnabled      Boolean @default(false)
+  googleBusinessProfileId       String? // Google Business Profile ID
+  googleBusinessProfileName     String? // Store name in Google Business Profile
+  reserveWithGoogleAccessToken  String? // Encrypted OAuth access token
+  reserveWithGoogleRefreshToken String? // Encrypted OAuth refresh token
+  reserveWithGoogleTokenExpiry  BigInt? // Token expiry timestamp
+  reserveWithGoogleLastSync     BigInt? // Last successful sync timestamp
+  reserveWithGoogleSyncStatus   String? // "connected", "error", "disconnected"
+  reserveWithGoogleError        String? // Last error message
+
+  createdAt BigInt
+  updatedAt BigInt
+  Store     Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+model RsvpBlacklist {
+  id        String @id @default(uuid())
+  storeId   String
+  userId    String
+  createdAt BigInt
+  updatedAt BigInt
+  Store     Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+  @@index([userId])
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+model RsvpTag {
+  id        String @id @default(uuid())
+  storeId   String
+  tagName   String @unique
+  createdAt BigInt
+  updatedAt BigInt
+  Store     Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, tagName])
+  @@index([storeId])
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@index([tagName])
+}
+
+model Rsvp {
+  id          String  @id @default(uuid())
+  storeId     String
+  customerId  String?
+  orderId     String?
+  numOfAdult  Int     @default(1)
+  numOfChild  Int     @default(0)
+  rsvpTime    BigInt
+  arriveTime  BigInt? //the time should be set when status is set to Ready
+  status      Int     @default(0)
+  alreadyPaid Boolean @default(false) //已付款
+  referenceId String? //reference to the StoreOrder id or CustomerCreditLedger id
+  paidAt      BigInt? //the time when the reservation was paid
+
+  message String?
+  // Contact information for anonymous reservations (when customerId is null)
+  name    String? // Name (required if not logged in)
+  phone   String? // Phone number (required for anonymous reservations)
+
+  confirmedByStore    Boolean @default(false) //店家已確認預約
+  confirmedByCustomer Boolean @default(false) //客戶已確認預約
+
+  // Pricing at time of reservation
+  facilityId     String?
+  facilityCost   Decimal? //optional: if the facility is selected, the cost that was charged
+  facilityCredit Decimal? //optional: if the facility is selected, the credit that was charged
+  pricingRuleId  String? // Reference to the pricing rule used
+
+  serviceStaffId     String? //optional: if the service staff is selected
+  serviceStaffCost   Decimal? //optional: if the service staff is selected, the cost that was charged
+  serviceStaffCredit Decimal? //optional: if the service staff is selected, the credit that was charged
+
+  createdAt           BigInt
+  updatedAt           BigInt
+  createdBy           String? // userId who created this reservation
+  Store               Store                @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  Customer            User?                @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  CreatedBy           User?                @relation("RsvpCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  Order               StoreOrder?          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  Facility            StoreFacility?       @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  ServiceStaff        ServiceStaff?        @relation(fields: [serviceStaffId], references: [id], onDelete: SetNull)
+  FacilityPricingRule FacilityPricingRule? @relation(fields: [pricingRuleId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+  @@index([customerId])
+  @@index([createdBy])
+  @@index([orderId])
+  @@index([facilityId])
+  @@index([serviceStaffId])
+  @@index([pricingRuleId])
+  @@index([rsvpTime])
+  @@index([arriveTime])
+  @@index([createdAt])
+  @@index([updatedAt])
+  // Composite indexes for common query patterns
+  @@index([storeId, rsvpTime, status]) // For date range queries with status
+}
+
+model StoreFacility {
+  id              String  @id @default(uuid())
+  storeId         String
+  facilityName    String
+  capacity        Int     @default(4) //how many people can use the facility at the same time
+  defaultCost     Decimal @default(0) // default cost for using the facility
+  defaultCredit   Decimal @default(0) // default credit for using the facility
+  defaultDuration Int     @default(60) // default duration for using the facility in minutes
+  businessHours   String? //when the facility is available for use
+
+  description String? // description of the facility
+  location    String? // location of the facility
+  travelInfo  String? // travel information of the facility
+
+  Store                Store                 @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  Rsvp                 Rsvp[]
+  FacilityPricingRules FacilityPricingRule[]
+
+  @@unique([storeId, facilityName])
+  @@index([storeId])
+  @@index([facilityName])
+}
+
+model ServiceStaff {
+  id      String @id @default(uuid())
+  storeId String
+  userId  String
+
+  capacity        Int     @default(4) //how many people can use the service staff at the same time
+  defaultCost     Decimal @default(0) // default cost for using the service staff
+  defaultCredit   Decimal @default(0) // default credit for using the service staff
+  defaultDuration Int     @default(60) // default duration for using the service staff in minutes
+  businessHours   String? //when the service staff is available for use
+  isDeleted       Boolean @default(false) // if the service staff is deleted
+  description     String? // description of the service staff
+
+  Store Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  User  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Rsvp  Rsvp[]
+
+  @@unique([storeId, userId])
+  @@index([storeId])
+  @@index([userId])
+}
+
+model FacilityPricingRule {
+  id         String  @id @default(uuid())
+  storeId    String
+  facilityId String? // null = applies to all facilities in store
+  name       String // e.g., "Weekend Pricing", "Peak Hours"
+  priority   Int     @default(0) // Higher priority = evaluated first
+
+  // Day of week rules
+  // null = applies to all days
+  // Array of day numbers: 0=Sunday, 1=Monday, ..., 6=Saturday
+  // Special values: "weekend" = [0, 6], "weekday" = [1,2,3,4,5]
+  dayOfWeek String? // JSON array: [0,6] or "weekend" or "weekday" or null
+
+  // Time range (in store's timezone)
+  startTime String? // HH:mm format, e.g., "18:00"
+  endTime   String? // HH:mm format, e.g., "22:00"
+  // If both null, applies to all times
+
+  // Pricing
+  cost   Decimal? // Override defaultCost (null = use facility default)
+  credit Decimal? // Override defaultCredit (null = use facility default)
+
+  // Status
+  isActive Boolean @default(true)
+
+  createdAt BigInt
+  updatedAt BigInt
+  Store     Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  Facility  StoreFacility? @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  Rsvp      Rsvp[]
+
+  @@index([storeId])
+  @@index([facilityId])
+  @@index([storeId, facilityId, isActive])
+  @@index([priority])
+}
+
+model StoreAnnouncement {
+  id        String @id @default(uuid())
+  storeId   String
+  message   String
+  createdAt BigInt
+  updatedAt BigInt
+  Store     Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@map("StoreAnnouncement")
+}
+
+model ProductImages {
+  id          String  @id @default(uuid())
+  productId   String
+  url         String  @unique
+  imgPublicId String  @unique
+  Product     Product @relation(fields: [productId], references: [id])
+
+  @@index([url])
+  @@index([imgPublicId])
+  @@index([productId])
+}
+
+model Product {
+  id                String              @id @default(uuid())
+  storeId           String
+  name              String
+  description       String?
+  isFeatured        Boolean             @default(false)
+  status            Int                 @default(1) //ProductStatus, 1 = Published, 0 = Draft
+  currency          String              @default("twd")
+  price             Decimal             @default(0)
+  useOption         Boolean             @default(true) // when true, price is calculated based on product option
+  canDelete         Boolean             @default(true)
+  createdAt         BigInt
+  updatedAt         BigInt
+  Store             Store               @relation("StoreToProduct", fields: [storeId], references: [id], onDelete: Cascade)
+  ProductImages     ProductImages[]
+  ProductCategories ProductCategories[]
+
+  ProductAttribute ProductAttribute? @relation("prodAttrToProduct")
+  OrderItems       OrderItem[]       @relation("itemToProduct")
+  OrderItemViews   orderitemview[]   @relation("itemViewToProduct")
+  ProductOptions   ProductOption[]
+
+  @@index([name])
+  @@index([storeId])
+  @@index([isFeatured])
+  @@index([status])
+  @@index([createdAt])
+  @@index([updatedAt])
+  // Composite indexes for common query patterns
+  @@index([storeId, status, isFeatured]) // For filtered product listings
+  @@index([storeId, updatedAt]) // For pagination
+}
+
+//產品選項規格 across this store. it's used as template so that we don't need to re-enter option for each product.
+
+model StoreProductOptionTemplate {
+  id            String  @id @default(uuid())
+  storeId       String
+  optionName    String //規格 | 甜度/冰 | 配料
+  isRequired    Boolean @default(false) //必選
+  isMultiple    Boolean @default(false) // 0:radiobox|1:checkboxes
+  minSelection  Int     @default(0)
+  maxSelection  Int     @default(0) // 至少選1項 | 最多選3項
+  allowQuantity Boolean @default(false)
+  minQuantity   Int     @default(0) // 至少選1項 | 最多選3項
+  maxQuantity   Int     @default(0) // 至少選1項 | 最多選3項
+  sortOrder     Int     @default(1)
+
+  Store                                Store                                  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  StoreProductOptionSelectionsTemplate StoreProductOptionSelectionsTemplate[]
+
+  @@unique([storeId, optionName])
+  @@index([storeId])
+  @@index([optionName])
+  @@index([isRequired])
+  @@index([isMultiple])
+  @@index([sortOrder])
+}
+
+//產品選項 across this store. it's used as template so that we don't need to re-enter option for each product.
+
+model StoreProductOptionSelectionsTemplate {
+  id        String  @id @default(uuid())
+  optionId  String
+  name      String // 大,小 | 半糖,少糖,無糖 | 冰,少冰,多冰
+  price     Decimal @default(0)
+  isDefault Boolean @default(false)
+
+  //quantity Int     @default(1)
+
+  StoreProductOptionTemplate StoreProductOptionTemplate @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@unique([optionId, name])
+  @@index([optionId])
+  @@index([name])
+  @@index([isDefault])
+}
+
+//產品選項
+
+model ProductOption {
+  id                      String                    @id @default(uuid())
+  productId               String
+  optionName              String //規格 | 甜度/冰 | 任選3配料
+  isRequired              Boolean                   @default(false) //必選
+  isMultiple              Boolean                   @default(false) // 0:radiobox|1:checkboxes
+  minSelection            Int                       @default(0) //至少選1項
+  maxSelection            Int                       @default(0) // 最多選3項
+  allowQuantity           Boolean                   @default(false)
+  minQuantity             Int                       @default(0) // 至少選1個
+  maxQuantity             Int                       @default(0) // 最多選3個
+  sortOrder               Int                       @default(1)
+  Product                 Product                   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  ProductOptionSelections ProductOptionSelections[]
+
+  @@unique([productId, optionName])
+  @@index([productId])
+  @@index([optionName])
+  @@index([isRequired])
+  @@index([isMultiple])
+  @@index([sortOrder])
+}
+
+model ProductOptionSelections {
+  id        String  @id @default(uuid())
+  optionId  String
+  name      String // 大,小 | 半糖,少糖,無糖 | 冰,少冰,多冰
+  price     Decimal @default(0)
+  isDefault Boolean @default(false)
+  //quantity Int     @default(1)
+
+  ProductOption ProductOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@unique([optionId, name])
+  @@index([optionId])
+  @@index([name])
+  @@index([isDefault])
+}
+
+model ProductCategories {
+  id         String @id @default(uuid())
+  categoryId String
+  productId  String
+  sortOrder  Int
+
+  Product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  Category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, productId])
+  @@index([categoryId])
+  @@index([productId])
+  @@index([sortOrder])
+  // Composite indexes for common query patterns
+  @@index([categoryId, sortOrder]) // For sorted product listings in category
+}
+
+model Category {
+  id                String              @id @default(uuid())
+  storeId           String
+  name              String
+  isFeatured        Boolean             @default(false)
+  sortOrder         Int
+  createdAt         BigInt
+  updatedAt         BigInt
+  Store             Store               @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  ProductCategories ProductCategories[]
+
+  @@index([storeId])
+  @@index([name])
+  @@index([isFeatured])
+  @@index([sortOrder])
+  @@index([createdAt])
+  @@index([updatedAt])
+  // Composite indexes for common query patterns
+  @@index([storeId, isFeatured, sortOrder]) // For filtered and sorted category listings
+  @@index([storeId, updatedAt]) // For pagination
+}
+
+model ProductAttribute {
+  id                       String  @id @default(uuid())
+  productId                String  @unique
+  isCreditTopUp            Boolean @default(false)
+  isRecurring              Boolean @default(false)
+  interval                 Int?
+  intervalCount            Int?
+  trialPeriodDays          Int?
+  stripePriceId            String?
+  isBrandNew               Boolean @default(true)
+  isShipRequired           Boolean @default(false)
+  isFreeShipping           Boolean @default(false)
+  additionalShipCost       Decimal @default(0)
+  stock                    Int     @default(0)
+  displayStockAvailability Boolean @default(false)
+  displayStockQuantity     Boolean @default(false)
+  allowBackOrder           Boolean @default(false)
+  orderMinQuantity         Int     @default(1)
+  orderMaxQuantity         Int     @default(0)
+  disableBuyButton         Boolean @default(false)
+  weight                   Decimal @default(0)
+  height                   Decimal @default(0)
+  width                    Decimal @default(0)
+  availableStartDate       BigInt?
+  availableEndDate         BigInt?
+  mfgPartNumber            String?
+
+  Product Product @relation("prodAttrToProduct", fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+}
+
+model StoreLedger {
+  id          String  @id @default(uuid())
+  storeId     String
+  orderId     String
+  amount      Decimal
+  fee         Decimal // fee from payment type. e.g. linePay = 3%
+  platformFee Decimal // riben.life's fee
+  currency    String  @default("twd")
+  type        Int     @default(0) // 0: 代收 | 1: store's own payment provider
+  balance     Decimal
+  description String
+  note        String?
+  createdBy   String? // userId who created this ledger entry
+
+  createdAt    BigInt
+  availability BigInt
+  StoreOrder   StoreOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  CreatedBy    User?      @relation(fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([storeId])
+  @@index([orderId])
+  @@index([type])
+  @@index([createdAt])
+  @@index([createdBy])
+}
+
+model StoreOrder {
+  id                 String  @id @default(uuid())
+  storeId            String
+  userId             String?
+  facilityId         String?
+  orderNum           Int?    @default(autoincrement())
+  pickupCode         String?
+  isPaid             Boolean @default(false)
+  paidDate           BigInt?
+  checkoutAttributes String  @default("")
+  checkoutRef        String  @default("")
+
+  paymentMethodId String?
+  paymentStatus   Int     @default(10)
+  refundAmount    Decimal @default(0)
+  returnStatus    Int     @default(0)
+
+  shippingMethodId String
+  shippingAddress  String  @default("")
+  shippingCost     Decimal @default(0)
+  shippingStatus   Int     @default(10)
+
+  orderStatus Int @default(10)
+
+  currency    String  @default("twd")
+  discount    Decimal @default(0)
+  paymentCost Decimal @default(0)
+  taxRate     Decimal @default(0)
+  orderTax    Decimal @default(0)
+  orderTotal  Decimal @default(0)
+
+  createdAt      BigInt
+  updatedAt      BigInt
+  Store          Store           @relation("StoreToOrder", fields: [storeId], references: [id], onDelete: Cascade)
+  User           User?           @relation("UserOrders", fields: [userId], references: [id])
+  OrderNotes     OrderNote[]     @relation("orderNoteToStoreOrder")
+  OrderItems     OrderItem[]     @relation("itemToStoreOrder")
+  OrderItemView  orderitemview[] @relation("itemViewToStoreOrder")
+  ShippingMethod ShippingMethod  @relation(fields: [shippingMethodId], references: [id])
+  Shipment       Shipment[]
+
+  PaymentMethod         PaymentMethod?         @relation(fields: [paymentMethodId], references: [id])
+  Rsvp                  Rsvp[]
+  StoreLedger           StoreLedger[]
+  customerCreditLedgers CustomerCreditLedger[]
+  customerFiatLedgers   CustomerFiatLedger[]
+
+  @@index([userId])
+  @@index([facilityId])
+  @@index([paymentMethodId])
+  @@index([paymentStatus])
+  @@index([returnStatus])
+  @@index([shippingMethodId])
+  @@index([shippingStatus])
+  @@index([storeId])
+  @@index([checkoutAttributes])
+  @@index([isPaid])
+  @@index([paidDate])
+  @@index([currency])
+  @@index([updatedAt])
+  @@index([createdAt])
+  @@index([orderNum])
+  @@index([orderStatus])
+  // Composite indexes for common query patterns
+  @@index([storeId, orderStatus, isPaid]) // For filtered order listings
+  @@index([storeId, updatedAt]) // For date range queries with store
+  @@index([userId, updatedAt]) // For user order queries
+  @@index([storeId, orderStatus, updatedAt]) // For status-filtered pagination
+}
+
+model OrderItem {
+  id        String @id @default(uuid())
+  orderId   String
+  productId String
+
+  //copy over value
+  productName  String
+  variants     String? // hold values of product options selection delimited by comma
+  variantCosts String? // hold values of variant cost delimited by comma
+  quantity     Int
+  unitDiscount Decimal @default(0)
+  unitPrice    Decimal
+
+  Order   StoreOrder @relation("itemToStoreOrder", fields: [orderId], references: [id], onDelete: Cascade)
+  Product Product    @relation("itemToProduct", fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model OrderNote {
+  id                String     @id @default(uuid())
+  orderId           String
+  note              String
+  displayToCustomer Boolean    @default(false)
+  createdAt         BigInt
+  updatedAt         BigInt
+  Order             StoreOrder @relation("orderNoteToStoreOrder", fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([updatedAt])
+  @@index([createdAt])
+}
+
+model FaqCategory {
+  id        String @id @default(uuid())
+  localeId  String
+  storeId   String
+  name      String
+  sortOrder Int
+  FAQ       Faq[]
+
+  Store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+  @@index([sortOrder])
+  @@index([name])
+  @@index([localeId])
+}
+
+model Faq {
+  id         String  @id @default(uuid())
+  categoryId String
+  question   String
+  answer     String
+  sortOrder  Int
+  published  Boolean @default(false)
+
+  FaqCategory FaqCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([categoryId])
+  @@index([sortOrder])
+  @@index([published])
+  // Composite indexes for common query patterns
+  @@index([categoryId, published, sortOrder]) // For filtered and sorted FAQ listings
+}
+
+model SystemMessage {
+  id        String  @id @default(uuid())
+  localeId  String  @unique
+  published Boolean @default(false)
+  message   String
+  createdOn BigInt
+  Locale    Locale  @relation(fields: [localeId], references: [id])
 
   @@index([localeId])
   @@index([createdOn])
+  @@index([published])
+}
+
+model MessageQueue {
+  id          String  @id @default(uuid())
+  senderId    String
+  recipientId String
+  storeId     String?
+  subject     String
+  message     String
+  createdAt   BigInt
+  updatedAt   BigInt
+  sendTries   Int     @default(0)
+  sentOn      BigInt?
+
+  // Notification metadata
+  notificationType String? // e.g., "order", "reservation", "credit", "system"
+  actionUrl        String? // Deep link URL for action buttons
+  priority         Int     @default(0) // 0=normal, 1=high, 2=urgent
+
+  // Status flags
+  isRead               Boolean @default(false)
+  isDeletedByAuthor    Boolean @default(false)
+  isDeletedByRecipient Boolean @default(false)
+
+  // Relations
+  Sender           User                         @relation("NotificationFrom", fields: [senderId], references: [id])
+  Recipient        User                         @relation("NotificationTo", fields: [recipientId], references: [id])
+  Store            Store?                       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  DeliveryStatuses NotificationDeliveryStatus[]
+  EmailQueues      EmailQueue[]
+
+  @@index([storeId])
+  @@index([senderId])
+  @@index([recipientId])
+  @@index([sendTries])
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@index([isRead])
+  @@index([notificationType])
+  // Composite indexes for common queries
+  @@index([recipientId, isRead, createdAt]) // For user notification center
+  @@index([storeId, createdAt]) // For store notification history
 }
 
 model MessageTemplate {
   id                       String                     @id @default(uuid())
-  name                     String
+  name                     String // Template identifier (e.g., "order_confirmation")
+  templateType             String // "email", "line", "sms", "whatsapp", "wechat", "telegram", "push", "onsite"
+  isGlobal                 Boolean                    @default(false) // Global template vs store-specific
+  storeId                  String? // null for global templates
   MessageTemplateLocalized MessageTemplateLocalized[]
+  EmailQueues              EmailQueue[]
 
+  Store Store? @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([name, storeId]) // Unique template name per store (or global)
   @@index([name])
+  @@index([templateType])
+  @@index([storeId])
 }
 
 model MessageTemplateLocalized {
   id                String          @id @default(uuid())
   messageTemplateId String
   localeId          String
-  bCCEmailAddresses String?
-  subject           String
-  body              String
+  bCCEmailAddresses String? // For email templates
+  subject           String // Subject/title for the notification
+  body              String // Template body with variable placeholders
   isActive          Boolean         @default(true)
   Locale            Locale          @relation(fields: [localeId], references: [id], onDelete: Cascade)
   MessageTemplate   MessageTemplate @relation(fields: [messageTemplateId], references: [id], onDelete: Cascade)
@@ -371,25 +1464,230 @@ model MessageTemplateLocalized {
   @@unique([localeId, messageTemplateId])
   @@index([localeId])
   @@index([messageTemplateId])
+  @@index([isActive])
 }
 
 model EmailQueue {
-  id          String    @id @default(uuid())
+  id          String  @id @default(uuid())
   from        String
-  fromName    String    @default("")
+  fromName    String  @default("")
   to          String
-  toName      String    @default("")
-  cc          String    @default("")
-  bcc         String    @default("")
+  toName      String  @default("")
+  cc          String  @default("")
+  bcc         String  @default("")
   subject     String
   textMessage String
   htmMessage  String
-  createdOn   DateTime  @default(now())
-  sendTries   Int       @default(0)
-  sentOn      DateTime?
+  createdOn   BigInt
+  sendTries   Int     @default(0)
+  sentOn      BigInt?
+
+  // Email metadata
+  storeId        String?
+  notificationId String? // Link to MessageQueue if applicable
+  templateId     String? // Link to MessageTemplate if applicable
+  priority       Int     @default(0)
+
+  // Relations
+  Store        Store?           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  Notification MessageQueue?    @relation(fields: [notificationId], references: [id], onDelete: SetNull)
+  Template     MessageTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
 
   @@index([sendTries])
   @@index([createdOn])
+  @@index([sentOn])
   @@index([from])
   @@index([to])
+  @@index([storeId])
+  @@index([priority])
+  @@index([notificationId])
+  @@index([templateId])
+  // Composite index for queue processing
+  @@index([sendTries, priority, createdOn]) // For queue worker queries
+}
+
+model NotificationPreferences {
+  id      String  @id @default(uuid())
+  userId  String? // null for store-level preferences
+  storeId String? // null for user-level global preferences
+
+  // Channel preferences
+  onSiteEnabled   Boolean @default(true)
+  emailEnabled    Boolean @default(true)
+  lineEnabled     Boolean @default(false)
+  whatsappEnabled Boolean @default(false)
+  wechatEnabled   Boolean @default(false)
+  smsEnabled      Boolean @default(false)
+  telegramEnabled Boolean @default(false)
+  pushEnabled     Boolean @default(false)
+
+  // Notification type preferences
+  orderNotifications       Boolean @default(true)
+  reservationNotifications Boolean @default(true)
+  creditNotifications      Boolean @default(true)
+  paymentNotifications     Boolean @default(true)
+  systemNotifications      Boolean @default(true)
+  marketingNotifications   Boolean @default(false)
+
+  // Frequency preferences
+  frequency String @default("immediate") // "immediate", "daily_digest", "weekly_digest"
+
+  createdAt BigInt // Epoch milliseconds
+  updatedAt BigInt // Epoch milliseconds
+
+  User  User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Store Store? @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, storeId]) // One preference record per user-store pair
+  @@index([userId])
+  @@index([storeId])
+}
+
+model NotificationChannelConfig {
+  id      String  @id @default(uuid())
+  storeId String
+  channel String // "line", "whatsapp", "wechat", "sms", "telegram", "push"
+  enabled Boolean @default(false)
+
+  // Encrypted credentials (JSON string, encrypted at application level)
+  credentials String? // Encrypted JSON: { apiKey: "...", accessToken: "...", etc. }
+
+  // Channel-specific settings (JSON)
+  settings String? // JSON: { phoneNumberId: "...", webhookUrl: "...", etc. }
+
+  createdAt BigInt // Epoch milliseconds
+  updatedAt BigInt // Epoch milliseconds
+
+  Store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, channel])
+  @@index([storeId])
+  @@index([channel])
+  @@index([enabled])
+}
+
+model SystemNotificationSettings {
+  id                   String  @id @default(uuid())
+  notificationsEnabled Boolean @default(true) // Master switch
+
+  // Plugin channel enable/disable (system-wide)
+  lineEnabled     Boolean @default(false) // LINE plugin enabled
+  whatsappEnabled Boolean @default(false) // WhatsApp plugin enabled
+  wechatEnabled   Boolean @default(false) // WeChat plugin enabled
+  smsEnabled      Boolean @default(false) // SMS plugin enabled
+  telegramEnabled Boolean @default(false) // Telegram plugin enabled
+  pushEnabled     Boolean @default(false) // Push notification plugin enabled
+
+  // Note: Built-in channels (on-site, email) are always enabled and not stored here
+
+  maxRetryAttempts     Int @default(3)
+  retryBackoffMs       Int @default(1000) // Initial backoff in milliseconds
+  queueBatchSize       Int @default(100)
+  rateLimitPerMinute   Int @default(1000)
+  historyRetentionDays Int @default(90)
+
+  updatedAt BigInt // Epoch milliseconds
+  updatedBy String // User ID of system admin who last updated
+
+  @@unique([id]) // Singleton pattern - only one record
+}
+
+model NotificationDeliveryStatus {
+  id             String  @id @default(uuid())
+  notificationId String
+  channel        String // "email", "line", "whatsapp", "sms", etc.
+  messageId      String? // External service message ID
+  status         String // "pending", "sent", "delivered", "read", "failed", "bounced"
+  errorMessage   String?
+  deliveredAt    BigInt? // Epoch milliseconds
+  readAt         BigInt? // Epoch milliseconds (if supported by channel)
+  createdAt      BigInt // Epoch milliseconds
+  updatedAt      BigInt // Epoch milliseconds
+
+  Notification MessageQueue @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@index([notificationId])
+  @@index([channel])
+  @@index([status])
+  @@index([createdAt])
+  // Composite index for status queries
+  @@index([channel, status, createdAt])
+}
+
+model SupportTicket {
+  id       String  @id @default(uuid())
+  threadId String?
+
+  senderId String
+  storeId  String
+
+  priority Int
+
+  recipientId String
+
+  department String
+  subject    String
+  message    String
+  status     Int    @default(0)
+
+  creator      String
+  createdAt    BigInt
+  modifier     String
+  lastModified BigInt
+  Store        Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  Sender       User   @relation("SupportTicketFrom", fields: [senderId], references: [id])
+  Recipient    User   @relation("SupportTicketTo", fields: [recipientId], references: [id])
+
+  parent SupportTicket?  @relation("TicketThread", fields: [threadId], references: [id], onUpdate: Restrict, onDelete: Restrict)
+  Thread SupportTicket[] @relation("TicketThread")
+
+  @@index([threadId])
+  @@index([status])
+  @@index([senderId])
+  @@index([recipientId])
+  @@index([storeId])
+  @@index([createdAt])
+  @@index([lastModified])
+  // Composite indexes for common query patterns
+  @@index([storeId, status]) // For filtered ticket listings
+  @@index([storeId, lastModified]) // For sorted ticket listings
+}
+
+model ContactUs {
+  id           String  @id @default(uuid())
+  ipaddr       String  @db.Char(12)
+  name         String?
+  gender       String?
+  phone        String?
+  email        String?
+  inquireType  String?
+  subject      String?
+  questionBody String?
+  status       Int     @default(0)
+  lastModified BigInt
+
+  @@index([status])
+  @@index([ipaddr])
+  @@index([lastModified])
+}
+
+/// The underlying view does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+
+view orderitemview {
+  id           String   @unique
+  orderId      String
+  productId    String
+  unitDiscount Decimal?
+  quantity     Int
+  unitPrice    Decimal
+  name         String
+  url          String?
+  variants     String? // hold values of product options selection delimited by comma
+  variantCosts String? // hold values of variant cost delimited by comma
+
+  Order   StoreOrder @relation("itemViewToStoreOrder", fields: [orderId], references: [id], onDelete: Cascade)
+  Product Product    @relation("itemViewToProduct", fields: [productId], references: [id])
+
+  //@@index([orderId])
+  //@@index([productId])
 }
