@@ -1,30 +1,27 @@
 import { stripe } from "@better-auth/stripe";
-import { type BetterAuthOptions, betterAuth } from "better-auth";
-import { prismaAdapter } from "better-auth/adapters/prisma";
 
 import { passkey } from "@better-auth/passkey";
 import { betterAuth, type BetterAuthOptions } from "better-auth";
 import { emailHarmony } from "better-auth-harmony";
-
+import { prismaAdapter } from "better-auth/adapters/prisma";
 import {
 	admin,
 	anonymous,
 	apiKey,
 	bearer,
-	customSession,
 	magicLink,
 	organization,
 	phoneNumber,
 	twoFactor,
+	customSession,
 } from "better-auth/plugins";
-import { passkey } from "@better-auth/passkey";
-import { emailHarmony } from "better-auth-harmony";
+
 import { sendAuthMagicLink } from "@/actions/mail/send-auth-magic-link";
 import { sendAuthPasswordReset } from "@/actions/mail/send-auth-password-reset";
 import { stripe as stripeClient } from "@/lib/stripe/config";
-import { sqlClient } from "./prismadb";
 import { linkAnonymousAccount } from "@/utils/account-linking";
 import logger from "./logger";
+import { sqlClient } from "./prismadb";
 
 const options = {
 	//...config options
@@ -38,7 +35,7 @@ export const auth = betterAuth({
 		(process.env.NODE_ENV === "production"
 			? "https://mingster.com"
 			: "http://localhost:3002"),
-	database: prismaAdapter(prisma, {
+	database: prismaAdapter(sqlClient, {
 		provider: "postgresql", // or "mysql", "postgresql", ...etc
 	}),
 	roles: [
