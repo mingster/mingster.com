@@ -1,38 +1,41 @@
-import { sqlClient } from "@/lib/prismadb";
+import { StoreOrder, User } from "@/types";
 import logger from "@/lib/logger";
 import { PhaseTags } from "./phase-tags";
 import { loadOuterHtmTemplate } from "./load-outer-htm-template";
-import type { StringNVType } from "@/types/enum";
+import { StringNVType } from "@/types/enum";
 import { phasePlaintextToHtm } from "./phase-plaintext-to-htm";
-import { User } from "@/types";
+import { sqlClient } from "@/lib/prismadb";
 import { getUtcNowEpoch } from "@/utils/datetime-utils";
 
-// send reset password email to customer
+// send credit success email to customer
 //
-export const sendAuthPasswordReset = async (
-	email: string,
-	resetUrl: string,
-) => {
-	const log = logger.child({ module: "sendAuthPasswordReset" });
+export const sendCreditSuccess = async (order: StoreOrder) => {
+	const log = logger.child({ module: "sendCreditSuccess" });
 
-	// log.info(
-	// 	`🔔 sending reset password email to customer: ${email}. resetUrl: ${resetUrl}`,
-	// );
+	// log.info(`🔔 sending credit success email to customer: ${order.CustomerID}`);
 
 	// 1. get the customer's locale
+	if (!order.User) {
+		log.error(`🔔 User not found: ${order.User}`);
+		return;
+	}
 
 	const user = await sqlClient.user.findUnique({
 		where: {
-			email: email,
+			id: order.User?.id || "",
 		},
 	});
+	if (!user) {
+		log.error(`🔔 User not found: ${order.User?.id}`);
+		return;
+	}
 
 	//get locale from user's locale or default to tw
-	const locale = user?.locale || "tw";
+	const locale = user.locale || "tw";
 
-	// 2. get needed data for "Auth.PasswordReset" Message template
+	// 2. get needed data for "OrderCompleted.CustomerNotification" Message template
 
-	const message_content_template_id = "Auth.PasswordReset";
+	const message_content_template_id = "OrderCompleted.CustomerNotification";
 
 	// find the localized message template where messageTemplate name = message_content_template_id,
 	//  and localeId = user.locale
@@ -58,22 +61,15 @@ export const sendAuthPasswordReset = async (
 	// 3. phase the message template with the data
 	const phased_subject = await PhaseTags(
 		message_content_template.subject,
-		null,
-		null,
+		user as User,
+		order,
 		user as User,
 	);
-
-	let textMessage = await PhaseTags(
+	const textMessage = await PhaseTags(
 		message_content_template.body,
-		null,
-		null,
 		user as User,
-	);
-
-	// replace %Customer.PasswordRecoveryURL% with regex
-	textMessage = textMessage.replace(
-		/%Customer\.PasswordRecoveryURL%/gi,
-		resetUrl,
+		order,
+		user as User,
 	);
 
 	const template = await loadOuterHtmTemplate();
@@ -81,7 +77,6 @@ export const sendAuthPasswordReset = async (
 		"{{message}}",
 		phasePlaintextToHtm(textMessage),
 	);
-
 	//replace {{subject}} with subject multiple times using regex
 	htmMessage = htmMessage.replace(/{{subject}}/g, phased_subject);
 	htmMessage = htmMessage.replace(/{{footer}}/g, "");
@@ -89,7 +84,7 @@ export const sendAuthPasswordReset = async (
 	// 4. add the email to the queue
 	const setting = await sqlClient.platformSettings.findFirst();
 	if (!setting) {
-		log.error("🔔 Platform settings not found");
+		log.error(`🔔 Platform settings not found`);
 		return;
 	}
 	const settingsKV = JSON.parse(setting.settings as string) as StringNVType[];
@@ -101,10 +96,10 @@ export const sendAuthPasswordReset = async (
 		data: {
 			from: supportEmail?.value || "support@riben.life",
 			fromName: supportEmail?.value || "riben.life",
-			to: email,
-			toName: user?.name || email,
+			to: user.email || "",
+			toName: user.name || "",
 			cc: "",
-			bcc: message_content_template.bCCEmailAddresses || "",
+			bcc: "",
 			subject: phased_subject,
 			textMessage: textMessage,
 			htmMessage: htmMessage,
@@ -114,7 +109,6 @@ export const sendAuthPasswordReset = async (
 	});
 
 	//log.info("queued email created - ", { email_queue });
-
 	// 5. return the email id
 	return email_queue.id;
 };

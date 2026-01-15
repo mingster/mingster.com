@@ -1,38 +1,30 @@
-import { sqlClient } from "@/lib/prismadb";
-import logger from "@/lib/logger";
-import { PhaseTags } from "./phase-tags";
-import { loadOuterHtmTemplate } from "./load-outer-htm-template";
-import type { StringNVType } from "@/types/enum";
-import { phasePlaintextToHtm } from "./phase-plaintext-to-htm";
 import { User } from "@/types";
+import logger from "@/lib/logger";
+import { loadOuterHtmTemplate } from "./load-outer-htm-template";
+import { PhaseTags } from "./phase-tags";
+import { StringNVType } from "@/types/enum";
+import { phasePlaintextToHtm } from "./phase-plaintext-to-htm";
+import { sqlClient } from "@/lib/prismadb";
 import { getUtcNowEpoch } from "@/utils/datetime-utils";
 
-// send reset password email to customer
+// send email to customer when subscription is cancelled
 //
-export const sendAuthPasswordReset = async (
-	email: string,
-	resetUrl: string,
-) => {
-	const log = logger.child({ module: "sendAuthPasswordReset" });
-
-	// log.info(
-	// 	`🔔 sending reset password email to customer: ${email}. resetUrl: ${resetUrl}`,
-	// );
+export const sendCancelSubscription = async (user: User) => {
+	const log = logger.child({ module: "sendCancelSubscription" });
+	if (!user) {
+		log.error("user is required");
+		return;
+	}
+	if (!user.email) {
+		log.error("user email is required");
+		return;
+	}
 
 	// 1. get the customer's locale
+	const locale = user.locale || "tw";
 
-	const user = await sqlClient.user.findUnique({
-		where: {
-			email: email,
-		},
-	});
-
-	//get locale from user's locale or default to tw
-	const locale = user?.locale || "tw";
-
-	// 2. get needed data for "Auth.PasswordReset" Message template
-
-	const message_content_template_id = "Auth.PasswordReset";
+	// 2. get the message template
+	const message_content_template_id = "OrderCancelled.CustomerNotification";
 
 	// find the localized message template where messageTemplate name = message_content_template_id,
 	//  and localeId = user.locale
@@ -47,7 +39,6 @@ export const sendAuthPasswordReset = async (
 				},
 			},
 		});
-
 	if (!message_content_template) {
 		log.error(
 			`🔔 Message content template not found: ${message_content_template_id} for locale: ${locale}`,
@@ -55,7 +46,6 @@ export const sendAuthPasswordReset = async (
 		return;
 	}
 
-	// 3. phase the message template with the data
 	const phased_subject = await PhaseTags(
 		message_content_template.subject,
 		null,
@@ -63,17 +53,11 @@ export const sendAuthPasswordReset = async (
 		user as User,
 	);
 
-	let textMessage = await PhaseTags(
+	const textMessage = await PhaseTags(
 		message_content_template.body,
 		null,
 		null,
 		user as User,
-	);
-
-	// replace %Customer.PasswordRecoveryURL% with regex
-	textMessage = textMessage.replace(
-		/%Customer\.PasswordRecoveryURL%/gi,
-		resetUrl,
 	);
 
 	const template = await loadOuterHtmTemplate();
@@ -81,15 +65,14 @@ export const sendAuthPasswordReset = async (
 		"{{message}}",
 		phasePlaintextToHtm(textMessage),
 	);
-
 	//replace {{subject}} with subject multiple times using regex
 	htmMessage = htmMessage.replace(/{{subject}}/g, phased_subject);
 	htmMessage = htmMessage.replace(/{{footer}}/g, "");
 
-	// 4. add the email to the queue
+	// 3. add the email to the queue
 	const setting = await sqlClient.platformSettings.findFirst();
 	if (!setting) {
-		log.error("🔔 Platform settings not found");
+		log.error(`🔔 Platform settings not found`);
 		return;
 	}
 	const settingsKV = JSON.parse(setting.settings as string) as StringNVType[];
@@ -101,10 +84,10 @@ export const sendAuthPasswordReset = async (
 		data: {
 			from: supportEmail?.value || "support@riben.life",
 			fromName: supportEmail?.value || "riben.life",
-			to: email,
-			toName: user?.name || email,
+			to: user.email || "",
+			toName: user.name || "",
 			cc: "",
-			bcc: message_content_template.bCCEmailAddresses || "",
+			bcc: "",
 			subject: phased_subject,
 			textMessage: textMessage,
 			htmMessage: htmMessage,
@@ -115,6 +98,6 @@ export const sendAuthPasswordReset = async (
 
 	//log.info("queued email created - ", { email_queue });
 
-	// 5. return the email id
+	// 4. return the email id
 	return email_queue.id;
 };
