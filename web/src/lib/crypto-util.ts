@@ -3,7 +3,7 @@ import CryptoJS from "crypto-js";
 export class CryptoUtil {
 	//private static readonly _SECURITY_KEY: string = process.env.SECURITY_KEY;
 	private static readonly _SECURITY_KEY: string =
-		"b07fccd6-7a7e-411b-bafb-bfef11cc8cd5";
+		"a0978cd6-7a7e-411b-bafb-bfef11cc8cd6";
 
 	/*
   String plaintext = "1234567890";
