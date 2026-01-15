@@ -1,15 +1,15 @@
 // LINK - https://www.prisma.io/docs/orm/more/help-and-troubleshooting/help-articles/nextjs-prisma-client-dev-practices
 //import { PrismaClient as mongoPrismaClient } from "@prisma-mongo/prisma/client";
 
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient as sqlPrismaClient } from "@prisma/client";
-//import { withAccelerate } from "@prisma/extension-accelerate";
-//import { withOptimize } from "@prisma/extension-optimize";
+import pg from "pg";
 
 /**
  * Prisma Client Singleton
  *
  * Connection Pooling:
- * - Prisma manages connection pooling automatically
+ * - Prisma manages connection pooling automatically via the adapter
  * - Default pool size: 10 connections
  * - To configure, add to your DATABASE_URL:
  *   postgresql://user:pass@host:5432/db?connection_limit=5&pool_timeout=20
@@ -20,12 +20,37 @@ import { PrismaClient as sqlPrismaClient } from "@prisma/client";
  * 3. Run: bun run bin/close-db-connections.ts to clean up stale connections
  * 4. Restart your dev server
  */
+
+const connectionString = process.env.POSTGRES_URL;
+
+if (!connectionString) {
+	if (process.env.NODE_ENV === "production") {
+		throw new Error("POSTGRES_URL must be defined");
+	} else {
+		console.warn("POSTGRES_URL is missing in dev");
+	}
+}
+
+// Ensure pg import works in different environments
+const Pool = pg.Pool;
+if (!Pool) {
+	throw new Error("Failed to import pg.Pool");
+}
+
+const pool = new Pool({
+	connectionString: connectionString || "postgres://localhost:5432/postgres", // Fallback for dev if missing
+});
+const adapter = new PrismaPg(pool);
+
 const prismaClientSingleton = () => {
+	// Check for adapter validity (basic check)
+	if (!adapter) {
+		throw new Error("Failed to initialize PrismaPg adapter");
+	}
+
 	return new sqlPrismaClient({
-		log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+		adapter,
 	});
-	//return new sqlPrismaClient().$extends(withOptimize({ apiKey: process.env.OPTIMIZE_API_KEY as string}));
-	//return new sqlPrismaClient().$extends(withAccelerate());
 };
 
 declare global {
