@@ -1,20 +1,19 @@
-import { stripe } from "@better-auth/stripe";
-
 import { passkey } from "@better-auth/passkey";
-import { betterAuth, type BetterAuthOptions } from "better-auth";
-import { emailHarmony } from "better-auth-harmony";
+import { stripe } from "@better-auth/stripe";
+import { type BetterAuthOptions, betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import {
 	admin,
 	anonymous,
 	apiKey,
 	bearer,
+	customSession,
 	magicLink,
 	organization,
 	phoneNumber,
 	twoFactor,
-	customSession,
 } from "better-auth/plugins";
+import { emailHarmony } from "better-auth-harmony";
 
 import { sendAuthMagicLink } from "@/actions/mail/send-auth-magic-link";
 import { sendAuthPasswordReset } from "@/actions/mail/send-auth-password-reset";
@@ -33,8 +32,8 @@ export const auth = betterAuth({
 		process.env.NEXT_PUBLIC_BASE_URL ||
 		process.env.NEXT_PUBLIC_API_URL ||
 		(process.env.NODE_ENV === "production"
-			? "https://mingster.com"
-			: "http://localhost:3002"),
+			? "https://riben.life"
+			: "http://localhost:3001"),
 	database: prismaAdapter(sqlClient, {
 		provider: "postgresql", // or "mysql", "postgresql", ...etc
 	}),
@@ -83,7 +82,7 @@ export const auth = betterAuth({
 	/* 
 	emailVerification: {
 		sendOnSignUp: true,
-		sendVerificationEmail: async ({ user, url, token }, request) => {
+		sendVerificationEmail: async ({ user, url, token }, _request) => {
 			await sendAuthEmailValidation(user.email, url);
 		},
 	},
@@ -140,27 +139,36 @@ export const auth = betterAuth({
 					return [];
 				}
 
-				const pricesResponse = await stripeClient.prices.list({
-					product: setting.stripeProductId as string,
-				});
-
-				return pricesResponse.data.map((price) => ({
-					name: price.nickname,
-					priceId: price.id,
-					//limits: JSON.parse(price.metadata.limits),
-					freeTrial: {
-						days: price.metadata.freeTrial
-							? parseInt(price.metadata.freeTrial, 10)
-							: 0,
-					},
-					active: price.active,
-					lookup_key: price.lookup_key,
-					group: price.metadata.group,
-				}));
+				const _pricesResponse = await stripeClient.prices
+					.list({
+						product: setting.stripeProductId as string,
+					})
+					.then((obj) => {
+						return obj.data.map((price) => ({
+							name: price.nickname,
+							priceId: price.id,
+							//limits: JSON.parse(price.metadata.limits),
+							freeTrial: {
+								days: price.metadata.freeTrial,
+							},
+							active: price.active,
+							lookup_key: price.lookup_key,
+							group: price.metadata.group,
+						}));
+					});
 			},
 		}),
 		phoneNumber({
 			sendOTP: async ({ phoneNumber, code }, ctx) => {
+				// Normalize phone number format before sending SMS
+				// Convert Taiwan numbers starting with +8860 to +886 (remove leading 0 after country code)
+				// This ensures consistency between OTP storage and SMS sending
+				let normalizedPhoneNumber = phoneNumber;
+				if (normalizedPhoneNumber.startsWith("+8860")) {
+					// Remove the leading 0 after +886 (e.g., +8860912345678 -> +886912345678)
+					normalizedPhoneNumber = `+886${normalizedPhoneNumber.slice(5)}`;
+				}
+
 				// Better Auth provides the OTP code, we use our existing sendOTP function
 				// which handles storing in database and sending via Twilio
 				const { sendOTP } = await import("./otp/send-otp");
@@ -181,20 +189,59 @@ export const auth = betterAuth({
 				// Extract user agent from request headers for logging
 				const userAgent = ctx?.request?.headers?.get("user-agent") || undefined;
 
-				// Call our existing sendOTP function with the code provided by Better Auth
-				const result = await sendOTP({
-					phoneNumber,
-					locale,
-					code, // Use the code provided by Better Auth
-					ipAddress, // Pass IP address for rate limiting
-					userAgent, // Pass user agent for logging
-				});
+				// Call our existing sendOTP function with the normalized phone number
+				// Note: Better Auth has already stored the OTP with the original phoneNumber format
+				// So we need to ensure the frontend also normalizes before calling sendPhoneNumberOTP
+				try {
+					const result = await sendOTP({
+						phoneNumber: normalizedPhoneNumber,
+						locale,
+						code, // Use the code provided by Better Auth
+						ipAddress, // Pass IP address for rate limiting
+						userAgent, // Pass user agent for logging
+					});
 
-				if (!result.success) {
-					throw new Error(result.error || "Failed to send OTP");
+					if (!result.success) {
+						// Log the error with full details before throwing
+						const logger = (await import("@/lib/logger")).default;
+						logger.error("Better Auth sendOTP callback failed", {
+							metadata: {
+								phoneNumber: normalizedPhoneNumber.replace(/\d(?=\d{4})/g, "*"),
+								error: result.error,
+								locale,
+							},
+							tags: ["auth", "phone-otp", "error"],
+						});
+
+						// Throw error with full message
+						const errorMessage = result.error || "Failed to send OTP";
+						throw new Error(`SMS delivery failed: ${errorMessage}`);
+					}
+				} catch (error) {
+					// Log the error with full details before re-throwing
+					const logger = (await import("@/lib/logger")).default;
+					const errorMessage =
+						error instanceof Error ? error.message : String(error);
+					logger.error("Better Auth sendOTP callback exception", {
+						metadata: {
+							phoneNumber: normalizedPhoneNumber.replace(/\d(?=\d{4})/g, "*"),
+							error: errorMessage,
+							stack: error instanceof Error ? error.stack : undefined,
+							locale,
+						},
+						tags: ["auth", "phone-otp", "error"],
+					});
+
+					// Re-throw with full error message
+					throw new Error(
+						`SMS delivery failed: ${errorMessage}`,
+						error instanceof Error ? { cause: error } : undefined,
+					);
 				}
 			},
 			// No custom verifyOTP callback - Better Auth handles verification internally
+			// When auth.api.verifyPhoneNumber is called, Better Auth will verify
+			// the OTP against its own storage (created when sendPhoneNumberOTP was called)
 			signUpOnVerification: {
 				getTempEmail: (phoneNumber) => {
 					// Generate temporary email for phone-based sign-up
@@ -208,6 +255,17 @@ export const auth = betterAuth({
 					);
 				},
 			},
+			// Note: Better Auth automatically handles account linking when a phone number
+			// already exists, thanks to the global accountLinking configuration:
+			// - account.accountLinking.enabled: true
+			// - account.accountLinking.trustedProviders: ["phone"]
+			//
+			// When a user verifies a phone number that's already associated with an account,
+			// Better Auth will automatically link the credentials to the existing account.
+			// No custom callback is needed for basic account linking.
+			//
+			// If you need custom data migration logic (similar to anonymous account linking),
+			// you would need to handle this in your verify-otp action or use Better Auth hooks.
 		}),
 		twoFactor(),
 		magicLink({

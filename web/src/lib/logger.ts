@@ -1,9 +1,9 @@
 import pino from "pino";
-import { dateToEpoch, getUtcNowEpoch } from "@/utils/datetime-utils";
 import {
 	transformBigIntToNumbers,
 	transformDecimalsToNumbers,
 } from "@/utils/edge-utils";
+import { getUtcNowEpoch, dateToEpoch } from "@/utils/datetime-utils";
 import { analytics } from "./analytics";
 
 const isProduction = process.env.NODE_ENV === "production";

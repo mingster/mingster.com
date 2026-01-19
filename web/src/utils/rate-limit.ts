@@ -1,6 +1,6 @@
-import { getT } from "@/app/i18n";
 import logger from "@/lib/logger";
-import { maskPhoneNumber } from "@/utils/phone-utils";
+import { maskPhoneNumber } from "@/utils/utils";
+import { getT } from "@/app/i18n";
 
 interface RateLimitCheck {
 	phoneNumber?: string;
