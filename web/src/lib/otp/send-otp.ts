@@ -1,7 +1,7 @@
-import { getT } from "@/app/i18n";
-import logger from "@/lib/logger";
-import { checkRateLimit } from "@/utils/rate-limit";
 import { generateOTPCode, maskPhoneNumber } from "@/utils/utils";
+import logger from "@/lib/logger";
+import { getT } from "@/app/i18n";
+import { checkRateLimit } from "@/utils/rate-limit";
 
 export interface SendOTPParams {
 	phoneNumber: string; // E.164 format
@@ -56,27 +56,19 @@ export async function sendOTP({
 		};
 	}
 
-	const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
-
-	if (!twilioPhoneNumber) {
-		const errorMessage = "TWILIO_PHONE_NUMBER environment variable is required";
-		// Log OTP send failure to system_logs
-		logger.error("OTP send request - configuration error", {
+	// Normalize phone number format
+	// Convert Taiwan numbers starting with +8860 to +886 (remove leading 0 after country code)
+	let normalizedPhoneNumber = phoneNumber;
+	if (normalizedPhoneNumber.startsWith("+8860")) {
+		// Remove the leading 0 after +886 (e.g., +8860912345678 -> +886912345678)
+		normalizedPhoneNumber = "+886" + normalizedPhoneNumber.slice(5);
+		logger.info("Normalized Taiwan phone number", {
 			metadata: {
-				phoneNumber: maskPhoneNumber(phoneNumber),
-				userId,
-				error: errorMessage,
-				status: "error",
+				original: maskPhoneNumber(phoneNumber),
+				normalized: maskPhoneNumber(normalizedPhoneNumber),
 			},
-			tags: ["phone-auth", "otp-send"],
-			userId,
-			ip: ipAddress,
-			userAgent,
+			tags: ["phone-auth", "otp-send", "normalization"],
 		});
-		return {
-			success: false,
-			error: errorMessage,
-		};
 	}
 
 	try {
@@ -86,57 +78,100 @@ export async function sendOTP({
 		// Note: When called from Better Auth's sendOTP callback, Better Auth
 		// already stores the OTP in its own system. We just need to send it via SMS.
 
+		// Check phone number country code to determine SMS provider
+		const isTaiwanNumber = normalizedPhoneNumber.startsWith("+886");
+		const isUSNumber = normalizedPhoneNumber.startsWith("+1");
+
+		// Set locale to "tw" for Taiwan numbers, otherwise use provided locale or default
+		const finalLocale = isTaiwanNumber ? "tw" : locale || "tw";
+
 		// Get translation function for SMS message
-		const { t } = await getT(locale || "tw");
+		const { t } = await getT(finalLocale);
 
 		// Get localized SMS message
 		const smsMessage = t("otp_sms_message", { code: otpCode });
 
-		// Check if phone number is +1 (US/Canada) - only send via Twilio for +1
-		const isUSNumber = phoneNumber.startsWith("+1");
+		if (isTaiwanNumber) {
+			//#region Taiwan numbers
 
-		if (isUSNumber) {
-			// Import Twilio client dynamically to avoid bundling issues
-			const { twilioClient } = await import("@/lib/twilio/client");
+			// Send OTP via Mitake SMS for Taiwan numbers
+			const { SmSend } = await import("@/lib/Mitake_SMS");
 
-			// Send OTP via Twilio SMS for US numbers
-			const message = await twilioClient.messages.create({
-				body: smsMessage,
-				from: twilioPhoneNumber,
-				to: phoneNumber,
+			const result = await SmSend({
+				phoneNumber: normalizedPhoneNumber,
+				message: smsMessage,
 			});
 
-			// Log OTP send request to system_logs
-			logger.info("OTP send request - SMS sent via Twilio", {
-				metadata: {
-					phoneNumber: maskPhoneNumber(phoneNumber),
-					userId,
-					locale,
-					messageSid: message.sid,
-					status: "success",
-					provider: "twilio",
-				},
-				tags: ["phone-auth", "otp-send"],
-				userId,
-				ip: ipAddress,
-				userAgent,
-			});
-
-			return {
-				success: true,
-				messageId: message.sid,
-			};
-		} else {
-			// For non-US numbers, just log the OTP code (for development/testing)
-			// Log OTP send request to system_logs
-			logger.info(
-				"OTP send request - code generated (non-US number, log only)",
-				{
+			if (result.success) {
+				// Log OTP send request to system_logs
+				logger.info("OTP send request - SMS sent via Mitake", {
 					metadata: {
-						phoneNumber: maskPhoneNumber(phoneNumber),
+						phoneNumber: maskPhoneNumber(normalizedPhoneNumber),
 						userId,
 						locale,
-						countryCode: phoneNumber.match(/^\+\d{1,3}/)?.[0] || "unknown",
+						messageId: result.messageId,
+						status: "success",
+						provider: "mitake",
+					},
+					tags: ["phone-auth", "otp-send"],
+					userId,
+					ip: ipAddress,
+					userAgent,
+				});
+
+				return {
+					success: true,
+					messageId: result.messageId,
+				};
+			} else {
+				// Log OTP send failure
+				logger.error("OTP send request - Mitake SMS failed", {
+					metadata: {
+						phoneNumber: maskPhoneNumber(normalizedPhoneNumber),
+						userId,
+						error: result.error,
+						statusCode: result.statusCode,
+						statusMessage: result.statusMessage,
+						status: "error",
+						provider: "mitake",
+					},
+					tags: ["phone-auth", "otp-send"],
+					userId,
+					ip: ipAddress,
+					userAgent,
+				});
+
+				return {
+					success: false,
+					error: result.error || "Failed to send OTP via Mitake SMS",
+				};
+			}
+			//#endregion
+		} else if (isUSNumber) {
+			//#region US numbers
+			// Send OTP via Twilio SMS for US/Canada numbers
+			return await sendViaTwilio(
+				normalizedPhoneNumber,
+				smsMessage,
+				locale,
+				userId,
+				ipAddress,
+				userAgent,
+			);
+			//#endregion
+		} else {
+			// For other numbers, just log the OTP code (for development/testing)
+			// Log OTP send request to system_logs
+			logger.info(
+				"OTP send request - code generated (unsupported country, log only)",
+				{
+					metadata: {
+						phoneNumber: maskPhoneNumber(normalizedPhoneNumber),
+						code: otpCode,
+						userId,
+						locale,
+						countryCode:
+							normalizedPhoneNumber.match(/^\+\d{1,3}/)?.[0] || "unknown",
 						status: "success",
 						provider: "log-only",
 					},
@@ -166,7 +201,7 @@ export async function sendOTP({
 		// Log OTP send failure to system_logs
 		logger.error("OTP send request - SMS delivery failed", {
 			metadata: {
-				phoneNumber: maskPhoneNumber(phoneNumber),
+				phoneNumber: maskPhoneNumber(normalizedPhoneNumber),
 				userId,
 				error: errorMessage,
 				locale,
@@ -184,3 +219,67 @@ export async function sendOTP({
 		};
 	}
 }
+
+const sendViaTwilio = async (
+	normalizedPhoneNumber: string,
+	smsMessage: string,
+	locale: string = "tw",
+	userId?: string,
+	ipAddress?: string,
+	userAgent?: string,
+): Promise<SendOTPResult> => {
+	const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
+
+	if (!twilioPhoneNumber) {
+		const errorMessage =
+			"TWILIO_PHONE_NUMBER environment variable is required for US numbers";
+		logger.error("OTP send request - Twilio configuration missing", {
+			metadata: {
+				phoneNumber: maskPhoneNumber(normalizedPhoneNumber),
+				userId,
+				error: errorMessage,
+				status: "error",
+			},
+			tags: ["phone-auth", "otp-send"],
+			userId,
+			ip: ipAddress,
+			userAgent,
+		});
+		return {
+			success: false,
+			error: errorMessage,
+		};
+	}
+
+	// Import Twilio client dynamically to avoid bundling issues
+	const { twilioClient } = await import("@/lib/twilio/client");
+
+	// Send OTP via Twilio SMS for US numbers
+	const message = await twilioClient.messages.create({
+		body: smsMessage,
+		from: twilioPhoneNumber,
+		to: normalizedPhoneNumber,
+	});
+
+	// Log OTP send request to system_logs
+	logger.info("OTP send request - SMS sent via Twilio", {
+		metadata: {
+			phoneNumber: maskPhoneNumber(normalizedPhoneNumber),
+			smsMessage,
+			userId,
+			locale,
+			messageSid: message.sid,
+			status: "success",
+			provider: "twilio",
+		},
+		tags: ["phone-auth", "otp-send", "send-via-twilio"],
+		userId,
+		ip: ipAddress,
+		userAgent,
+	});
+
+	return {
+		success: true,
+		messageId: message.sid,
+	};
+};

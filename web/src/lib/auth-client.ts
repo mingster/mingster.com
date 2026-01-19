@@ -1,8 +1,7 @@
-import { passkeyClient } from "@better-auth/passkey/client";
 import { stripeClient } from "@better-auth/stripe/client";
 import {
 	adminClient,
-	//anonymousClient,
+	anonymousClient,
 	apiKeyClient,
 	customSessionClient,
 	//emailOTPClient,
@@ -17,6 +16,7 @@ import {
 } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import type { auth } from "./auth";
+import { passkeyClient } from "@better-auth/passkey/client";
 
 export const authClient = createAuthClient({
 	/** The base URL of the server (optional if you're using the same domain) */
@@ -40,6 +40,7 @@ export const authClient = createAuthClient({
 		genericOAuthClient(),
 		apiKeyClient(),
 		phoneNumberClient(),
+		anonymousClient(),
 
 		/*
 		emailOTPClient(),

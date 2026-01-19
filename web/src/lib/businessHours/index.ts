@@ -120,24 +120,16 @@ export default class BusinessHours {
 		});
 
 		const parts = formatter.formatToParts(now);
-		const year = parseInt(
-			parts.find((p) => p.type === "year")?.value || "0",
-			10,
-		);
+		const year = parseInt(parts.find((p) => p.type === "year")?.value || "0");
 		const month =
-			parseInt(parts.find((p) => p.type === "month")?.value || "0", 10) - 1; // Month is 0-indexed
-		const day = parseInt(parts.find((p) => p.type === "day")?.value || "0", 10);
-		const hour = parseInt(
-			parts.find((p) => p.type === "hour")?.value || "0",
-			10,
-		);
+			parseInt(parts.find((p) => p.type === "month")?.value || "0") - 1; // Month is 0-indexed
+		const day = parseInt(parts.find((p) => p.type === "day")?.value || "0");
+		const hour = parseInt(parts.find((p) => p.type === "hour")?.value || "0");
 		const minute = parseInt(
 			parts.find((p) => p.type === "minute")?.value || "0",
-			10,
 		);
 		const second = parseInt(
 			parts.find((p) => p.type === "second")?.value || "0",
-			10,
 		);
 
 		// Create a date object with these components (will be in local timezone, but we'll use it for comparison)
@@ -182,23 +174,18 @@ export default class BusinessHours {
 			weekdayName.charAt(0).toUpperCase() + weekdayName.slice(1).toLowerCase();
 		const year = parseInt(
 			dateParts.find((p) => p.type === "year")?.value || "0",
-			10,
 		);
 		const month = parseInt(
 			dateParts.find((p) => p.type === "month")?.value || "0",
-			10,
 		);
 		const dayOfMonth = parseInt(
 			dateParts.find((p) => p.type === "day")?.value || "0",
-			10,
 		);
 		const currentHour = parseInt(
 			dateParts.find((p) => p.type === "hour")?.value || "0",
-			10,
 		);
 		const currentMinute = parseInt(
 			dateParts.find((p) => p.type === "minute")?.value || "0",
-			10,
 		);
 
 		//console.log('[BusinessHours] Checking day in store timezone:', day, 'Date:', `${year}-${month}-${dayOfMonth}`);
@@ -230,7 +217,7 @@ export default class BusinessHours {
 		if (Array.isArray(bizhours)) {
 			// Use time components already extracted in store timezone (server independent)
 			const currentTimeMinutes = currentHour * 60 + currentMinute;
-			const _currentTimeStr = `${String(currentHour).padStart(2, "0")}:${String(currentMinute).padStart(2, "0")}`;
+			const currentTimeStr = `${String(currentHour).padStart(2, "0")}:${String(currentMinute).padStart(2, "0")}`;
 			//console.log('[BusinessHours] Current time in store timezone:', currentTimeStr, 'Input date (UTC):', dateToCheck.toISOString());
 
 			for (let i = 0; i < Number(bizhours.length); i++) {

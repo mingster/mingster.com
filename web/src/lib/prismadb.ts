@@ -2,7 +2,6 @@
 //import { PrismaClient as mongoPrismaClient } from "@prisma-mongo/prisma/client";
 
 import { PrismaClient as sqlPrismaClient } from "@prisma/client";
-
 //import { withAccelerate } from "@prisma/extension-accelerate";
 //import { withOptimize } from "@prisma/extension-optimize";
 

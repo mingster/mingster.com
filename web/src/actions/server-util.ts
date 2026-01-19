@@ -1,6 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
+import logger from "@/lib/logger";
 
 // Server-side URL utilities
 export async function getServerUrl() {
