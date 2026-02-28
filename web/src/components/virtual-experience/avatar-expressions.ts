@@ -2,10 +2,7 @@
  * Morph target weights for facial expressions (Ready Player Me / similar rigs).
  * Keys match expression names from API; values are morph target name -> weight.
  */
-export const FACIAL_EXPRESSIONS: Record<
-	string,
-	Record<string, number>
-> = {
+export const FACIAL_EXPRESSIONS: Record<string, Record<string, number>> = {
 	default: {},
 	neutral: {},
 	happy: {

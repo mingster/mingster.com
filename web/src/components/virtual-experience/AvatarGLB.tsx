@@ -1,48 +1,228 @@
 "use client";
 
-import { useAnimations, useGLTF } from "@react-three/drei";
+import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { useChat } from "@/hooks/useChat";
 import type { LipsyncData } from "@/types/virtual-experience";
 import { FACIAL_EXPRESSIONS, VISEME_TO_MORPH } from "./avatar-expressions";
 
 const CHARACTER_URL = "/models/character.glb";
-const ANIMATIONS_URL = "/models/animations.glb";
 
 // Draco decoder for compressed character.glb (see bin/compress-character-glb.ts)
 if (typeof window !== "undefined") {
-	useGLTF.setDecoderPath("https://www.gstatic.com/draco/versioned/decoders/1.5.7/");
+	useGLTF.setDecoderPath(
+		"https://www.gstatic.com/draco/versioned/decoders/1.5.7/",
+	);
 }
-
-type RestPose = { position: THREE.Vector3; quaternion: THREE.Quaternion; scale: THREE.Vector3 }[];
 
 function getSkeleton(root: THREE.Object3D): THREE.Skeleton | null {
 	let sk: THREE.Skeleton | null = null;
 	root.traverse((child) => {
-		if (child instanceof THREE.SkinnedMesh && child.skeleton) sk = child.skeleton;
+		if (child instanceof THREE.SkinnedMesh && child.skeleton)
+			sk = child.skeleton;
 	});
 	return sk;
 }
 
-function saveRestPose(skeleton: THREE.Skeleton): RestPose {
-	return skeleton.bones.map((bone) => ({
-		position: bone.position.clone(),
-		quaternion: bone.quaternion.clone(),
-		scale: bone.scale.clone(),
-	}));
+const BREATH_AMPLITUDE = 0.004;
+const BREATH_SPEED = 1.2;
+const _breathAxis = new THREE.Vector3(0, 0, 1);
+const _breathOffset = new THREE.Vector3();
+
+function applyBreathing(
+	skeleton: THREE.Skeleton,
+	time: number,
+	prevScalarRef: React.MutableRefObject<number>,
+) {
+	const scalar = Math.sin(time * BREATH_SPEED);
+	for (const bone of skeleton.bones) {
+		const name = bone.name.toLowerCase();
+		const isChestOrSpine =
+			(name.includes("chest") || name.includes("spine")) &&
+			!name.includes("neck") &&
+			!name.includes("head");
+		if (!isChestOrSpine) continue;
+		_breathAxis.set(0, 0, 1).applyQuaternion(bone.quaternion);
+		_breathOffset
+			.copy(_breathAxis)
+			.multiplyScalar(BREATH_AMPLITUDE * prevScalarRef.current);
+		bone.position.sub(_breathOffset);
+		_breathOffset.copy(_breathAxis).multiplyScalar(BREATH_AMPLITUDE * scalar);
+		bone.position.add(_breathOffset);
+	}
+	prevScalarRef.current = scalar;
 }
 
-function applyRestPose(skeleton: THREE.Skeleton, rest: RestPose) {
-	rest.forEach((pose, i) => {
-		const bone = skeleton.bones[i];
-		if (bone && pose) {
-			bone.position.copy(pose.position);
-			bone.quaternion.copy(pose.quaternion);
-			bone.scale.copy(pose.scale);
+// Idle look: head and eyes look right 5° then turn back (cycle with breathing)
+const LOOK_RIGHT_ANGLE_MAX = (5 * Math.PI) / 180; // 5°
+const LOOK_CYCLE_SPEED = 0.8;
+const _lookY = new THREE.Vector3(0, 1, 0);
+const _lookQ = new THREE.Quaternion();
+
+// Idle eyes: look left then right every 5 sec
+const EYE_GAZE_INTERVAL = 5;
+const EYE_GAZE_ANGLE = (9 * Math.PI) / 180; // 6° left/right
+const _gazeQ = new THREE.Quaternion();
+
+function applyIdleLookRight(
+	skeleton: THREE.Skeleton,
+	time: number,
+	headBaseRef: React.MutableRefObject<THREE.Quaternion | null>,
+	neckBaseRef: React.MutableRefObject<THREE.Quaternion | null>,
+	eyeBasesRef: React.MutableRefObject<Map<string, THREE.Quaternion>>,
+) {
+	// 0 → 5° right → 0 (turn back) in a smooth cycle
+	const t = (1 + Math.sin(time * LOOK_CYCLE_SPEED)) / 2;
+	const angle = -LOOK_RIGHT_ANGLE_MAX * t; // negative Y = right
+
+	// Eyes: every 5 sec switch between look left and look right (phase 0 = left, 1 = right)
+	const gazePhase = Math.floor(time / EYE_GAZE_INTERVAL) % 2;
+	const gazeAngle = gazePhase === 0 ? -EYE_GAZE_ANGLE : EYE_GAZE_ANGLE;
+	_gazeQ.setFromAxisAngle(_lookY, gazeAngle);
+
+	let headBone: THREE.Bone | null = null;
+	let neckBone: THREE.Bone | null = null;
+	const eyeBones: THREE.Bone[] = [];
+	for (const bone of skeleton.bones) {
+		const name = bone.name.toLowerCase();
+		if (name.includes("head") && !name.includes("upper")) headBone = bone;
+		if ((name.includes("neck") || name === "upperneck") && !neckBone)
+			neckBone = bone;
+		if (
+			name.includes("eye") &&
+			(name.includes("left") || name.includes("right"))
+		)
+			eyeBones.push(bone);
+	}
+	_lookQ.setFromAxisAngle(_lookY, angle);
+	if (headBone) {
+		if (!headBaseRef.current) headBaseRef.current = headBone.quaternion.clone();
+		headBone.quaternion.copy(headBaseRef.current).premultiply(_lookQ);
+	}
+	_lookQ.setFromAxisAngle(_lookY, angle * 0.4);
+	if (neckBone) {
+		if (!neckBaseRef.current) neckBaseRef.current = neckBone.quaternion.clone();
+		neckBone.quaternion.copy(neckBaseRef.current).premultiply(_lookQ);
+	}
+	_lookQ.setFromAxisAngle(_lookY, angle * 0.5);
+	for (const bone of eyeBones) {
+		if (!eyeBasesRef.current.has(bone.uuid))
+			eyeBasesRef.current.set(bone.uuid, bone.quaternion.clone());
+		const base = eyeBasesRef.current.get(bone.uuid);
+		if (base) {
+			bone.quaternion.copy(base).premultiply(_lookQ).premultiply(_gazeQ);
 		}
-	});
+	}
+}
+
+function restoreIdleLook(
+	skeleton: THREE.Skeleton,
+	headBaseRef: React.MutableRefObject<THREE.Quaternion | null>,
+	neckBaseRef: React.MutableRefObject<THREE.Quaternion | null>,
+	eyeBasesRef: React.MutableRefObject<Map<string, THREE.Quaternion>>,
+) {
+	for (const bone of skeleton.bones) {
+		const name = bone.name.toLowerCase();
+		if (
+			name.includes("head") &&
+			!name.includes("upper") &&
+			headBaseRef.current
+		) {
+			bone.quaternion.copy(headBaseRef.current);
+		} else if (
+			(name.includes("neck") || name === "upperneck") &&
+			neckBaseRef.current
+		) {
+			bone.quaternion.copy(neckBaseRef.current);
+		} else if (
+			name.includes("eye") &&
+			(name.includes("left") || name.includes("right"))
+		) {
+			const base = eyeBasesRef.current.get(bone.uuid);
+			if (base) bone.quaternion.copy(base);
+		}
+	}
+	headBaseRef.current = null;
+	neckBaseRef.current = null;
+	eyeBasesRef.current.clear();
+}
+
+// Idle: arms and hands parallel with body (straight down along sides). From T-pose rotate upper arms 90° around Z; forearms/hands follow (no extra rotation = straight arm).
+const ARMS_PARALLEL_ANGLE = Math.PI / 2;
+const _armZ = new THREE.Vector3(0, 0, 1);
+const _armQ = new THREE.Quaternion();
+
+function isArmOrHandBone(name: string): boolean {
+	const n = name.toLowerCase();
+	const side =
+		n.includes("left") ||
+		n.includes("right") ||
+		n.includes("_l") ||
+		n.includes("_r") ||
+		n.endsWith("l") ||
+		n.endsWith("r");
+	const limb = n.includes("arm") || n.includes("hand");
+	return side && limb;
+}
+
+function captureTPose(
+	skeleton: THREE.Skeleton,
+	tPoseRef: React.MutableRefObject<Map<string, THREE.Quaternion>>,
+) {
+	for (const bone of skeleton.bones) {
+		if (!isArmOrHandBone(bone.name)) continue;
+		tPoseRef.current.set(bone.uuid, bone.quaternion.clone());
+	}
+}
+
+/** Apply idle pose: arms and hands straight down, parallel with body. */
+function _applyArmsParallelWithBody(
+	skeleton: THREE.Skeleton,
+	tPoseRef: React.MutableRefObject<Map<string, THREE.Quaternion>>,
+) {
+	for (const bone of skeleton.bones) {
+		const name = bone.name.toLowerCase();
+		const isLeft =
+			name.includes("left") || name.includes("_l") || name.endsWith("l");
+		const isRight =
+			name.includes("right") || name.includes("_r") || name.endsWith("r");
+		if (!isLeft && !isRight) continue;
+		const isUpperArm =
+			name.includes("upperarm") ||
+			name.includes("upper_arm") ||
+			(name.includes("arm") &&
+				!name.includes("forearm") &&
+				!name.includes("lower"));
+		const isForearm =
+			name.includes("forearm") ||
+			name.includes("lowerarm") ||
+			name.includes("lower_arm");
+		const isHand = name.includes("hand");
+		if (!isUpperArm && !isForearm && !isHand) continue;
+		const base = tPoseRef.current.get(bone.uuid);
+		if (!base) continue;
+		// Upper arm only: rotate down so arm hangs parallel to body (left +90° Z, right -90° Z; opposite of backward). Forearm and hand: no rotation.
+		if (isUpperArm) {
+			const angle = isLeft ? ARMS_PARALLEL_ANGLE : -ARMS_PARALLEL_ANGLE;
+			_armQ.setFromAxisAngle(_armZ, angle);
+			bone.quaternion.copy(base).premultiply(_armQ);
+		} else {
+			bone.quaternion.copy(base);
+		}
+	}
+}
+
+function _restoreArmsToTPose(
+	skeleton: THREE.Skeleton,
+	tPoseRef: React.MutableRefObject<Map<string, THREE.Quaternion>>,
+) {
+	for (const bone of skeleton.bones) {
+		if (!isArmOrHandBone(bone.name)) continue;
+		const base = tPoseRef.current.get(bone.uuid);
+		if (base) bone.quaternion.copy(base);
+	}
 }
 
 function lerpMorphTarget(
@@ -75,40 +255,42 @@ function lerpMorphTarget(
 export function AvatarGLB() {
 	const character = useGLTF(CHARACTER_URL, true);
 	const { scene } = character;
-	const { animations } = useGLTF(ANIMATIONS_URL);
-	const { actions, mixer } = useAnimations(animations, scene);
+	const groupRef = useRef<THREE.Group>(null);
+	const prevBreathScalarRef = useRef(0);
+	const headBaseRef = useRef<THREE.Quaternion | null>(null);
+	const neckBaseRef = useRef<THREE.Quaternion | null>(null);
+	const eyeBasesRef = useRef<Map<string, THREE.Quaternion>>(new Map());
+	const tPoseArmRef = useRef<Map<string, THREE.Quaternion>>(new Map());
 
-	const restPoseRef = useRef<RestPose | null>(null);
-	const firstFrameRef = useRef(true);
-	const restoreRequestedRef = useRef(false);
-
-	const { currentMessage, onMessagePlayed, danceTrigger } = useChat();
+	const { currentMessage, onMessagePlayed } = useChat();
+	const isIdle = currentMessage === null;
 
 	const [facialExpressionKey, setFacialExpressionKey] = useState("");
 	const [lipsyncData, setLipsyncData] = useState<LipsyncData | null>(null);
 	const audioRef = useRef<HTMLAudioElement | null>(null);
 	const [blink, setBlink] = useState(false);
 
-	// Resolve animation name: API may send "Talking_0" etc.; "Dance" for dance mode (like Avaturn)
-	const animationNames = animations.map((a) => a.name);
-	const resolveAnimation = useCallback(
-		(name?: string) => {
-			if (name && animationNames.includes(name)) return name;
-			if (animationNames.includes("Idle")) return "Idle";
-			return animationNames[0] ?? null;
-		},
-		[animationNames],
-	);
+	// Eye blink when idle (part of breathing / idle behavior)
+	useEffect(() => {
+		if (!isIdle) return;
+		let blinkTimeout: ReturnType<typeof setTimeout>;
+		const scheduleNext = () => {
+			blinkTimeout = setTimeout(
+				() => {
+					setBlink(true);
+					setTimeout(() => {
+						setBlink(false);
+						scheduleNext();
+					}, 200);
+				},
+				THREE.MathUtils.randInt(2000, 5000),
+			);
+		};
+		scheduleNext();
+		return () => clearTimeout(blinkTimeout);
+	}, [isIdle]);
 
-	// Effective animation: message takes precedence; else dance if triggered; else rest pose
-	const effectiveAnimation =
-		currentMessage !== null
-			? resolveAnimation(currentMessage.animation)
-			: danceTrigger !== null
-				? resolveAnimation("Dance")
-				: null;
-
-	// When current message changes: set expression, lipsync, play audio (animation driven by effectiveAnimation)
+	// When current message changes: set expression, lipsync, play audio
 	useEffect(() => {
 		if (!currentMessage) {
 			setFacialExpressionKey("default");
@@ -131,60 +313,35 @@ export function AvatarGLB() {
 				onMessagePlayed();
 			};
 		} else {
-			// No audio: advance after a short delay (e.g. 2s)
 			const t = setTimeout(() => onMessagePlayed(), 2000);
 			return () => clearTimeout(t);
 		}
 	}, [currentMessage, onMessagePlayed]);
 
-	// Play animation (message or Dance), or stop all and use rest pose
-	useEffect(() => {
-		if (effectiveAnimation === null) {
-			mixer.stopAllAction();
-			restoreRequestedRef.current = true;
-			return;
-		}
-		const action = actions[effectiveAnimation];
-		if (!action) return;
-		if (effectiveAnimation === "Dance") {
-			action.setLoop(THREE.LoopRepeat, Infinity);
-		}
-		action.reset().fadeIn(0.5).play();
-		return () => {
-			action.fadeOut(0.5);
-		};
-	}, [effectiveAnimation, actions, mixer]);
-
-	// Blink
-	useEffect(() => {
-		let blinkTimeout: ReturnType<typeof setTimeout>;
-		const nextBlink = () => {
-			blinkTimeout = setTimeout(
-				() => {
-					setBlink(true);
-					setTimeout(() => {
-						setBlink(false);
-						nextBlink();
-					}, 200);
-				},
-				THREE.MathUtils.randInt(1000, 5000),
-			);
-		};
-		nextBlink();
-		return () => clearTimeout(blinkTimeout);
-	}, []);
-
-	// useFrame: save rest pose once, restore when idle, then apply facial expression and lipsync
-	useFrame(() => {
+	// useFrame: capture T-pose once; when idle apply arms/hands parallel with body; when not idle restore T-pose
+	useFrame((state) => {
 		const skeleton = getSkeleton(scene);
 		if (skeleton) {
-			if (firstFrameRef.current) {
-				restPoseRef.current = saveRestPose(skeleton);
-				firstFrameRef.current = false;
-			}
-			if (restoreRequestedRef.current && restPoseRef.current) {
-				applyRestPose(skeleton, restPoseRef.current);
-				restoreRequestedRef.current = false;
+			if (tPoseArmRef.current.size === 0) captureTPose(skeleton, tPoseArmRef);
+			if (isIdle) {
+				applyBreathing(skeleton, state.clock.elapsedTime, prevBreathScalarRef);
+				applyIdleLookRight(
+					skeleton,
+					state.clock.elapsedTime,
+					headBaseRef,
+					neckBaseRef,
+					eyeBasesRef,
+				);
+				//applyArmsParallelWithBody(skeleton, tPoseArmRef);
+			} else {
+				if (
+					headBaseRef.current ??
+					neckBaseRef.current ??
+					eyeBasesRef.current.size > 0
+				) {
+					restoreIdleLook(skeleton, headBaseRef, neckBaseRef, eyeBasesRef);
+				}
+				//restoreArmsToTPose(skeleton, tPoseArmRef);
 			}
 		}
 
@@ -192,15 +349,19 @@ export function AvatarGLB() {
 			FACIAL_EXPRESSIONS[facialExpressionKey] ?? FACIAL_EXPRESSIONS.default;
 		const appliedVisemes: string[] = [];
 
-		// Expression morph targets (skip eye blink; handled below)
 		for (const [key, value] of Object.entries(expressionMap)) {
 			if (key === "eyeBlinkLeft" || key === "eyeBlinkRight") continue;
 			lerpMorphTarget(scene, key, value, 0.1);
 		}
-		lerpMorphTarget(scene, "eyeBlinkLeft", blink ? 1 : 0, 0.5);
-		lerpMorphTarget(scene, "eyeBlinkRight", blink ? 1 : 0, 0.5);
+		// Blink when idle (part of breathing); otherwise use expression map
+		const blinkValue = isIdle
+			? blink
+				? 1
+				: 0
+			: (expressionMap.eyeBlinkLeft ?? 0);
+		lerpMorphTarget(scene, "eyeBlinkLeft", blinkValue, 0.5);
+		lerpMorphTarget(scene, "eyeBlinkRight", blinkValue, 0.5);
 
-		// Lipsync from audio time
 		const audio = audioRef.current;
 		if (currentMessage && lipsyncData?.mouthCues && audio) {
 			const time = audio.currentTime;
@@ -222,11 +383,13 @@ export function AvatarGLB() {
 		}
 	});
 
-	return <primitive object={scene} />;
+	return (
+		<group ref={groupRef}>
+			<primitive object={scene} />
+		</group>
+	);
 }
 
-// Preload for faster display when model is available
 if (typeof window !== "undefined") {
 	useGLTF.preload(CHARACTER_URL, true);
-	useGLTF.preload(ANIMATIONS_URL);
 }

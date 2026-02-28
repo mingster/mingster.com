@@ -14,7 +14,9 @@ const RHUBARB_PATH = process.env.RHUBARB_PATH ?? "rhubarb";
 /**
  * Run Rhubarb on a WAV file and return mouth cues JSON, or null if Rhubarb is unavailable.
  */
-export async function runRhubarb(wavBuffer: Buffer): Promise<LipsyncData | null> {
+export async function runRhubarb(
+	wavBuffer: Buffer,
+): Promise<LipsyncData | null> {
 	const tmpDir = os.tmpdir();
 	const wavPath = path.join(
 		tmpDir,
@@ -28,9 +30,13 @@ export async function runRhubarb(wavBuffer: Buffer): Promise<LipsyncData | null>
 		fs.writeFileSync(wavPath, wavBuffer);
 		await new Promise<void>((resolve, reject) => {
 			// -f json: output format; -o: output file; -r phonetic: language-independent
-			const proc = spawn(RHUBARB_PATH, ["-f", "json", "-o", jsonPath, wavPath, "-r", "phonetic"], {
-				stdio: ["ignore", "pipe", "pipe"],
-			});
+			const proc = spawn(
+				RHUBARB_PATH,
+				["-f", "json", "-o", jsonPath, wavPath, "-r", "phonetic"],
+				{
+					stdio: ["ignore", "pipe", "pipe"],
+				},
+			);
 			let stderr = "";
 			proc.stderr?.on("data", (d) => {
 				stderr += d.toString();
@@ -42,7 +48,9 @@ export async function runRhubarb(wavBuffer: Buffer): Promise<LipsyncData | null>
 			proc.on("error", (err) => reject(err));
 		});
 		const jsonStr = fs.readFileSync(jsonPath, "utf-8");
-		const data = JSON.parse(jsonStr) as { mouthCues?: Array<{ start: number; end: number; value: string }> };
+		const data = JSON.parse(jsonStr) as {
+			mouthCues?: Array<{ start: number; end: number; value: string }>;
+		};
 		const mouthCues: MouthCue[] = (data.mouthCues ?? []).map((c) => ({
 			start: c.start,
 			end: c.end,
@@ -52,7 +60,15 @@ export async function runRhubarb(wavBuffer: Buffer): Promise<LipsyncData | null>
 	} catch {
 		return null;
 	} finally {
-		try { fs.unlinkSync(wavPath); } catch { /* ignore */ }
-		try { fs.unlinkSync(jsonPath); } catch { /* ignore */ }
+		try {
+			fs.unlinkSync(wavPath);
+		} catch {
+			/* ignore */
+		}
+		try {
+			fs.unlinkSync(jsonPath);
+		} catch {
+			/* ignore */
+		}
 	}
 }

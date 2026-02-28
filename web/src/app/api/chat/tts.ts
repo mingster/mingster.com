@@ -10,26 +10,44 @@ import path from "node:path";
 // Use compiled output; package ships as .ts which Next.js cannot bundle
 import { tts } from "edge-tts/out/index.js";
 
-const DEFAULT_VOICE =
-	process.env.EDGE_TTS_VOICE ?? "en-US-JennyNeural";
+const DEFAULT_VOICE = process.env.EDGE_TTS_VOICE ?? "en-US-JennyNeural";
 
 /**
  * Convert MP3 buffer to WAV using ffmpeg. Returns base64 WAV or null if ffmpeg fails.
  */
 async function mp3ToWav(mp3Buffer: Buffer): Promise<string | null> {
 	const tmpDir = os.tmpdir();
-	const mp3Path = path.join(tmpDir, `tts-${Date.now()}-${Math.random().toString(36).slice(2)}.mp3`);
-	const wavPath = path.join(tmpDir, `tts-${Date.now()}-${Math.random().toString(36).slice(2)}.wav`);
+	const mp3Path = path.join(
+		tmpDir,
+		`tts-${Date.now()}-${Math.random().toString(36).slice(2)}.mp3`,
+	);
+	const wavPath = path.join(
+		tmpDir,
+		`tts-${Date.now()}-${Math.random().toString(36).slice(2)}.wav`,
+	);
 	try {
 		fs.writeFileSync(mp3Path, mp3Buffer);
 		await new Promise<void>((resolve, reject) => {
 			const proc = spawn(
 				"ffmpeg",
-				["-y", "-i", mp3Path, "-acodec", "pcm_s16le", "-ar", "44100", "-ac", "1", wavPath],
+				[
+					"-y",
+					"-i",
+					mp3Path,
+					"-acodec",
+					"pcm_s16le",
+					"-ar",
+					"44100",
+					"-ac",
+					"1",
+					wavPath,
+				],
 				{ stdio: ["ignore", "pipe", "pipe"] },
 			);
 			let stderr = "";
-			proc.stderr?.on("data", (d) => { stderr += d.toString(); });
+			proc.stderr?.on("data", (d) => {
+				stderr += d.toString();
+			});
 			proc.on("close", (code) => {
 				if (code === 0) resolve();
 				else reject(new Error(`ffmpeg exited ${code}: ${stderr.slice(-500)}`));
@@ -41,8 +59,16 @@ async function mp3ToWav(mp3Buffer: Buffer): Promise<string | null> {
 	} catch {
 		return null;
 	} finally {
-		try { fs.unlinkSync(mp3Path); } catch { /* ignore */ }
-		try { fs.unlinkSync(wavPath); } catch { /* ignore */ }
+		try {
+			fs.unlinkSync(mp3Path);
+		} catch {
+			/* ignore */
+		}
+		try {
+			fs.unlinkSync(wavPath);
+		} catch {
+			/* ignore */
+		}
 	}
 }
 

@@ -18,9 +18,7 @@ export function AvatarCapsule() {
 		if (!currentMessage) return;
 		if (currentMessage.audio) {
 			const mime = currentMessage.audioMime ?? "audio/wav";
-			const audio = new Audio(
-				`data:${mime};base64,${currentMessage.audio}`,
-			);
+			const audio = new Audio(`data:${mime};base64,${currentMessage.audio}`);
 			audio.play().catch((err) => {
 				console.warn("Audio play failed:", err);
 				onMessagePlayed();
@@ -36,7 +34,8 @@ export function AvatarCapsule() {
 	useFrame((state, delta) => {
 		if (meshRef.current) {
 			meshRef.current.rotation.y += delta * 0.15;
-			meshRef.current.position.y = 1.6 + Math.sin(state.clock.elapsedTime * 0.8) * 0.03;
+			meshRef.current.position.y =
+				1.6 + Math.sin(state.clock.elapsedTime * 0.8) * 0.03;
 		}
 	});
 

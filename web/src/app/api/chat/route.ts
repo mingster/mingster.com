@@ -67,13 +67,9 @@ export async function POST(req: Request) {
 				const ttsResult = await textToSpeech(p.text);
 				audio = ttsResult.audioBase64;
 				audioMime = ttsResult.isWav ? "audio/wav" : "audio/mpeg";
-				if (
-					!disableLipSync &&
-					ttsResult.isWav &&
-					ttsResult.audioBase64
-				) {
+				if (!disableLipSync && ttsResult.isWav && ttsResult.audioBase64) {
 					const wavBuffer = Buffer.from(ttsResult.audioBase64, "base64");
-					lipsync = await runRhubarb(wavBuffer) ?? undefined;
+					lipsync = (await runRhubarb(wavBuffer)) ?? undefined;
 				}
 			} catch (ttsErr) {
 				console.warn("TTS failed for message:", ttsErr);
@@ -94,7 +90,9 @@ export async function POST(req: Request) {
 		const errorMessages: ChatMessage[] = [
 			{
 				text:
-					err instanceof Error ? err.message : "Something went wrong. Please try again.",
+					err instanceof Error
+						? err.message
+						: "Something went wrong. Please try again.",
 				facialExpression: "sad",
 				animation: "Idle",
 				audio: undefined,

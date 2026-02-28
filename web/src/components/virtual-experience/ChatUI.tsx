@@ -7,7 +7,7 @@ import { useChat } from "@/hooks/useChat";
 import { cn } from "@/lib/utils";
 
 export function ChatUI() {
-	const { chat, loading, isDancing, triggerDance, stopDance } = useChat();
+	const { chat, loading } = useChat();
 	const [input, setInput] = useState("");
 
 	const handleSubmit = useCallback(
@@ -32,16 +32,6 @@ export function ChatUI() {
 					</div>
 				)}
 				<form onSubmit={handleSubmit} className="flex gap-2">
-					<Button
-						type="button"
-						variant={isDancing ? "secondary" : "outline"}
-						size="sm"
-						onClick={isDancing ? stopDance : triggerDance}
-						disabled={loading}
-						className="shrink-0 border-white/30 bg-white/10 text-white hover:bg-white/20"
-					>
-						{isDancing ? "Stop" : "Dance"}
-					</Button>
 					<Input
 						value={input}
 						onChange={(e) => setInput(e.target.value)}

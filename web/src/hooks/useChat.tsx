@@ -49,7 +49,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
 	const currentMessage =
 		currentIndex >= 0 && currentIndex < messages.length
-			? messages[currentIndex] ?? null
+			? (messages[currentIndex] ?? null)
 			: null;
 
 	const onMessagePlayed = useCallback(() => {
@@ -60,48 +60,51 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 		});
 	}, [messages.length]);
 
-	const chat = useCallback(async (text: string) => {
-		const trimmed = text.trim();
-		if (!trimmed) return;
+	const chat = useCallback(
+		async (text: string) => {
+			const trimmed = text.trim();
+			if (!trimmed) return;
 
-		setLoading(true);
-		try {
-			const res = await fetch(CHAT_API, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ message: trimmed }),
-			});
+			setLoading(true);
+			try {
+				const res = await fetch(CHAT_API, {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ message: trimmed }),
+				});
 
-			if (!res.ok) {
-				const errBody = await res.text();
-				throw new Error(res.statusText || errBody || "Chat request failed");
+				if (!res.ok) {
+					const errBody = await res.text();
+					throw new Error(res.statusText || errBody || "Chat request failed");
+				}
+
+				const data = (await res.json()) as { messages?: ChatMessage[] };
+				const newMessages = Array.isArray(data.messages) ? data.messages : [];
+				if (newMessages.length === 0) return;
+
+				setMessages((prev) => [...prev, ...newMessages]);
+				// If nothing was "current", start playing the first new one
+				setCurrentIndex((prev) => {
+					if (prev < 0) return messages.length;
+					return prev;
+				});
+			} catch (err) {
+				console.error("Chat error:", err);
+				// Optionally add an error message to UI
+				setMessages((prev) => [
+					...prev,
+					{
+						text: err instanceof Error ? err.message : "Something went wrong.",
+						facialExpression: "sad",
+						animation: "Idle",
+					},
+				]);
+			} finally {
+				setLoading(false);
 			}
-
-			const data = (await res.json()) as { messages?: ChatMessage[] };
-			const newMessages = Array.isArray(data.messages) ? data.messages : [];
-			if (newMessages.length === 0) return;
-
-			setMessages((prev) => [...prev, ...newMessages]);
-			// If nothing was "current", start playing the first new one
-			setCurrentIndex((prev) => {
-				if (prev < 0) return messages.length;
-				return prev;
-			});
-		} catch (err) {
-			console.error("Chat error:", err);
-			// Optionally add an error message to UI
-			setMessages((prev) => [
-				...prev,
-				{
-					text: err instanceof Error ? err.message : "Something went wrong.",
-					facialExpression: "sad",
-					animation: "Idle",
-				},
-			]);
-		} finally {
-			setLoading(false);
-		}
-	}, [messages.length]);
+		},
+		[messages.length],
+	);
 
 	const clearMessages = useCallback(() => {
 		setMessages([]);
@@ -152,9 +155,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 		isDancing,
 	};
 
-	return (
-		<ChatContext.Provider value={value}>{children}</ChatContext.Provider>
-	);
+	return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
 }
 
 export function useChat(): ChatContextValue {
