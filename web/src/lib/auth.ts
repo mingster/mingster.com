@@ -32,7 +32,7 @@ export const auth = betterAuth({
 		process.env.NEXT_PUBLIC_BASE_URL ||
 		process.env.NEXT_PUBLIC_API_URL ||
 		(process.env.NODE_ENV === "production"
-			? "https://riben.life"
+			? "https://mingster.com"
 			: "http://localhost:3001"),
 	database: prismaAdapter(sqlClient, {
 		provider: "postgresql", // or "mysql", "postgresql", ...etc
@@ -79,7 +79,7 @@ export const auth = betterAuth({
 			await sendAuthPasswordReset(user.email, url);
 		},
 	},
-	/* 
+	/*
 	emailVerification: {
 		sendOnSignUp: true,
 		sendVerificationEmail: async ({ user, url, token }, _request) => {
@@ -106,7 +106,7 @@ export const auth = betterAuth({
 			appBundleIdentifier: process.env.APPLE_APP_BUNDLE_IDENTIFIER as string,
 		},
 	},
-	trustedOrigins: ["https://appleid.apple.com", "https://riben.life"],
+	trustedOrigins: ["https://appleid.apple.com", "https://mingster.com"],
 	plugins: [
 		...(options.plugins ?? []),
 		customSession(async ({ user, session }, _ctx) => {
@@ -245,7 +245,7 @@ export const auth = betterAuth({
 			signUpOnVerification: {
 				getTempEmail: (phoneNumber) => {
 					// Generate temporary email for phone-based sign-up
-					return `${phoneNumber.replace(/[^0-9]/g, "")}@phone.riben.life`;
+					return `${phoneNumber.replace(/[^0-9]/g, "")}@phone.mingster.com`;
 				},
 				getTempName: (phoneNumber) => {
 					// Use masked phone number as temporary name
@@ -277,7 +277,7 @@ export const auth = betterAuth({
 		anonymous({
 			generateRandomEmail: () => {
 				const id = crypto.randomUUID();
-				return `guest-${id}@riben.life`;
+				return `guest-${id}@mingster.com`;
 			},
 			onLinkAccount: async ({ anonymousUser, newUser }) => {
 				// Extract user IDs from the callback parameters
@@ -305,7 +305,7 @@ export const auth = betterAuth({
 				// Call utility function to handle account linking
 				await linkAnonymousAccount(anonymousUserId, newUserId);
 			},
-			//emailDomainName: "riben.life", // -> temp-{id}@example.com
+			//emailDomainName: "mingster.com", // -> temp-{id}@example.com
 		}),
 		bearer(),
 		passkey(),

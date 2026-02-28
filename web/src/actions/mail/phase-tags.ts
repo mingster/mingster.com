@@ -1,7 +1,7 @@
 import { sqlClient } from "@/lib/prismadb";
-import { StoreOrder, User } from "@/types";
-import { StringNVType } from "@/types/enum";
-import { formatDateTime, epochToDate } from "@/utils/datetime-utils";
+import type { StoreOrder, User } from "@/types";
+import type { StringNVType } from "@/types/enum";
+import { epochToDate, formatDateTime } from "@/utils/datetime-utils";
 
 // Cache for database queries to avoid repeated calls
 const queryCache = new Map<string, any>();
@@ -15,7 +15,7 @@ interface TagReplacement {
 //
 export async function PhaseTags(
 	messageToBePhased: string,
-	customer?: User | null,
+	_customer?: User | null,
 	order?: StoreOrder | null,
 	user?: User | null,
 ): Promise<string> {
@@ -53,8 +53,8 @@ export async function PhaseTags(
 
 	/*
 	replacements.push(
-		{ pattern: /%Support\.Email%/gi, value: "support@riben.life" },
-		{ pattern: /%App\.Name%/gi, value: "riben.life" },
+		{ pattern: /%Support\.Email%/gi, value: "support@mingster.com" },
+		{ pattern: /%App\.Name%/gi, value: "mingster.com" },
 	);
 	*/
 

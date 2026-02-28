@@ -94,8 +94,8 @@ export const sendCreditSuccess = async (order: StoreOrder) => {
 
 	const email_queue = await sqlClient.emailQueue.create({
 		data: {
-			from: supportEmail?.value || "support@riben.life",
-			fromName: supportEmail?.value || "riben.life",
+			from: supportEmail?.value || "support@mingster.com",
+			fromName: supportEmail?.value || "mingster.com",
 			to: user.email || "",
 			toName: user.name || "",
 			cc: "",

@@ -20,7 +20,7 @@ const sendGAEventSafe = (params: GAEventParams) => {
 		});
 };
 
-// Enhanced analytics utilities for the riben.life platform
+// Enhanced analytics utilities for the mingster.com platform
 export const analytics = {
 	// User authentication events
 	trackLogin: (
