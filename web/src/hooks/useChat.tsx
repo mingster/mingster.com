@@ -28,6 +28,8 @@ export interface ChatContextValue {
 	loadIntro: () => Promise<void>;
 	/** Push a message with an animation (e.g. "Angry") so the avatar plays the FBX; no API call. */
 	pushAnimationMessage: (animation: string, text?: string) => void;
+	/** Push a message with only a facial expression (e.g. "happy"); no API call, no animation. */
+	pushExpressionMessage: (facialExpression: string, text?: string) => void;
 	/** When set, avatar plays Dance animation (same rig as character). Cleared when stopping. */
 	danceTrigger: number | null;
 	/** Start playing the Dance clip in a loop (if present in animations.glb). */
@@ -155,6 +157,21 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 		[],
 	);
 
+	const pushExpressionMessage = useCallback(
+		(facialExpression: string, text?: string) => {
+			const msg: ChatMessage = {
+				text: text ?? "",
+				facialExpression,
+			};
+			setMessages((prev) => {
+				const newIndex = prev.length;
+				queueMicrotask(() => setCurrentIndex(newIndex));
+				return [...prev, msg];
+			});
+		},
+		[],
+	);
+
 	const value: ChatContextValue = {
 		messages,
 		currentMessage,
@@ -167,6 +184,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 		clearMessages,
 		loadIntro,
 		pushAnimationMessage,
+		pushExpressionMessage,
 		danceTrigger,
 		triggerDance,
 		stopDance,

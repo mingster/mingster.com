@@ -103,6 +103,27 @@ scene.traverse((child) => {
 - **Stage** (drei): wraps content, optional `adjustCamera`, `intensity`, `shadows={false}`.
 - **OrbitControls**: `target`, `minPolarAngle`, `maxPolarAngle`, `minDistance`, `maxDistance`, `enablePan={false}`, `enableDamping`, `dampingFactor`.
 
+## Animation flow (Three.js 動畫處理核心)
+
+1. **加載模型 (Load model)**  
+   Use **GLTFLoader** (or `useGLTF` from drei) to load the avatar GLB; the root is the `scene` to animate.
+
+2. **管理動畫 (Manage animation)**  
+   - **AnimationMixer(scene)** + **mixer.clipAction(clip, scene)** + **action.play()** — play a clip on the character.  
+   - Same-rig: clip bone names must match the character skeleton (we use `filterClipForRoot` to drop tracks for missing bones).  
+   - **Different rig / scale:** use **SkeletonUtils.retargetClip(target, source, clip, options)** so a generic clip (e.g. Mixamo walk, wave) applies to another skeleton:
+
+   ```ts
+   import { retargetClip } from "three/examples/jsm/utils/SkeletonUtils.js";
+   // source = object that has the clip’s skeleton (e.g. FBX root); target = our character scene
+   const retargetedClip = retargetClip(targetScene, sourceScene, clip, { names: boneNameMap });
+   const action = mixer.clipAction(retargetedClip, targetScene);
+   action.play();
+   ```
+
+3. **臉部表情 (Facial expressions)**  
+   Control via **mesh.morphTargetInfluences[index]** (and **morphTargetDictionary** for name → index). Use lerp for smooth transitions; see `lerpMorphTarget` in AvatarGLB. Expressions and visemes (lip sync) are driven by `FACIAL_EXPRESSIONS` and `VISEME_TO_MORPH`.
+
 ## GLB loading
 
 - **useGLTF(url, true)** for suspense; destructure `{ scene }`.

@@ -201,89 +201,14 @@ const _armQ = new THREE.Quaternion();
 const _armAwayQ = new THREE.Quaternion();
 const _armBendQ = new THREE.Quaternion();
 
-function isArmOrHandBone(name: string): boolean {
-	const n = name.toLowerCase();
-	const side =
-		n.includes("left") ||
-		n.includes("right") ||
-		n.includes("_l") ||
-		n.includes("_r") ||
-		n.endsWith("l") ||
-		n.endsWith("r");
-	const limb = n.includes("arm") || n.includes("hand");
-	return side && limb;
-}
 
 function captureTPose(
 	skeleton: THREE.Skeleton,
 	tPoseRef: React.MutableRefObject<Map<string, THREE.Quaternion>>,
 ) {
 	for (const bone of skeleton.bones) {
-		if (!isArmOrHandBone(bone.name)) continue;
 		tPoseRef.current.set(bone.uuid, bone.quaternion.clone());
 	}
-}
-
-/** Apply idle pose: arms and hands straight down, parallel with body. */
-function _applyArmsParallelWithBody(
-	skeleton: THREE.Skeleton,
-	tPoseRef: React.MutableRefObject<Map<string, THREE.Quaternion>>,
-) {
-	for (const bone of skeleton.bones) {
-		const name = bone.name.toLowerCase();
-		const isLeft =
-			name.includes("left") || name.includes("_l") || name.endsWith("l");
-		const isRight =
-			name.includes("right") || name.includes("_r") || name.endsWith("r");
-		if (!isLeft && !isRight) continue;
-		const isUpperArm =
-			name.includes("upperarm") ||
-			name.includes("upper_arm") ||
-			(name.includes("arm") &&
-				!name.includes("forearm") &&
-				!name.includes("lower"));
-		const isForearm =
-			name.includes("forearm") ||
-			name.includes("lowerarm") ||
-			name.includes("lower_arm");
-		const isHand = name.includes("hand");
-		if (!isUpperArm && !isForearm && !isHand) continue;
-		const base = tPoseRef.current.get(bone.uuid);
-		if (!base) continue;
-	}
-}
-
-function _restoreArmsToTPose(
-	skeleton: THREE.Skeleton,
-	tPoseRef: React.MutableRefObject<Map<string, THREE.Quaternion>>,
-) {
-	for (const bone of skeleton.bones) {
-		if (!isArmOrHandBone(bone.name)) continue;
-		const base = tPoseRef.current.get(bone.uuid);
-		if (base) bone.quaternion.copy(base);
-	}
-}
-
-const _leftHandWorldPos = new THREE.Vector3();
-
-/** Get left hand bone world position (x, y, z). Call after skeleton pose is applied and scene.updateMatrixWorld(true) has run. */
-function getLeftHandWorldPosition(
-	skeleton: THREE.Skeleton,
-	root: THREE.Object3D,
-): { x: number; y: number; z: number } | null {
-	const name = (n: string) => n.toLowerCase();
-	for (const bone of skeleton.bones) {
-		if (name(bone.name).includes("left") && name(bone.name).includes("hand")) {
-			root.updateMatrixWorld(true);
-			bone.getWorldPosition(_leftHandWorldPos);
-			return {
-				x: _leftHandWorldPos.x,
-				y: _leftHandWorldPos.y,
-				z: _leftHandWorldPos.z,
-			};
-		}
-	}
-	return null;
 }
 
 function lerpMorphTarget(
@@ -322,7 +247,6 @@ export function AvatarGLB() {
 	const neckBaseRef = useRef<THREE.Quaternion | null>(null);
 	const eyeBasesRef = useRef<Map<string, THREE.Quaternion>>(new Map());
 	const tPoseArmRef = useRef<Map<string, THREE.Quaternion>>(new Map());
-	const leftHandPositionLoggedRef = useRef(false);
 	const mixerRef = useRef<THREE.AnimationMixer | null>(null);
 	const fbxActionRef = useRef<THREE.AnimationAction | null>(null);
 	const idleMixerRef = useRef<THREE.AnimationMixer | null>(null);
@@ -505,9 +429,9 @@ export function AvatarGLB() {
 					neckBaseRef,
 					eyeBasesRef,
 				);
-				_applyArmsParallelWithBody(skeleton, tPoseArmRef);
+				//_applyArmsParallelWithBody(skeleton, tPoseArmRef);
 				// Log left hand world position (x, y, z) once for debugging
-				if (!leftHandPositionLoggedRef.current) {
+				/*if (!leftHandPositionLoggedRef.current) {
 					const pos = getLeftHandWorldPosition(skeleton, scene);
 					if (pos) {
 						// eslint-disable-next-line no-console
@@ -515,6 +439,8 @@ export function AvatarGLB() {
 						leftHandPositionLoggedRef.current = true;
 					}
 				}
+
+                */
 			} else {
 				if (
 					headBaseRef.current ??
@@ -523,7 +449,7 @@ export function AvatarGLB() {
 				) {
 					restoreIdleLook(skeleton, headBaseRef, neckBaseRef, eyeBasesRef);
 				}
-				_restoreArmsToTPose(skeleton, tPoseArmRef);
+				//_restoreArmsToTPose(skeleton, tPoseArmRef);
 			}
 		}
 

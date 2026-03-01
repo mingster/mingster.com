@@ -11,11 +11,11 @@ const AMBIENT_INTENSITY = 0.3;
 const DIRECT_INTENSITY = 0.8 * Math.PI;
 const DIRECT_POSITION: [number, number, number] = [0.6, 0, 0.666]; // ~60° front
 // Face fill: front, slightly above, soft white so face tone is slightly whiter
-const FACE_FILL_POSITION: [number, number, number] = [0, 0.4, 1.2];
+const FACE_FILL_POSITION: [number, number, number] = [0, 0.8, 1.2];
 const FACE_FILL_INTENSITY = 0.5;
 
 // OrbitControls like Avaturn editor (hub.avaturn.me/editor): orbit around upper body, zoom limits, polar limits
-const ORBIT_TARGET: [number, number, number] = [0, 0.95, 0];
+const ORBIT_TARGET: [number, number, number] = [0, 0, 0];
 const ORBIT_MIN_POLAR = 0.25;
 const ORBIT_MAX_POLAR = Math.PI / 2 - 0.15;
 const ORBIT_MIN_DISTANCE = 1.2;
@@ -40,7 +40,6 @@ function SceneContent() {
 			</Stage>
 			<OrbitControls
 				enableDamping
-				dampingFactor={0.05}
 				target={ORBIT_TARGET}
 				minPolarAngle={ORBIT_MIN_POLAR}
 				maxPolarAngle={ORBIT_MAX_POLAR}

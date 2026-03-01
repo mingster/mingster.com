@@ -1,6 +1,6 @@
 {
   "account_created_and_signed_in": "Account created and signed in successfully!",
-  "account_tab_current_acct": "Username:",
+  "account_tab_currentAcct": "Username:",
   "account_tab_edit": "Edit",
   "account_tab_failed_to_update_profile": "Failed to update profile.",
   "account_tab_failed_to_update_profile_try_again": "Failed to update profile. Please try again.",

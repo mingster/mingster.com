@@ -5,7 +5,6 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import {
 	admin,
 	anonymous,
-	apiKey,
 	bearer,
 	customSession,
 	magicLink,
@@ -14,6 +13,7 @@ import {
 	twoFactor,
 } from "better-auth/plugins";
 import { emailHarmony } from "better-auth-harmony";
+import { apiKey } from "@better-auth/api-key";
 
 import { sendAuthMagicLink } from "@/actions/mail/send-auth-magic-link";
 import { sendAuthPasswordReset } from "@/actions/mail/send-auth-password-reset";
@@ -309,7 +309,6 @@ export const auth = betterAuth({
 		}),
 		bearer(),
 		passkey(),
-		apiKey(),
 		emailHarmony(),
 		/*
 		captcha({
@@ -323,6 +322,7 @@ export const auth = betterAuth({
 			//adminUserIds: ["Nz6WKKKMKvadXXmgZgaHiqIYOuXr31w1"],
 			//impersonationSessionDuration: 60 * 60 * 24, // 1 day
 		}),
+		apiKey(),
 	],
 	user: {
 		additionalFields: {

@@ -1,6 +1,6 @@
 {
   "account_created_and_signed_in": "您已成功登入！",
-  "account_tab_current_acct": "登入帳號：",
+  "account_tab_currentAcct": "登入帳號：",
   "account_tab_edit": "編輯",
   "account_tab_failed_to_update_profile": "更新個人資料失敗。",
   "account_tab_failed_to_update_profile_try_again": "更新個人資料失敗，請再試一次。",

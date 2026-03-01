@@ -34,12 +34,11 @@ export function ChatUI() {
 				pushAnimationMessage("Crying", "I'm crying!");
 				setInput("");
 				return;
+			} else if (lower === "laughing") {
+				pushAnimationMessage("Laughing", "I'm laughing!");
+				setInput("");
+				return;
 			}
-            else if (lower === "laughing") {
-                pushAnimationMessage("Laughing", "I'm laughing!");
-                setInput("");
-                return;
-            }
 
 			chat(trimmed);
 			setInput("");

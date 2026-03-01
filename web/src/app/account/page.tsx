@@ -1,11 +1,11 @@
+import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import getCurrentUser from "@/actions/user/get-current-user";
 import { getT } from "@/app/i18n";
 import { GlobalNavbar } from "@/components/global-navbar";
 import { Loader } from "@/components/loader";
 import type { User } from "@/types";
-import type { Metadata } from "next";
-import { redirect } from "next/navigation";
-import { Suspense } from "react";
 import { UserClient } from "./components/client-user";
 
 export const metadata: Metadata = {
@@ -27,7 +27,7 @@ export default async function AccountPage() {
 
 */
 	if (!user) {
-		redirect(`/signin?callbackUrl=/account`);
+		redirect(`/signIn?callbackUrl=/account`);
 	} else {
 		//console.log(`user: ${JSON.stringify(user)}`);
 
