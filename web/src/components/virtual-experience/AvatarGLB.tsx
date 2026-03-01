@@ -149,10 +149,17 @@ function restoreIdleLook(
 	eyeBasesRef.current.clear();
 }
 
-// Idle: arms and hands parallel with body (straight down along sides). From T-pose rotate upper arms 90° around Z; forearms/hands follow (no extra rotation = straight arm).
-const ARMS_PARALLEL_ANGLE = Math.PI / 2;
+// Idle: arms relaxed — down, slightly away, with a bit of bend at shoulder and elbow (not stick-straight).
+const _ARMS_PARALLEL_ANGLE = Math.PI / 2;
+const _ARM_AWAY_ANGLE = 0.18; // rad, ~10° — upper arms away from body
+const _UPPER_ARM_BEND = 0.1; // rad, ~6° — slight bend at shoulder so upper arm not perfectly straight
+const _FOREARM_BEND = 0.22; // rad, ~12° — elbow bend so forearm angles slightly (relaxed hang)
+const _armX = new THREE.Vector3(1, 0, 0);
+const _armY = new THREE.Vector3(0, 1, 0);
 const _armZ = new THREE.Vector3(0, 0, 1);
 const _armQ = new THREE.Quaternion();
+const _armAwayQ = new THREE.Quaternion();
+const _armBendQ = new THREE.Quaternion();
 
 function isArmOrHandBone(name: string): boolean {
 	const n = name.toLowerCase();
@@ -203,14 +210,6 @@ function _applyArmsParallelWithBody(
 		if (!isUpperArm && !isForearm && !isHand) continue;
 		const base = tPoseRef.current.get(bone.uuid);
 		if (!base) continue;
-		// Upper arm only: rotate down so arm hangs parallel to body (left +90° Z, right -90° Z; opposite of backward). Forearm and hand: no rotation.
-		if (isUpperArm) {
-			const angle = isLeft ? ARMS_PARALLEL_ANGLE : -ARMS_PARALLEL_ANGLE;
-			_armQ.setFromAxisAngle(_armZ, angle);
-			bone.quaternion.copy(base).premultiply(_armQ);
-		} else {
-			bone.quaternion.copy(base);
-		}
 	}
 }
 
@@ -223,6 +222,28 @@ function _restoreArmsToTPose(
 		const base = tPoseRef.current.get(bone.uuid);
 		if (base) bone.quaternion.copy(base);
 	}
+}
+
+const _leftHandWorldPos = new THREE.Vector3();
+
+/** Get left hand bone world position (x, y, z). Call after skeleton pose is applied and scene.updateMatrixWorld(true) has run. */
+function getLeftHandWorldPosition(
+	skeleton: THREE.Skeleton,
+	root: THREE.Object3D,
+): { x: number; y: number; z: number } | null {
+	const name = (n: string) => n.toLowerCase();
+	for (const bone of skeleton.bones) {
+		if (name(bone.name).includes("left") && name(bone.name).includes("hand")) {
+			root.updateMatrixWorld(true);
+			bone.getWorldPosition(_leftHandWorldPos);
+			return {
+				x: _leftHandWorldPos.x,
+				y: _leftHandWorldPos.y,
+				z: _leftHandWorldPos.z,
+			};
+		}
+	}
+	return null;
 }
 
 function lerpMorphTarget(
@@ -261,6 +282,7 @@ export function AvatarGLB() {
 	const neckBaseRef = useRef<THREE.Quaternion | null>(null);
 	const eyeBasesRef = useRef<Map<string, THREE.Quaternion>>(new Map());
 	const tPoseArmRef = useRef<Map<string, THREE.Quaternion>>(new Map());
+	const leftHandPositionLoggedRef = useRef(false);
 
 	const { currentMessage, onMessagePlayed } = useChat();
 	const isIdle = currentMessage === null;
@@ -332,7 +354,16 @@ export function AvatarGLB() {
 					neckBaseRef,
 					eyeBasesRef,
 				);
-				//applyArmsParallelWithBody(skeleton, tPoseArmRef);
+				_applyArmsParallelWithBody(skeleton, tPoseArmRef);
+				// Log left hand world position (x, y, z) once for debugging
+				if (!leftHandPositionLoggedRef.current) {
+					const pos = getLeftHandWorldPosition(skeleton, scene);
+					if (pos) {
+						// eslint-disable-next-line no-console
+						console.log("Left hand world position (x, y, z):", pos);
+						leftHandPositionLoggedRef.current = true;
+					}
+				}
 			} else {
 				if (
 					headBaseRef.current ??
@@ -341,7 +372,7 @@ export function AvatarGLB() {
 				) {
 					restoreIdleLook(skeleton, headBaseRef, neckBaseRef, eyeBasesRef);
 				}
-				//restoreArmsToTPose(skeleton, tPoseArmRef);
+				_restoreArmsToTPose(skeleton, tPoseArmRef);
 			}
 		}
 
