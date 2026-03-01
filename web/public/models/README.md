@@ -18,6 +18,9 @@ To enable the full avatar with animations and lip sync:
      then merge the clip into `animations.glb` in Blender as above.
    - **Or use an FBX directly:** Place `Silly Dancing.fbx` in `public/animations/`. When you click Dance, the app loads and applies it (same rig as your character, e.g. Mixamo).
 
+4. **FBX emotion/gesture animations (e.g. Angry)**  
+   Place FBX files in `public/animations/` with the **same rig** as your character (e.g. Mixamo bone names). When the API returns a message with `animation: "Angry"`, the app loads and plays `animations/Angry.fbx` on the avatar. Add more entries in `AvatarGLB.tsx` → `ANIMATION_FBX` to map other keys (e.g. `Happy`, `Sad`) to `animations/YourName.fbx`.
+
 You can also use assets from the reference project: [r3f-virtual-girlfriend-frontend](https://github.com/wass08/r3f-virtual-girlfriend-frontend) (see `public/models/`).
 
 **Compress character.glb (optional):** To reduce file size with Draco mesh compression, run from the `web` directory:

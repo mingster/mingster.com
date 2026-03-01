@@ -10,6 +10,46 @@ import { FACIAL_EXPRESSIONS, VISEME_TO_MORPH } from "./avatar-expressions";
 
 const CHARACTER_URL = "/models/character.glb";
 
+/** Map message animation key to FBX path under public (kebab-case filenames). */
+const ANIMATION_FBX: Record<string, string> = {
+	Angry: "animations/angry.fbx",
+};
+
+/** FBX played in a loop when idle (no current message). Same rig as character. */
+const STANDING_IDLE_FBX = "animations/standing-idle.fbx";
+
+/** Collect all node/bone names under root (scene + skeleton bones) so we can filter clip tracks. */
+function collectNodeNames(root: THREE.Object3D): Set<string> {
+	const names = new Set<string>();
+	root.traverse((obj) => {
+		if (obj.name) names.add(obj.name);
+		if (obj instanceof THREE.SkinnedMesh && obj.skeleton) {
+			for (const bone of obj.skeleton.bones) {
+				if (bone.name) names.add(bone.name);
+			}
+		}
+	});
+	return names;
+}
+
+/** Return a clip that only includes tracks whose target node exists under root. Silences "No target node found" warnings when FBX rig has more bones (e.g. finger/toe tips) than the character. */
+function filterClipForRoot(
+	clip: THREE.AnimationClip,
+	root: THREE.Object3D,
+): THREE.AnimationClip {
+	const names = collectNodeNames(root);
+	const keptTracks: THREE.KeyframeTrack[] = [];
+	for (const track of clip.tracks) {
+		const path = track.name.replace(/\.[^.]+$/, "");
+		const lastSegment = path.split(/[./]/).pop() ?? path;
+		if (names.has(path) || names.has(lastSegment)) {
+			keptTracks.push(track);
+		}
+	}
+	if (keptTracks.length === 0) return clip;
+	return new THREE.AnimationClip(clip.name, clip.duration, keptTracks);
+}
+
 // Draco decoder for compressed character.glb (see bin/compress-character-glb.ts)
 if (typeof window !== "undefined") {
 	useGLTF.setDecoderPath(
@@ -283,9 +323,18 @@ export function AvatarGLB() {
 	const eyeBasesRef = useRef<Map<string, THREE.Quaternion>>(new Map());
 	const tPoseArmRef = useRef<Map<string, THREE.Quaternion>>(new Map());
 	const leftHandPositionLoggedRef = useRef(false);
+	const mixerRef = useRef<THREE.AnimationMixer | null>(null);
+	const fbxActionRef = useRef<THREE.AnimationAction | null>(null);
+	const idleMixerRef = useRef<THREE.AnimationMixer | null>(null);
+	const idleActionRef = useRef<THREE.AnimationAction | null>(null);
 
 	const { currentMessage, onMessagePlayed } = useChat();
 	const isIdle = currentMessage === null;
+	const animationKey = currentMessage?.animation;
+	const fbxPath = animationKey
+		? ANIMATION_FBX[animationKey] ??
+			ANIMATION_FBX[animationKey.charAt(0).toUpperCase() + animationKey.slice(1).toLowerCase()]
+		: undefined;
 
 	const [facialExpressionKey, setFacialExpressionKey] = useState("");
 	const [lipsyncData, setLipsyncData] = useState<LipsyncData | null>(null);
@@ -311,6 +360,102 @@ export function AvatarGLB() {
 		scheduleNext();
 		return () => clearTimeout(blinkTimeout);
 	}, [isIdle]);
+
+	// When message requests an FBX animation (e.g. Angry), load and play it on the character
+	useEffect(() => {
+		if (!fbxPath || !scene) return;
+		let cancelled = false;
+		(async () => {
+			try {
+				const { FBXLoader } = await import(
+					"three/examples/jsm/loaders/FBXLoader.js"
+				);
+				const loader = new FBXLoader();
+				const fbx = await loader.loadAsync(`/${fbxPath}`);
+				if (cancelled || !fbx.animations?.length) return;
+				// Stop previous action
+				if (fbxActionRef.current) {
+					fbxActionRef.current.stop();
+					fbxActionRef.current = null;
+				}
+				if (mixerRef.current) mixerRef.current.uncacheRoot(scene);
+				const mixer = new THREE.AnimationMixer(scene);
+				mixerRef.current = mixer;
+				const rawClip = fbx.animations[0];
+				const clip = filterClipForRoot(rawClip, scene);
+				const action = mixer.clipAction(clip, scene);
+				action.setLoop(THREE.LoopOnce, 1);
+				action.clampWhenFinished = true;
+				action.play();
+				fbxActionRef.current = action;
+			} catch (err) {
+				if (!cancelled) console.warn("FBX animation load failed:", err);
+			}
+		})();
+		return () => {
+			cancelled = true;
+			if (fbxActionRef.current) {
+				fbxActionRef.current.stop();
+				fbxActionRef.current = null;
+			}
+			if (mixerRef.current) {
+				mixerRef.current.uncacheRoot(scene);
+				mixerRef.current = null;
+			}
+		};
+	}, [fbxPath, scene]);
+
+	// When idle (no current message), play Standing Idle FBX in a loop
+	useEffect(() => {
+		if (!isIdle || fbxPath || !scene) {
+			if (idleActionRef.current) {
+				idleActionRef.current.stop();
+				idleActionRef.current = null;
+			}
+			if (idleMixerRef.current) {
+				idleMixerRef.current.uncacheRoot(scene);
+				idleMixerRef.current = null;
+			}
+			return;
+		}
+		let cancelled = false;
+		(async () => {
+			try {
+				const { FBXLoader } = await import(
+					"three/examples/jsm/loaders/FBXLoader.js"
+				);
+				const loader = new FBXLoader();
+				const fbx = await loader.loadAsync(`/${STANDING_IDLE_FBX}`);
+				if (cancelled || !fbx.animations?.length) return;
+				if (idleActionRef.current) {
+					idleActionRef.current.stop();
+					idleActionRef.current = null;
+				}
+				if (idleMixerRef.current) idleMixerRef.current.uncacheRoot(scene);
+				const mixer = new THREE.AnimationMixer(scene);
+				idleMixerRef.current = mixer;
+				const rawClip = fbx.animations[0];
+				const clip = filterClipForRoot(rawClip, scene);
+				const action = mixer.clipAction(clip, scene);
+				action.setLoop(THREE.LoopRepeat, Infinity);
+				action.play();
+				idleActionRef.current = action;
+			} catch (err) {
+				if (!cancelled) console.warn("Standing Idle FBX load failed:", err);
+			}
+		})();
+		return () => {
+			cancelled = true;
+			if (idleActionRef.current) {
+				idleActionRef.current.stop();
+				idleActionRef.current = null;
+			}
+			if (idleMixerRef.current) {
+				idleMixerRef.current.uncacheRoot(scene);
+				idleMixerRef.current = null;
+			}
+		};
+	}, [isIdle, fbxPath, scene]);
 
 	// When current message changes: set expression, lipsync, play audio
 	useEffect(() => {
@@ -340,10 +485,16 @@ export function AvatarGLB() {
 		}
 	}, [currentMessage, onMessagePlayed]);
 
-	// useFrame: capture T-pose once; when idle apply arms/hands parallel with body; when not idle restore T-pose
+	// useFrame: update FBX mixers (message clip + idle clip); when no clip playing apply procedural pose
 	useFrame((state) => {
+		const delta = state.clock.getDelta();
+		if (mixerRef.current) mixerRef.current.update(delta);
+		if (idleMixerRef.current) idleMixerRef.current.update(delta);
+
 		const skeleton = getSkeleton(scene);
-		if (skeleton) {
+		const fbxPlaying =
+			fbxActionRef.current?.isRunning() || idleActionRef.current?.isRunning();
+		if (skeleton && !fbxPlaying) {
 			if (tPoseArmRef.current.size === 0) captureTPose(skeleton, tPoseArmRef);
 			if (isIdle) {
 				applyBreathing(skeleton, state.clock.elapsedTime, prevBreathScalarRef);

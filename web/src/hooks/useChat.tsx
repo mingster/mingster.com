@@ -2,10 +2,10 @@
 
 import {
 	createContext,
+	type ReactNode,
 	useCallback,
 	useContext,
 	useState,
-	type ReactNode,
 } from "react";
 import type { ChatMessage } from "@/types/virtual-experience";
 
@@ -26,6 +26,8 @@ export interface ChatContextValue {
 	clearMessages: () => void;
 	/** Fetch intro messages (POST with no message); call on mount to show intro. */
 	loadIntro: () => Promise<void>;
+	/** Push a message with an animation (e.g. "Angry") so the avatar plays the FBX; no API call. */
+	pushAnimationMessage: (animation: string, text?: string) => void;
 	/** When set, avatar plays Dance animation (same rig as character). Cleared when stopping. */
 	danceTrigger: number | null;
 	/** Start playing the Dance clip in a loop (if present in animations.glb). */
@@ -138,6 +140,21 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 		}
 	}, [messages.length]);
 
+	const pushAnimationMessage = useCallback(
+		(animation: string, text?: string) => {
+			const msg: ChatMessage = {
+				text: text ?? "",
+				animation,
+			};
+			setMessages((prev) => {
+				const newIndex = prev.length;
+				queueMicrotask(() => setCurrentIndex(newIndex));
+				return [...prev, msg];
+			});
+		},
+		[],
+	);
+
 	const value: ChatContextValue = {
 		messages,
 		currentMessage,
@@ -149,6 +166,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 		setCameraZoomed,
 		clearMessages,
 		loadIntro,
+		pushAnimationMessage,
 		danceTrigger,
 		triggerDance,
 		stopDance,

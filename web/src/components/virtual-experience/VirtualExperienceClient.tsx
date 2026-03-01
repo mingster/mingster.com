@@ -1,13 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import dynamic from "next/dynamic";
 import { ChatProvider, useChat } from "@/hooks/useChat";
-import { BackgroundSwitcher } from "./BackgroundSwitcher";
-import { BACKGROUND_PRESETS } from "./Scene";
 import { ChatUI } from "./ChatUI";
 
-const DEFAULT_BG = BACKGROUND_PRESETS[0].image;
+const OUTDOOR_BG = "/images/backgrounds/outdoor.jpg";
 
 const Scene = dynamic(
 	() => import("./Scene").then((m) => ({ default: m.Scene })),
@@ -41,7 +39,6 @@ const Scene = dynamic(
 
 function VirtualExperienceInner() {
 	const { loadIntro } = useChat();
-	const [background, setBackground] = useState<string>(DEFAULT_BG);
 
 	useEffect(() => {
 		loadIntro();
@@ -49,10 +46,7 @@ function VirtualExperienceInner() {
 
 	return (
 		<div className="relative h-screen w-full overflow-hidden">
-			<Scene background={background} />
-			<div className="absolute left-4 top-4 z-10">
-				<BackgroundSwitcher value={background} onChange={setBackground} />
-			</div>
+			<Scene background={OUTDOOR_BG} />
 			<ChatUI />
 		</div>
 	);

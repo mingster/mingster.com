@@ -1,23 +1,50 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useChat } from "@/hooks/useChat";
 import { cn } from "@/lib/utils";
 
+const SIGNIN_ROUTE = "/signIn";
+
 export function ChatUI() {
-	const { chat, loading } = useChat();
+	const router = useRouter();
+	const { chat, loading, pushAnimationMessage } = useChat();
 	const [input, setInput] = useState("");
 
 	const handleSubmit = useCallback(
 		(e: React.FormEvent) => {
 			e.preventDefault();
-			if (loading || !input.trim()) return;
-			chat(input.trim());
+			const trimmed = input.trim();
+			if (loading || !trimmed) return;
+
+			const lower = trimmed.toLowerCase();
+			if (lower === "/signin") {
+				router.push(SIGNIN_ROUTE);
+				setInput("");
+				return;
+			}
+			if (lower === "angry") {
+				pushAnimationMessage("Angry", "I'm angry!");
+				setInput("");
+				return;
+			} else if (lower === "crying") {
+				pushAnimationMessage("Crying", "I'm crying!");
+				setInput("");
+				return;
+			}
+            else if (lower === "laughing") {
+                pushAnimationMessage("Laughing", "I'm laughing!");
+                setInput("");
+                return;
+            }
+
+			chat(trimmed);
 			setInput("");
 		},
-		[chat, input, loading],
+		[chat, loading, input, router, pushAnimationMessage],
 	);
 
 	return (
