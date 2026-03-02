@@ -26,6 +26,10 @@ export interface ChatMessage {
 	facialExpression?: string;
 	/** Animation clip name (e.g. "Idle", "Talking_0", "Laughing") */
 	animation?: string;
+	/** Path to GLB in models (e.g. "/models/animation.glb"); when set, avatar plays a clip from this file. */
+	animationGlb?: string;
+	/** Clip to play from animationGlb: index (number) or clip name (string). Default 0. */
+	animationGlbClip?: number | string;
 }
 
 export type FacialExpressionKey =

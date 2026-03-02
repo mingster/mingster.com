@@ -1,13 +1,18 @@
 # FBX animations for the virtual companion
 
-Place FBX animation files here. File names use **kebab-case** (e.g. `standing-idle.fbx`). They are played on the character when the chat API returns a message with an `animation` field, or when idle.
+Place FBX files in **`public/animations/`** (this folder). Playback: FBXLoader → **AnimationMixer** → clip (with optional **retargeting** when using Mixamo on Avaturn) → `clipAction(clip).play()`.
 
-| File | Purpose |
-|------|---------|
-| `angry.fbx` | When a message has `animation: "Angry"`, plays once. |
-| `standing-idle.fbx` | When there is no current message (idle), plays in a loop. |
+**Mixamo + Avaturn:** Avaturn and Mixamo use different bone names, so raw Mixamo FBX often doesn’t move an Avaturn avatar. See **[doc/MIXAMO_AVATURN_ANIMATIONS.md](../doc/MIXAMO_AVATURN_ANIMATIONS.md)** for (1) Blender retargeting and (2) runtime retargeting with a bone name map.
 
-Use the **same rig** as your character (e.g. Mixamo Y Bot or the rig your `character.glb` uses). Bone names in the FBX must match the character skeleton for the animation to apply correctly.
+| File | Key | Purpose |
+|------|-----|---------|
+| `standing-idle.fbx` | (idle) | No current message: plays in a loop. |
+| `dancing.fbx` | Dancing | Test button "Dancing"; chat keyword `dancing` or `dance`. |
+| `defeated.fbx` | Defeated | Test button "Defeated". |
+| `idle.fbx` | Idle | Test button "Idle". |
+| `salute.fbx` | Salute | Test button "Salute". |
+
+**Test buttons:** Chat UI has an "Animations (animations/):" row; each button plays that clip via the mixer.
 
 ## Compatible avatars (avoid "No target node found" warnings)
 
@@ -24,4 +29,4 @@ For the fewest warnings and best match:
   - Retarget Mixamo (or other) animations to your rig in Blender and export FBX with your rig’s bone names, or  
   - Use animations authored for that rig. Filtering will still drop tracks for missing bones (e.g. finger tips) and avoid console noise.
 
-To add more animations, add a mapping in `AvatarGLB.tsx` → `ANIMATION_FBX`, e.g. `Happy: "animations/happy.fbx"`.
+To add more animations, add the FBX here and a mapping in `AvatarGLB.tsx` → `ANIMATION_FBX`, e.g. `Happy: "animations/happy.fbx"`.

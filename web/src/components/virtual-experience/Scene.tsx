@@ -35,7 +35,7 @@ function SceneContent() {
 				position={FACE_FILL_POSITION}
 				intensity={FACE_FILL_INTENSITY}
 			/>
-			<Stage adjustCamera={1.2} intensity={1} shadows={false}>
+			<Stage adjustCamera={0} intensity={1} shadows={false}>
 				<Avatar />
 			</Stage>
 			<OrbitControls

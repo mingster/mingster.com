@@ -6,12 +6,29 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useChat } from "@/hooks/useChat";
 import { cn } from "@/lib/utils";
+import { ANIMATION_KEYS } from "./AvatarGLB";
 
 const SIGNIN_ROUTE = "/signIn";
 
+const ANIMATION_GLB_PATH = "/models/animation.glb";
+
+/** Lowercase keyword (and aliases) -> animation key. Used to trigger animation when user types keyword in chat. */
+const CHAT_ANIMATION_KEYWORDS: Record<string, string> = (() => {
+	const map: Record<string, string> = {};
+	for (const key of ANIMATION_KEYS) {
+		const lower = key.toLowerCase();
+		map[lower] = key;
+		map[lower.replace(/_/g, " ")] = key;
+		map[lower.replace(/ /g, "_")] = key;
+	}
+	Object.assign(map, { dance: "Dancing" });
+	return map;
+})();
+
 export function ChatUI() {
 	const router = useRouter();
-	const { chat, loading, pushAnimationMessage } = useChat();
+	const { chat, loading, pushAnimationMessage, pushGlbAnimationMessage } =
+		useChat();
 	const [input, setInput] = useState("");
 
 	const handleSubmit = useCallback(
@@ -26,16 +43,12 @@ export function ChatUI() {
 				setInput("");
 				return;
 			}
-			if (lower === "angry") {
-				pushAnimationMessage("Angry", "I'm angry!");
-				setInput("");
-				return;
-			} else if (lower === "crying") {
-				pushAnimationMessage("Crying", "I'm crying!");
-				setInput("");
-				return;
-			} else if (lower === "laughing") {
-				pushAnimationMessage("Laughing", "I'm laughing!");
+			const animationKey = CHAT_ANIMATION_KEYWORDS[lower];
+			if (animationKey) {
+				pushAnimationMessage(
+					animationKey,
+					`Playing ${animationKey.replace(/_/g, " ")}`,
+				);
 				setInput("");
 				return;
 			}
@@ -49,6 +62,50 @@ export function ChatUI() {
 	return (
 		<div className="absolute bottom-0 left-0 right-0 z-10 p-4">
 			<div className="mx-auto max-w-xl rounded-xl border border-white/20 bg-black/40 p-3 backdrop-blur-sm">
+				<div className="mb-2 space-y-2">
+					{/* FBX from public/animations/: AnimationMixer in AvatarGLB */}
+					<div className="flex flex-wrap gap-2">
+						<span className="mr-1 self-center text-xs text-white/60">
+							Animations (animations/):
+						</span>
+						{ANIMATION_KEYS.map((key) => (
+							<Button
+								key={key}
+								type="button"
+								variant="outline"
+								size="sm"
+								disabled={loading}
+								onClick={() =>
+									pushAnimationMessage(
+										key,
+										`Playing ${key.replace(/_/g, " ")}`,
+									)
+								}
+								className="border-white/30 bg-white/10 text-white hover:bg-white/20"
+							>
+								{key.replace(/_/g, " ")}
+							</Button>
+						))}
+					</div>
+					<div className="flex flex-wrap gap-2">
+						<Button
+							type="button"
+							variant="outline"
+							size="sm"
+							disabled={loading}
+							onClick={() =>
+								pushGlbAnimationMessage(
+									ANIMATION_GLB_PATH,
+									0,
+									"Playing animation.glb",
+								)
+							}
+							className="border-white/30 bg-white/10 text-white hover:bg-white/20"
+						>
+							Load animation.glb
+						</Button>
+					</div>
+				</div>
 				{loading && (
 					<div className="mb-2 flex items-center gap-1.5 text-sm text-white/80">
 						<span className="size-2 animate-pulse rounded-full bg-white/80" />

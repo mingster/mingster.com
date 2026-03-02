@@ -16,10 +16,10 @@ To enable the full avatar with animations and lip sync:
    - Optional: to download a dance GLB to this folder, run:
      `DANCE_GLB_URL="https://your-dance-glb-url" bun run bin/download-dance-glb.ts`
      then merge the clip into `animations.glb` in Blender as above.
-   - **Or use an FBX directly:** Place `Silly Dancing.fbx` in `public/animations/`. When you click Dance, the app loads and applies it (same rig as your character, e.g. Mixamo).
+   - **Or use an FBX directly:** Place e.g. `dancing.fbx` in `public/animations/`. The "Animations" test buttons load FBX from that folder (same rig as your character).
 
-4. **FBX emotion/gesture animations (e.g. Angry)**  
-   Place FBX files in `public/animations/` with the **same rig** as your character (e.g. Mixamo bone names). When the API returns a message with `animation: "Angry"`, the app loads and plays `animations/Angry.fbx` on the avatar. Add more entries in `AvatarGLB.tsx` → `ANIMATION_FBX` to map other keys (e.g. `Happy`, `Sad`) to `animations/YourName.fbx`.
+4. **FBX animations**  
+   Place FBX files in `public/animations/` (e.g. `dancing.fbx`, `idle.fbx`, `salute.fbx`). Add entries in `AvatarGLB.tsx` → `ANIMATION_FBX` to map keys to paths (e.g. `Dancing: "animations/dancing.fbx"`). Chat UI has test buttons for each entry.
 
 You can also use assets from the reference project: [r3f-virtual-girlfriend-frontend](https://github.com/wass08/r3f-virtual-girlfriend-frontend) (see `public/models/`).
 

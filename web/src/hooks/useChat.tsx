@@ -28,8 +28,12 @@ export interface ChatContextValue {
 	loadIntro: () => Promise<void>;
 	/** Push a message with an animation (e.g. "Angry") so the avatar plays the FBX; no API call. */
 	pushAnimationMessage: (animation: string, text?: string) => void;
-	/** Push a message with only a facial expression (e.g. "happy"); no API call, no animation. */
-	pushExpressionMessage: (facialExpression: string, text?: string) => void;
+	/** Push a message that loads and plays a clip from a GLB (e.g. "/models/animation.glb"); no API call. */
+	pushGlbAnimationMessage: (
+		glbPath: string,
+		clipIndexOrName?: number | string,
+		text?: string,
+	) => void;
 	/** When set, avatar plays Dance animation (same rig as character). Cleared when stopping. */
 	danceTrigger: number | null;
 	/** Start playing the Dance clip in a loop (if present in animations.glb). */
@@ -157,11 +161,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 		[],
 	);
 
-	const pushExpressionMessage = useCallback(
-		(facialExpression: string, text?: string) => {
+	const pushGlbAnimationMessage = useCallback(
+		(glbPath: string, clipIndexOrName?: number | string, text?: string) => {
 			const msg: ChatMessage = {
 				text: text ?? "",
-				facialExpression,
+				animationGlb: glbPath,
+				animationGlbClip: clipIndexOrName ?? 0,
 			};
 			setMessages((prev) => {
 				const newIndex = prev.length;
@@ -184,7 +189,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 		clearMessages,
 		loadIntro,
 		pushAnimationMessage,
-		pushExpressionMessage,
+		pushGlbAnimationMessage,
 		danceTrigger,
 		triggerDance,
 		stopDance,

@@ -5,26 +5,49 @@ description: Work with Three.js and React Three Fiber (R3F) for 3D scenes, GLB/s
 
 # Three.js / React Three Fiber
 
+## Avatar source
+
+- **Avatar is from Avaturn.** Export the character from [Avaturn](https://avaturn.me) (or hub.avaturn.me) as GLB, place under `web/public/models/` (e.g. `character.glb`). The rig and morph targets (expressions, visemes) follow Avaturn/Ready Player Me–style naming.
+
 ## Stack
 
 - **React Three Fiber (R3F)**: `@react-three/fiber` — React renderer for Three.js.
-- **Drei**: `@react-three/drei` — helpers: `useGLTF`, `OrbitControls`, `Stage`, etc.
+- **Drei**: `@react-three/drei` — helpers: `useGLTF`, **`useAnimations`**, `OrbitControls`, `Stage`, etc.
 - **Three.js**: `three` — `THREE.Bone`, `THREE.Skeleton`, `THREE.SkinnedMesh`, `THREE.Vector3`, `THREE.Quaternion`, etc.
 
 Import pattern:
 
 ```ts
 import { useFrame } from "@react-three/fiber";
-import { OrbitControls, Stage, useGLTF } from "@react-three/drei";
+import { OrbitControls, Stage, useGLTF, useAnimations } from "@react-three/drei";
 import * as THREE from "three";
 ```
+
+## Animations (useAnimations from drei)
+
+Use **`useAnimations`** from `@react-three/drei` for GLB/GLTF animation clips. It returns a mixer, clip names, and actions keyed by name so you can play or crossfade without managing `AnimationMixer` by hand.
+
+```ts
+const groupRef = useRef<THREE.Group>(null);
+const { scene, animations } = useGLTF("/models/character.glb");
+const { actions, names } = useAnimations(animations, groupRef);
+
+// Play by name
+actions["Walk"]?.reset().fadeIn(0.5).play();
+// Crossfade: fade out others
+Object.keys(actions).forEach((key) => {
+  if (key !== "Walk") actions[key]?.fadeOut(0.5);
+});
+```
+
+When clips come from external FBX or a different rig, use **SkeletonUtils.retargetClip** or **filterClipForRoot** and your own **AnimationMixer** (see Animation flow below).
 
 ## Key files
 
 | File | Purpose |
 |------|---------|
 | `web/src/components/virtual-experience/Scene.tsx` | Canvas, lights, Stage, OrbitControls, background. |
-| `web/src/components/virtual-experience/AvatarGLB.tsx` | GLB avatar, skeleton pose, morph targets, audio. |
+| `web/src/components/virtual-experience/AvatarGLB.tsx` | Avaturn GLB avatar, skeleton pose, morph targets, FBX/mixer animation, audio. |
 | `web/src/components/virtual-experience/Avatar.tsx` | Chooses AvatarGLB vs fallback by model availability. |
 
 ## Skeleton and bones
@@ -126,9 +149,10 @@ scene.traverse((child) => {
 
 ## GLB loading
 
-- **useGLTF(url, true)** for suspense; destructure `{ scene }`.
+- **Avatar**: From **Avaturn**; export as GLB and place under `web/public/models/` (e.g. `character.glb`).
+- **useGLTF(url, true)** for suspense; destructure `{ scene, animations }` when using **useAnimations**.
+- **useAnimations(animations, rootRef)** from drei: use for playing/crossfading GLB clips; returns `{ actions, names, mixer }`.
 - **Draco**: If using compressed GLB, set decoder once: `useGLTF.setDecoderPath("https://www.gstatic.com/draco/versioned/decoders/1.5.7/")` (guard with `typeof window !== "undefined"`).
-- Models live under `web/public/models/` (e.g. `character.glb`).
 
 ## useFrame and state
 
