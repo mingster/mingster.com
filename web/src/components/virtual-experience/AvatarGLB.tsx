@@ -330,7 +330,8 @@ export function AvatarGLB() {
 	const fbxPath =
 		!currentMessage?.animationGlb && animationKey
 			? ANIMATION_FBX[animationKey] ??
-				ANIMATION_FBX[animationKey.charAt(0).toUpperCase() + animationKey.slice(1).toLowerCase()]
+				ANIMATION_FBX[animationKey.charAt(0).toUpperCase() + animationKey.slice(1).toLowerCase()] ??
+				(animationKey.endsWith(".fbx") ? animationKey : undefined)
 			: undefined;
 	const animationGlbPath = currentMessage?.animationGlb;
 	const animationGlbClip = currentMessage?.animationGlbClip ?? 0;

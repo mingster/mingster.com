@@ -10,8 +10,6 @@ import { ANIMATION_KEYS } from "./AvatarGLB";
 
 const SIGNIN_ROUTE = "/signIn";
 
-const ANIMATION_GLB_PATH = "/models/animation.glb";
-
 /** Lowercase keyword (and aliases) -> animation key. Used to trigger animation when user types keyword in chat. */
 const CHAT_ANIMATION_KEYWORDS: Record<string, string> = (() => {
 	const map: Record<string, string> = {};
@@ -27,8 +25,7 @@ const CHAT_ANIMATION_KEYWORDS: Record<string, string> = (() => {
 
 export function ChatUI() {
 	const router = useRouter();
-	const { chat, loading, pushAnimationMessage, pushGlbAnimationMessage } =
-		useChat();
+	const { chat, loading, pushAnimationMessage } = useChat();
 	const [input, setInput] = useState("");
 
 	const handleSubmit = useCallback(
@@ -94,15 +91,11 @@ export function ChatUI() {
 							size="sm"
 							disabled={loading}
 							onClick={() =>
-								pushGlbAnimationMessage(
-									ANIMATION_GLB_PATH,
-									0,
-									"Playing animation.glb",
-								)
+								pushAnimationMessage("animations/dancing.fbx", "Playing Dancing")
 							}
-							className="border-white/30 bg-white/10 text-white hover:bg-white/20"
+							className="border-purple-400/60 bg-purple-500/20 text-purple-200 hover:bg-purple-500/40"
 						>
-							Load animation.glb
+							💃 Test Dance
 						</Button>
 					</div>
 				</div>

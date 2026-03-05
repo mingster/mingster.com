@@ -2,7 +2,7 @@
 
 Place FBX files in **`public/animations/`** (this folder). Playback: FBXLoader → **AnimationMixer** → clip (with optional **retargeting** when using Mixamo on Avaturn) → `clipAction(clip).play()`.
 
-**Mixamo + Avaturn:** Avaturn and Mixamo use different bone names, so raw Mixamo FBX often doesn’t move an Avaturn avatar. See **[doc/MIXAMO_AVATURN_ANIMATIONS.md](../doc/MIXAMO_AVATURN_ANIMATIONS.md)** for (1) Blender retargeting and (2) runtime retargeting with a bone name map.
+**Mixamo + Avaturn:** Avaturn and Mixamo use different bone names, so raw Mixamo FBX often doesn’t move an Avaturn avatar. See **[doc/MIXAMO_AVATURN_ANIMATIONS.md](./MIXAMO_AVATURN_ANIMATIONS.md)** for (1) Blender retargeting and (2) runtime retargeting with a bone name map.
 
 | File | Key | Purpose |
 |------|-----|---------|
@@ -20,13 +20,13 @@ If your FBX comes from **Mixamo** (e.g. Y Bot rig), it may include bones your ch
 
 For the fewest warnings and best match:
 
-- **Same rig as the FBX**  
+- **Same rig as the FBX**
   Use a character that shares the exact skeleton and bone names as the animation (e.g. Mixamo character + Mixamo animations).
-- **Mixamo**  
+- **Mixamo**
   [mixamo.com](https://www.mixamo.com): pick a character (e.g. Y Bot), download as FBX, then in Blender or another tool export to GLB and use that as `character.glb`. Use Mixamo animations as your FBX files.
-- **Avaturn / other rigs**  
+- **Avaturn / other rigs**
   Avaturn and similar tools often use different bone names. Either:
-  - Retarget Mixamo (or other) animations to your rig in Blender and export FBX with your rig’s bone names, or  
+  - Retarget Mixamo (or other) animations to your rig in Blender and export FBX with your rig’s bone names, or
   - Use animations authored for that rig. Filtering will still drop tracks for missing bones (e.g. finger tips) and avoid console noise.
 
 To add more animations, add the FBX here and a mapping in `AvatarGLB.tsx` → `ANIMATION_FBX`, e.g. `Happy: "animations/happy.fbx"`.
