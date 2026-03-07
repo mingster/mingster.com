@@ -35,19 +35,30 @@ Avaturn avatars and Mixamo FBX animations use **different rigs and bone names**.
 
 The app can use Three.js `SkeletonUtils.retargetClip(target, source, clip, options)` to convert a Mixamo clip to your avatar’s skeleton at runtime.
 
-- **target** = your Avaturn character’s `SkinnedMesh` (has `.skeleton`).  
-- **source** = the loaded Mixamo FBX’s `SkinnedMesh`.  
-- **options.names** = map **Avaturn bone name → Mixamo bone name**, e.g.  
-  `{ "Hips": "mixamorigHips", "Spine": "mixamorigSpine", "LeftUpperArm": "mixamorigLeftArm", ... }`.
+- **target** = your Avaturn character’s `SkinnedMesh` (has `.skeleton`).
+- **source** = the loaded Mixamo FBX’s `SkinnedMesh`.
+- **options.names** = map **Avaturn bone name → Mixamo bone name**, e.g.
+  `{ “Hips”: “mixamorigHips”, “Spine”: “mixamorigSpine”, “LeftUpperArm”: “mixamorigLeftArm”, ... }`.
+- **options.hip** = the hip bone name on the **target** (avatar) skeleton. The app auto-detects this by finding a bone whose name contains “hip”.
+
+### Critical: AnimationMixer root
+
+After `retargetClip`, the returned clip’s tracks reference **target** bone names (e.g. `Hips.quaternion`). The `AnimationMixer` resolves these via `root.getObjectByName(boneName)`. Skeleton bones are children of the **Armature** in the scene graph — **not** children of the `SkinnedMesh` — so the mixer root **must be the scene object** (the GLB root), not the `SkinnedMesh`.
+
+```ts
+// WRONG — bones are not children of the SkinnedMesh:
+new THREE.AnimationMixer(charMesh)
+
+// CORRECT — bones are reachable from the scene root:
+new THREE.AnimationMixer(scene)
+```
 
 Your Avaturn GLB may use different names (e.g. `Armature_Hips`, `Spine`, `LeftArm`). To build the map:
 
-1. In the app, trigger a Mixamo animation (e.g. click “Dancing”) and open the browser console.  
+1. In the app, trigger a Mixamo animation (e.g. click “Dancing”) and open the browser console.
    The app logs **Avatar bones** and **Mixamo bones** when retargeting runs. Use these to fill the map.
 
 2. In `AvatarGLB.tsx`, edit **`AVATURN_TO_MIXAMO_NAMES`**: keys = your avatar’s bone names, values = Mixamo’s bone names (e.g. `mixamorigHips`). Add every bone that should be driven by the animation.
-
-3. **options.hip** is set to `"Hips"` by default; if your avatar uses another hip name (e.g. `Armature_Hips`), change the `hip` option in the `retargetClip` call.
 
 If both your character and the loaded FBX have a `SkinnedMesh` with a skeleton, the app tries retargeting first; if the map is incomplete, more bones will stay still until you add entries.
 

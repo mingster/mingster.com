@@ -20,6 +20,8 @@ const ANIMATION_FBX: Record<string, string> = {
 	Defeated: "animations/defeated.fbx",
 	Idle: "animations/idle.fbx",
 	Salute: "animations/salute.fbx",
+	HappyIdle: "animations/happyidle.fbx",
+	Hook: "animations/hook.fbx",
 };
 
 /** All animation keys (for chat keywords and test buttons). */
@@ -252,7 +254,6 @@ const _armQ = new THREE.Quaternion();
 const _armAwayQ = new THREE.Quaternion();
 const _armBendQ = new THREE.Quaternion();
 
-
 function captureTPose(
 	skeleton: THREE.Skeleton,
 	tPoseRef: React.MutableRefObject<Map<string, THREE.Quaternion>>,
@@ -329,9 +330,12 @@ export function AvatarGLB() {
 	const animationKey = currentMessage?.animation;
 	const fbxPath =
 		!currentMessage?.animationGlb && animationKey
-			? ANIMATION_FBX[animationKey] ??
-				ANIMATION_FBX[animationKey.charAt(0).toUpperCase() + animationKey.slice(1).toLowerCase()] ??
-				(animationKey.endsWith(".fbx") ? animationKey : undefined)
+			? (ANIMATION_FBX[animationKey] ??
+				ANIMATION_FBX[
+					animationKey.charAt(0).toUpperCase() +
+						animationKey.slice(1).toLowerCase()
+				] ??
+				(animationKey.endsWith(".fbx") ? animationKey : undefined))
 			: undefined;
 	const animationGlbPath = currentMessage?.animationGlb;
 	const animationGlbClip = currentMessage?.animationGlbClip ?? 0;
@@ -339,7 +343,7 @@ export function AvatarGLB() {
 	const [lipsyncData, setLipsyncData] = useState<LipsyncData | null>(null);
 	const audioRef = useRef<HTMLAudioElement | null>(null);
 	const [blink, setBlink] = useState(false);
-
+/*
 	// Eye blink when idle (part of breathing / idle behavior)
 	useEffect(() => {
 		if (!isIdle) return;
@@ -372,22 +376,27 @@ export function AvatarGLB() {
 		const mixer = new THREE.AnimationMixer(scene);
 		mixerRef.current = mixer;
 		const loader = new GLTFLoader();
-		loader.load(animationGlbPath, (animGltf) => {
-			if (cancelled || !animGltf.animations?.length) return;
-			const clips = animGltf.animations;
-			const clip =
-				typeof animationGlbClip === "number"
-					? clips[animationGlbClip]
-					: clips.find((c) => c.name === animationGlbClip) ?? clips[0];
-			if (!clip) return;
-			const action = mixer.clipAction(clip);
-			action.setLoop(THREE.LoopOnce, 1);
-			action.clampWhenFinished = true;
-			action.play();
-			fbxActionRef.current = action;
-		}, undefined, (err) => {
-			if (!cancelled) console.warn("GLB animation load failed:", err);
-		});
+		loader.load(
+			animationGlbPath,
+			(animGltf) => {
+				if (cancelled || !animGltf.animations?.length) return;
+				const clips = animGltf.animations;
+				const clip =
+					typeof animationGlbClip === "number"
+						? clips[animationGlbClip]
+						: (clips.find((c) => c.name === animationGlbClip) ?? clips[0]);
+				if (!clip) return;
+				const action = mixer.clipAction(clip);
+				action.setLoop(THREE.LoopOnce, 1);
+				action.clampWhenFinished = true;
+				action.play();
+				fbxActionRef.current = action;
+			},
+			undefined,
+			(err) => {
+				if (!cancelled) console.warn("GLB animation load failed:", err);
+			},
+		);
 		return () => {
 			cancelled = true;
 			if (fbxActionRef.current) {
@@ -400,7 +409,7 @@ export function AvatarGLB() {
 			}
 		};
 	}, [animationGlbPath, animationGlbClip, scene]);
-
+ */
 	// When message requests an FBX animation: retarget Mixamo→Avaturn when possible, else filter and play
 	useEffect(() => {
 		if (!fbxPath || !scene) return;
@@ -438,11 +447,17 @@ export function AvatarGLB() {
 						// eslint-disable-next-line no-console
 						console.log("[AvatarGLB] Retarget: Mixamo bones:", mixamoBones);
 					}
+					const hipBone = charMesh.skeleton.bones.find((b) =>
+						b.name.toLowerCase().includes("hip"),
+					);
 					clip = retargetClip(charMesh, fbxMesh, rawClip, {
 						names: AVATURN_TO_MIXAMO_NAMES,
-						hip: "Hips",
+						hip: hipBone?.name ?? "Hips",
 					});
-					mixerRoot = charMesh;
+					// Bones are descendants of the armature in the scene graph, NOT
+					// children of the SkinnedMesh. AnimationMixer resolves track names via
+					// root.getObjectByName(), so scene must be the root (not charMesh).
+					mixerRoot = scene;
 				} else {
 					clip = filterClipForRoot(rawClip, scene);
 					mixerRoot = scene;
@@ -518,11 +533,14 @@ export function AvatarGLB() {
 				let clip: THREE.AnimationClip;
 				let mixerRoot: THREE.Object3D;
 				if (charMesh && fbxMesh) {
+					const hipBone = charMesh.skeleton.bones.find((b) =>
+						b.name.toLowerCase().includes("hip"),
+					);
 					clip = retargetClip(charMesh, fbxMesh, rawClip, {
 						names: AVATURN_TO_MIXAMO_NAMES,
-						hip: "Hips",
+						hip: hipBone?.name ?? "Hips",
 					});
-					mixerRoot = charMesh;
+					mixerRoot = scene;
 				} else {
 					clip = filterClipForRoot(rawClip, scene);
 					mixerRoot = scene;
@@ -579,8 +597,9 @@ export function AvatarGLB() {
 	}, [currentMessage, onMessagePlayed]);
 
 	// useFrame: update FBX mixers (message clip + idle clip); when no clip playing apply procedural pose
-	useFrame((state) => {
-		const delta = state.clock.getDelta();
+	useFrame((state, delta) => {
+		// Use the delta R3F provides — calling state.clock.getDelta() here returns ~0
+		// because R3F already advanced the clock before invoking useFrame callbacks.
 		if (mixerRef.current) mixerRef.current.update(delta);
 		if (idleMixerRef.current) idleMixerRef.current.update(delta);
 

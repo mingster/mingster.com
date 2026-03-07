@@ -84,20 +84,7 @@ export function ChatUI() {
 							</Button>
 						))}
 					</div>
-					<div className="flex flex-wrap gap-2">
-						<Button
-							type="button"
-							variant="outline"
-							size="sm"
-							disabled={loading}
-							onClick={() =>
-								pushAnimationMessage("animations/dancing.fbx", "Playing Dancing")
-							}
-							className="border-purple-400/60 bg-purple-500/20 text-purple-200 hover:bg-purple-500/40"
-						>
-							💃 Test Dance
-						</Button>
-					</div>
+					
 				</div>
 				{loading && (
 					<div className="mb-2 flex items-center gap-1.5 text-sm text-white/80">
