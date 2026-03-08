@@ -82,7 +82,7 @@ export function Scene({ background = DEFAULT_BACKGROUND }: SceneProps) {
 			}}
 		>
 			<Canvas
-				camera={{ position: [0, 0, 2], fov: 50 }}
+				camera={{ position: [0, 0, 4], fov: 50 }}
 				gl={{
 					preserveDrawingBuffer: true,
 					alpha: true,

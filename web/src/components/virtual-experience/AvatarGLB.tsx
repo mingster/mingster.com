@@ -23,6 +23,10 @@ export const ANIMATION_KEYS = Object.keys(ANIMATION_FBX);
 /** Idle when no current message. */
 const STANDING_IDLE_FBX = "animations/standing-idle.fbx";
 
+/** Message animations: play at least this many frames (at 60fps) and slow down a bit. */
+const MIN_PLAY_FRAMES = 150;
+const MAX_TIMESCALE = 0.75; // cap speed so animation is a bit slower
+
 function collectNodeNames(root: THREE.Object3D): Set<string> {
 	const names = new Set<string>();
 	root.traverse((obj) => {
@@ -102,6 +106,7 @@ export function AvatarGLB() {
 	const mixerRef = useRef<THREE.AnimationMixer | null>(null);
 	const mixerRootRef = useRef<THREE.Object3D | null>(null);
 	const fbxActionRef = useRef<THREE.AnimationAction | null>(null);
+	const onAnimationFinishedRef = useRef<(() => void) | null>(null);
 	const idleMixerRef = useRef<THREE.AnimationMixer | null>(null);
 	const idleActionRef = useRef<THREE.AnimationAction | null>(null);
 	const idleMixerRootRef = useRef<THREE.Object3D | null>(null);
@@ -161,16 +166,27 @@ export function AvatarGLB() {
 				mixerRef.current = mixer;
 				mixerRootRef.current = mixerRoot;
 				const action = mixer.clipAction(clip, mixerRoot);
-				action.setLoop(THREE.LoopOnce, 1);
+				action.setLoop(THREE.LoopRepeat, 1);
 				action.clampWhenFinished = true;
+				// Slow down so we play at least MIN_PLAY_FRAMES and never faster than MAX_TIMESCALE
+				const timeScaleForMinFrames = (clip.duration * 60) / MIN_PLAY_FRAMES;
+				action.timeScale = Math.min(1, MAX_TIMESCALE, timeScaleForMinFrames);
 				action.play();
 				fbxActionRef.current = action;
+				// Advance message only after animation finishes (all 3 loops)
+				const handler = () => onMessagePlayed();
+				onAnimationFinishedRef.current = handler;
+				mixer.addEventListener("finished", handler);
 			} catch (err) {
 				if (!cancelled) console.warn("FBX animation load failed:", err);
 			}
 		})();
 		return () => {
 			cancelled = true;
+			const mixer = mixerRef.current;
+			const handler = onAnimationFinishedRef.current;
+			if (mixer && handler) mixer.removeEventListener("finished", handler);
+			onAnimationFinishedRef.current = null;
 			if (fbxActionRef.current) {
 				fbxActionRef.current.stop();
 				fbxActionRef.current = null;
@@ -181,7 +197,7 @@ export function AvatarGLB() {
 				mixerRootRef.current = null;
 			}
 		};
-	}, [fbxPath, scene]);
+	}, [fbxPath, scene, onMessagePlayed]);
 
 	// Idle: play standing-idle FBX in a loop
 	useEffect(() => {
@@ -257,19 +273,13 @@ export function AvatarGLB() {
 		};
 	}, [isIdle, fbxPath, scene]);
 
-	// Advance message when no audio (so next animation can be triggered)
+	// Play message audio when present; message advances when animation finishes (mixer 'finished')
 	useEffect(() => {
-		if (!currentMessage) return;
-		if (currentMessage.audio) {
-			const mime = currentMessage.audioMime ?? "audio/wav";
-			const audio = new Audio(`data:${mime};base64,${currentMessage.audio}`);
-			audio.play().catch(() => onMessagePlayed());
-			audio.onended = () => onMessagePlayed();
-		} else {
-			const t = setTimeout(() => onMessagePlayed(), 2000);
-			return () => clearTimeout(t);
-		}
-	}, [currentMessage, onMessagePlayed]);
+		if (!currentMessage?.audio) return;
+		const mime = currentMessage.audioMime ?? "audio/wav";
+		const audio = new Audio(`data:${mime};base64,${currentMessage.audio}`);
+		audio.play().catch(() => {});
+	}, [currentMessage]);
 
 	// Update Mixamo animation mixers only
 	useFrame((_state, delta) => {
