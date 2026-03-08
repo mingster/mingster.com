@@ -60,31 +60,7 @@ export function ChatUI() {
 		<div className="absolute bottom-0 left-0 right-0 z-10 p-4">
 			<div className="mx-auto max-w-xl rounded-xl border border-white/20 bg-black/40 p-3 backdrop-blur-sm">
 				<div className="mb-2 space-y-2">
-					{/* FBX from public/animations/: AnimationMixer in AvatarGLB */}
-					<div className="flex flex-wrap gap-2">
-						<span className="mr-1 self-center text-xs text-white/60">
-							Animations (animations/):
-						</span>
-						{ANIMATION_KEYS.map((key) => (
-							<Button
-								key={key}
-								type="button"
-								variant="outline"
-								size="sm"
-								disabled={loading}
-								onClick={() =>
-									pushAnimationMessage(
-										key,
-										`Playing ${key.replace(/_/g, " ")}`,
-									)
-								}
-								className="border-white/30 bg-white/10 text-white hover:bg-white/20"
-							>
-								{key.replace(/_/g, " ")}
-							</Button>
-						))}
-					</div>
-					
+
 				</div>
 				{loading && (
 					<div className="mb-2 flex items-center gap-1.5 text-sm text-white/80">
