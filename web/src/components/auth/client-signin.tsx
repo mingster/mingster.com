@@ -48,7 +48,7 @@ export default function ClientSignIn({
 	}
 
 	return (
-		<Card className="w-full max-w-lg max-h-lg p-2">
+		<Card className="w-full max-w-lg max-h-lg p-2 bg-black/50 backdrop-blur-sm">
 			{!noTitle && (
 				<CardHeader>
 					<CardTitle className="text-lg pt-2">{t("signin_title")}</CardTitle>

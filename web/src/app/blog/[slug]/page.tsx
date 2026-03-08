@@ -76,14 +76,14 @@ export default async function DocPage(props: Props) {
 				<div className="flex flex-col">
 					{/* Main Content */}
 					<div className="flex-1 min-w-0 xl:pr-64">
-						<div className="mt-16 px-4 font-mono text-sm/7 font-medium tracking-widest text-gray-500 uppercase lg:px-2">
+						<div className="mt-16 px-4 font-mono text-sm/7 font-medium tracking-widest uppercase lg:px-2">
 							<time dateTime={post.meta.date}>
 								{formatDate(post.meta.date)}
 							</time>
 						</div>
 
 						<GridContainer className="mb-6 px-4 lg:px-2 xl:mb-16">
-							<h1 className="inline-block max-w-(--breakpoint-md) text-[2.5rem]/10 tracking-tight text-pretty text-gray-950 max-lg:font-medium lg:text-4xl dark:text-gray-200">
+							<h1 className="inline-block max-w-(--breakpoint-md) text-[2.5rem]/10 tracking-tight text-pretty max-lg:font-medium lg:text-4xl capitalize font-bold">
 								{post.meta.title}
 							</h1>
 						</GridContainer>

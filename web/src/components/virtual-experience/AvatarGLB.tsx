@@ -10,29 +10,28 @@ const CHARACTER_URL = "/models/character.glb";
 
 /** Mixamo FBX in public/animations/. Playback: FBXLoader → retargetClip or filterClipForRoot → AnimationMixer → play. */
 const ANIMATION_FBX: Record<string, string> = {
-    AskSomebody: "animations/ask_somebody.fbx",
-    Arguing: "animations/arguing.fbx",
+	AskSomebody: "animations/ask_somebody.fbx",
+	Arguing: "animations/arguing.fbx",
 	Dancing: "animations/dancing.fbx",
 	Defeated: "animations/defeated.fbx",
-    Dismissing: "animations/dismissing-gesture.fbx",
-    EnteringCode: "animations/entering-code.fbx",
-    Excited: "animations/excited.fbx",
+	Dismissing: "animations/dismissing-gesture.fbx",
+	EnteringCode: "animations/entering-code.fbx",
+	Excited: "animations/excited.fbx",
 	Hook: "animations/hook.fbx",
 
 	Idle: "animations/idle.fbx",
-    IdleStanding: "animations/idle-standing.fbx",
-    IdleHappy: "animations/idle-happy.fbx",
+	IdleStanding: "animations/idle-standing.fbx",
+	IdleHappy: "animations/idle-happy.fbx",
 
-    Looking: "animations/looking.fbx",
-    PullingLever: "animations/pulling-lever.fbx",
-    Rapping: "animations/rapping.fbx",
-    Researching: "animations/researching.fbx",
+	Looking: "animations/looking.fbx",
+	PullingLever: "animations/pulling-lever.fbx",
+	Rapping: "animations/rapping.fbx",
+	Researching: "animations/researching.fbx",
 	Salute: "animations/salute.fbx",
-    Smoking: "animations/smoking.fbx",
-    Talking: "animations/talking.fbx",
-    TellingASecret: "animations/telling_a_secret.fbx",
-    WipingSweat: "animations/wiping_sweat.fbx",
-
+	Smoking: "animations/smoking.fbx",
+	Talking: "animations/talking.fbx",
+	TellingASecret: "animations/telling_a_secret.fbx",
+	WipingSweat: "animations/wiping_sweat.fbx",
 };
 
 export const ANIMATION_KEYS = Object.keys(ANIMATION_FBX);
@@ -132,18 +131,20 @@ export function AvatarGLB() {
 	const idleActionRef = useRef<THREE.AnimationAction | null>(null);
 	const idleMixerRootRef = useRef<THREE.Object3D | null>(null);
 	const lookingClipRef = useRef<THREE.AnimationClip | null>(null);
-	const lookingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+	const lookingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+		null,
+	);
 
 	const { currentMessage, onMessagePlayed } = useChat();
 	const animationKey = currentMessage?.animation;
 	const fbxPath =
 		!currentMessage?.animationGlb && animationKey
-			? ANIMATION_FBX[animationKey] ??
+			? (ANIMATION_FBX[animationKey] ??
 				ANIMATION_FBX[
 					animationKey.charAt(0).toUpperCase() +
 						animationKey.slice(1).toLowerCase()
 				] ??
-				(animationKey.endsWith(".fbx") ? animationKey : undefined)
+				(animationKey.endsWith(".fbx") ? animationKey : undefined))
 			: undefined;
 
 	// Message-driven Mixamo FBX: load, retarget or filter, play once
@@ -299,12 +300,16 @@ export function AvatarGLB() {
 						let lookClip = lookingClipRef.current;
 						if (!lookClip) {
 							try {
-								const [{ FBXLoader: FBXLoader2 }, { retargetClip: retargetClip2 }] =
-									await Promise.all([
-										import("three/examples/jsm/loaders/FBXLoader.js"),
-										import("three/examples/jsm/utils/SkeletonUtils.js"),
-									]);
-								const fbxLook = await new FBXLoader2().loadAsync(`/${LOOKING_FBX}`);
+								const [
+									{ FBXLoader: FBXLoader2 },
+									{ retargetClip: retargetClip2 },
+								] = await Promise.all([
+									import("three/examples/jsm/loaders/FBXLoader.js"),
+									import("three/examples/jsm/utils/SkeletonUtils.js"),
+								]);
+								const fbxLook = await new FBXLoader2().loadAsync(
+									`/${LOOKING_FBX}`,
+								);
 								if (cancelled || !fbxLook.animations?.length) return;
 								const charM = getFirstSkinnedMesh(scene);
 								const fbxM = getFirstSkinnedMesh(fbxLook);
@@ -347,7 +352,8 @@ export function AvatarGLB() {
 				};
 				scheduleLooking();
 			} catch (err) {
-				if (!cancelled) console.warn("Idle loop (happy-idle) FBX load failed:", err);
+				if (!cancelled)
+					console.warn("Idle loop (happy-idle) FBX load failed:", err);
 			}
 		})();
 		return () => {

@@ -31,7 +31,7 @@ export async function generateMetadata() {
 
 	return {
 		title: t("meta_site_title"),
-		/* 
+		/*
 		 title: {
 		   template: `%s | ${title}`,
 		   default: title, // a default is required when creating a template
@@ -113,9 +113,13 @@ export default async function RootLayout({
 
 	//</RecaptchaProvider>
 	return (
-		<html lang={htmlLang} suppressHydrationWarning>
+		<html
+			lang={htmlLang}
+			data-scroll-behavior="smooth"
+			suppressHydrationWarning
+		>
 			<head suppressHydrationWarning={true} />
-			<body className={"antialiased"}>
+			<body className={"antialiased bg-primary/10"}>
 				<Script
 					id="theme-init"
 					strategy="beforeInteractive"
@@ -126,7 +130,7 @@ export default async function RootLayout({
 								try {
 									var theme = localStorage.getItem('theme');
 									var isDark = false;
-									
+
 									if (theme === 'dark') {
 										isDark = true;
 									} else if (theme === 'light') {
@@ -135,7 +139,7 @@ export default async function RootLayout({
 										// Use system preference or default to dark
 										isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 									}
-									
+
 									if (isDark) {
 										document.documentElement.classList.add('dark');
 									} else {

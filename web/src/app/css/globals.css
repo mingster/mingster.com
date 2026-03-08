@@ -45,8 +45,8 @@
 	--font-serif: serif;
 	--font-mono: Roboto Mono, ui-monospace, monospace;
 	--font-minimal:
-		-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
-		Arial, sans-serif;
+		Geist Mono, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+		"Helvetica Neue", Arial, sans-serif;
 	--radius: 0.75rem;
 	--shadow-x: 0px;
 	--shadow-y: 1px;
@@ -108,8 +108,8 @@
 	--font-serif: serif;
 	--font-mono: Roboto Mono, ui-monospace, monospace;
 	--font-minimal:
-		-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
-		Arial, sans-serif;
+		Geist Mono, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+		"Helvetica Neue", Arial, sans-serif;
 	--radius: 0.75rem;
 	--shadow-x: 0px;
 	--shadow-y: 1px;

@@ -17,7 +17,7 @@ export default async function SignInPage(props: Props) {
 
 	return (
 		<Suspense fallback={<Loader />}>
-			<div className="w-full h-screen flex items-center justify-center watchNow">
+			<div className="w-full h-screen flex items-center justify-center">
 				<ClientSignIn callbackUrl={callbackUrl} />
 			</div>
 		</Suspense>
