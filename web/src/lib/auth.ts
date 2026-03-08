@@ -2,7 +2,6 @@ import { apiKey } from "@better-auth/api-key";
 import { passkey } from "@better-auth/passkey";
 import { stripe } from "@better-auth/stripe";
 import { type BetterAuthOptions, betterAuth } from "better-auth";
-import { emailHarmony } from "better-auth-harmony";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import {
 	admin,
@@ -14,6 +13,7 @@ import {
 	phoneNumber,
 	twoFactor,
 } from "better-auth/plugins";
+import { emailHarmony } from "better-auth-harmony";
 
 import { sendAuthMagicLink } from "@/actions/mail/send-auth-magic-link";
 import { sendAuthPasswordReset } from "@/actions/mail/send-auth-password-reset";
@@ -33,7 +33,8 @@ export const auth = betterAuth({
 		process.env.NEXT_PUBLIC_API_URL ||
 		(process.env.NODE_ENV === "production"
 			? "https://mingster.com"
-			: "http://localhost:3001"),
+			: "http://localhost:3002"),
+
 	database: prismaAdapter(sqlClient, {
 		provider: "postgresql", // or "mysql", "postgresql", ...etc
 	}),
@@ -64,7 +65,7 @@ export const auth = betterAuth({
 		accountLinking: {
 			enabled: true,
 			allowDifferentEmails: true,
-			trustedProviders: ["google", "line", "apple", "phone"],
+			trustedProviders: ["google", "line", "phone"],
 		},
 	},
 	emailAndPassword: {
@@ -99,12 +100,13 @@ export const auth = betterAuth({
 			clientSecret: process.env.AUTH_LINE_SECRET as string,
 			scopes: ["openid", "profile", "email"],
 		},
+		/*
 		apple: {
 			clientId: process.env.AUTH_APPLE_ID as string,
 			clientSecret: process.env.AUTH_APPLE_SECRET as string,
 			// Optional
 			appBundleIdentifier: process.env.APPLE_APP_BUNDLE_IDENTIFIER as string,
-		},
+		},*/
 	},
 	trustedOrigins: ["https://appleid.apple.com", "https://mingster.com"],
 	plugins: [

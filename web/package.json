@@ -8,7 +8,8 @@
     "build": "bun run postinstall; next build",
     "start": "next start -p 3002",
     "format": "npx biome format --write ./src",
-    "postinstall": "bun run sql:generate",
+    "postinstall": "bun run sql:generate && node scripts/patch-three-clock.js",
+    "patch:three-clock": "node scripts/patch-three-clock.js",
     "dbpush": "bun run sql:dbpush",
     "sql:generate": "npx prisma generate",
     "sql:dbpush": "npx prisma db push --schema prisma/schema.prisma",
@@ -207,6 +208,6 @@
     ]
   },
   "overrides": {
-    "react-dom": "^19.2.3"
+    "react-dom": "^19.2.4"
   }
 }
