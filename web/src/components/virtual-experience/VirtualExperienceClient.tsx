@@ -45,8 +45,11 @@ function VirtualExperienceInner() {
 	}, [loadIntro]);
 
 	return (
-		<div className="relative h-screen w-full overflow-hidden">
-			<Scene background={OUTDOOR_BG} />
+		<div className="flex h-screen w-full flex-col overflow-hidden md:relative">
+			{/* Mobile: avatar above chat. Desktop: full-screen avatar, chat overlays bottom */}
+			<div className="relative min-h-0 flex-1 md:absolute md:inset-0">
+				<Scene background={OUTDOOR_BG} />
+			</div>
 			<ChatUI />
 		</div>
 	);
