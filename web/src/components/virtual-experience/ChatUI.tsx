@@ -11,11 +11,15 @@ import { ANIMATION_KEYS } from "./AvatarGLB";
 
 const SIGNIN_ROUTE = "/signIn";
 
+/** Paths that navigate instead of opening in dialog */
+const ROUTE_PATHS = new Set(["/signIn", "/account"]);
+
 /** Slash commands: /command -> { label, path } */
 const SLASH_COMMANDS: { command: string; label: string; path: string }[] = [
 	{ command: "/blog", label: "Blog", path: "/blog" },
-	{ command: "/signin", label: "Sign in", path: "/signIn" },
 	{ command: "/qrcode", label: "QR Code", path: "/qr-generator" },
+	{ command: "/signin", label: "Sign in", path: "/signIn" },
+	{ command: "/account", label: "Account", path: "/account" },
 ];
 
 /** Lowercase keyword (and aliases) -> animation key. Used to trigger animation when user types keyword in chat. */
@@ -59,11 +63,18 @@ export function ChatUI() {
 			);
 	}, [showCommandList, filteredCommands.length]);
 
-	const openCommandPage = useCallback((path: string) => {
-		setDialogPath(path);
-		setDialogOpen(true);
-		setInput("");
-	}, []);
+	const openCommandPage = useCallback(
+		(path: string) => {
+			setInput("");
+			if (ROUTE_PATHS.has(path)) {
+				router.push(path);
+				return;
+			}
+			setDialogPath(path);
+			setDialogOpen(true);
+		},
+		[router],
+	);
 
 	const handleKeyDown = useCallback(
 		(e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -98,6 +109,11 @@ export function ChatUI() {
 			const lower = trimmed.toLowerCase();
 			if (lower === "/signin") {
 				router.push(SIGNIN_ROUTE);
+				setInput("");
+				return;
+			}
+			if (lower === "/account") {
+				router.push("/account");
 				setInput("");
 				return;
 			}
@@ -207,9 +223,9 @@ export function ChatUI() {
 					<DialogTitle className="sr-only">
 						{dialogPath === "/blog"
 							? "Blog"
-							: dialogPath === "/signIn"
-								? "Sign in"
-								: "QR Code"}
+							: dialogPath === "/qr-generator"
+								? "QR Code"
+								: "Page"}
 					</DialogTitle>
 					{dialogPath && (
 						<iframe
