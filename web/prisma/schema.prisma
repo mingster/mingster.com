@@ -796,7 +796,7 @@ model RsvpSettings {
   requireSignature   Boolean @default(false) //需要簽名
   showCostToCustomer Boolean @default(false) //顯示預約金額
 
-  mustSelectFacility   Boolean @default(false) //必須要選擇設施 
+  mustSelectFacility   Boolean @default(false) //必須要選擇設施
   mustHaveServiceStaff Boolean @default(false) //必須要選擇服務人員(e.g. 美容師, 按摩師, 髮型師, 等等)
 
   useBusinessHours Boolean @default(true)
@@ -1222,7 +1222,7 @@ model StoreLedger {
   orderId     String
   amount      Decimal
   fee         Decimal // fee from payment type. e.g. linePay = 3%
-  platformFee Decimal // riben.life's fee
+  platformFee Decimal // mingster.com's fee
   currency    String  @default("twd")
   type        Int     @default(0) // 0: 代收 | 1: store's own payment provider
   balance     Decimal

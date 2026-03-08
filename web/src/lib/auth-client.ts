@@ -1,8 +1,9 @@
+import { apiKeyClient } from "@better-auth/api-key/client";
+import { passkeyClient } from "@better-auth/passkey/client";
 import { stripeClient } from "@better-auth/stripe/client";
 import {
 	adminClient,
 	anonymousClient,
-	apiKeyClient,
 	customSessionClient,
 	//emailOTPClient,
 	genericOAuthClient,
@@ -16,7 +17,6 @@ import {
 } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import type { auth } from "./auth";
-import { passkeyClient } from "@better-auth/passkey/client";
 
 export const authClient = createAuthClient({
 	/** The base URL of the server (optional if you're using the same domain) */
@@ -38,17 +38,16 @@ export const authClient = createAuthClient({
 		magicLinkClient(),
 		passkeyClient(),
 		genericOAuthClient(),
-		apiKeyClient(),
 		phoneNumberClient(),
 		anonymousClient(),
-
+		apiKeyClient(),
 		/*
-		emailOTPClient(),
-		*/
+        emailOTPClient(),
+        */
 	],
 });
-async function signInWithLINE() {
-	const res = await authClient.signIn.social({ provider: "line" });
+async function _signInWithLINE() {
+	const _res = await authClient.signIn.social({ provider: "line" });
 }
 
 export const {

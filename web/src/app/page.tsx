@@ -1,15 +1,11 @@
 import { Suspense } from "react";
-import { GlobalNavbar } from "@/components/global-navbar";
-import { redirect } from "next/navigation";
 import { Loader } from "@/components/loader";
+import { VirtualExperienceClient } from "@/components/virtual-experience/VirtualExperienceClient";
 
-export default async function HomePage() {
-	redirect("/dashboard");
-
-	const title = "mingster.com";
+export default function HomePage() {
 	return (
 		<Suspense fallback={<Loader />}>
-			<GlobalNavbar title={title} />
+			<VirtualExperienceClient />
 		</Suspense>
 	);
 }

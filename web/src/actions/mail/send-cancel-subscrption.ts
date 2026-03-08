@@ -1,11 +1,11 @@
-import { User } from "@/types";
 import logger from "@/lib/logger";
-import { loadOuterHtmTemplate } from "./load-outer-htm-template";
-import { PhaseTags } from "./phase-tags";
-import { StringNVType } from "@/types/enum";
-import { phasePlaintextToHtm } from "./phase-plaintext-to-htm";
 import { sqlClient } from "@/lib/prismadb";
+import type { User } from "@/types";
+import type { StringNVType } from "@/types/enum";
 import { getUtcNowEpoch } from "@/utils/datetime-utils";
+import { loadOuterHtmTemplate } from "./load-outer-htm-template";
+import { phasePlaintextToHtm } from "./phase-plaintext-to-htm";
+import { PhaseTags } from "./phase-tags";
 
 // send email to customer when subscription is cancelled
 //
@@ -82,8 +82,8 @@ export const sendCancelSubscription = async (user: User) => {
 
 	const email_queue = await sqlClient.emailQueue.create({
 		data: {
-			from: supportEmail?.value || "support@riben.life",
-			fromName: supportEmail?.value || "riben.life",
+			from: supportEmail?.value || "support@mingster.com",
+			fromName: supportEmail?.value || "mingster.com",
 			to: user.email || "",
 			toName: user.name || "",
 			cc: "",
