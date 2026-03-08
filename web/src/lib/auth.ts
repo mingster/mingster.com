@@ -5,14 +5,14 @@ import { type BetterAuthOptions, betterAuth } from "better-auth";
 import { emailHarmony } from "better-auth-harmony";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import {
-    admin,
-    anonymous,
-    bearer,
-    customSession,
-    magicLink,
-    organization,
-    phoneNumber,
-    twoFactor,
+	admin,
+	anonymous,
+	bearer,
+	customSession,
+	magicLink,
+	organization,
+	phoneNumber,
+	twoFactor,
 } from "better-auth/plugins";
 
 import { sendAuthMagicLink } from "@/actions/mail/send-auth-magic-link";
