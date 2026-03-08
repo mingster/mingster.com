@@ -10,18 +10,39 @@ const CHARACTER_URL = "/models/character.glb";
 
 /** Mixamo FBX in public/animations/. Playback: FBXLoader → retargetClip or filterClipForRoot → AnimationMixer → play. */
 const ANIMATION_FBX: Record<string, string> = {
+    AskSomebody: "animations/ask_somebody.fbx",
+    Arguing: "animations/arguing.fbx",
 	Dancing: "animations/dancing.fbx",
 	Defeated: "animations/defeated.fbx",
-	Idle: "animations/idle.fbx",
-	Salute: "animations/salute.fbx",
-	HappyIdle: "animations/happyidle.fbx",
+    Dismissing: "animations/dismissing-gesture.fbx",
+    EnteringCode: "animations/entering-code.fbx",
+    Excited: "animations/excited.fbx",
 	Hook: "animations/hook.fbx",
+
+	Idle: "animations/idle.fbx",
+    IdleStanding: "animations/idle-standing.fbx",
+    IdleHappy: "animations/idle-happy.fbx",
+
+    Looking: "animations/looking.fbx",
+    PullingLever: "animations/pulling-lever.fbx",
+    Rapping: "animations/rapping.fbx",
+    Researching: "animations/researching.fbx",
+	Salute: "animations/salute.fbx",
+    Smoking: "animations/smoking.fbx",
+    Talking: "animations/talking.fbx",
+    TellingASecret: "animations/telling_a_secret.fbx",
+    WipingSweat: "animations/wiping_sweat.fbx",
+
 };
 
 export const ANIMATION_KEYS = Object.keys(ANIMATION_FBX);
 
-/** Idle when no current message. */
-const STANDING_IDLE_FBX = "animations/standing-idle.fbx";
+/** Idle loop when no command: happy-idle (first load and after looking / after message animation). */
+const IDLE_LOOP_FBX = ANIMATION_FBX.IdleHappy;
+
+/** When idle, play this every LOOKING_INTERVAL_MS then back to happy-idle. */
+const LOOKING_FBX = ANIMATION_FBX.Looking;
+const LOOKING_INTERVAL_MS = 10_000;
 
 /** Message animations: play at least this many frames (at 60fps) and slow down a bit. */
 const MIN_PLAY_FRAMES = 150;
@@ -110,9 +131,10 @@ export function AvatarGLB() {
 	const idleMixerRef = useRef<THREE.AnimationMixer | null>(null);
 	const idleActionRef = useRef<THREE.AnimationAction | null>(null);
 	const idleMixerRootRef = useRef<THREE.Object3D | null>(null);
+	const lookingClipRef = useRef<THREE.AnimationClip | null>(null);
+	const lookingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
 	const { currentMessage, onMessagePlayed } = useChat();
-	const isIdle = currentMessage === null;
 	const animationKey = currentMessage?.animation;
 	const fbxPath =
 		!currentMessage?.animationGlb && animationKey
@@ -199,9 +221,14 @@ export function AvatarGLB() {
 		};
 	}, [fbxPath, scene, onMessagePlayed]);
 
-	// Idle: play standing-idle FBX in a loop
+	// Idle: on load and when no message animation — loop happy-idle; every 10s play looking then back to happy-idle.
 	useEffect(() => {
-		if (!isIdle || fbxPath || !scene) {
+		if (fbxPath || !scene) {
+			if (lookingIntervalRef.current) {
+				clearInterval(lookingIntervalRef.current);
+				lookingIntervalRef.current = null;
+			}
+			lookingClipRef.current = null;
 			if (idleActionRef.current) {
 				idleActionRef.current.stop();
 				idleActionRef.current = null;
@@ -221,7 +248,7 @@ export function AvatarGLB() {
 					import("three/examples/jsm/utils/SkeletonUtils.js"),
 				]);
 				const loader = new FBXLoader();
-				const fbx = await loader.loadAsync(`/${STANDING_IDLE_FBX}`);
+				const fbx = await loader.loadAsync(`/${IDLE_LOOP_FBX}`);
 				if (cancelled || !fbx.animations?.length) return;
 				if (idleActionRef.current) {
 					idleActionRef.current.stop();
@@ -255,12 +282,81 @@ export function AvatarGLB() {
 				action.setLoop(THREE.LoopRepeat, Infinity);
 				action.play();
 				idleActionRef.current = action;
+
+				const scheduleLooking = () => {
+					if (cancelled || !idleMixerRef.current || !idleMixerRootRef.current)
+						return;
+					lookingIntervalRef.current = setInterval(async () => {
+						if (cancelled) return;
+						if (lookingIntervalRef.current) {
+							clearInterval(lookingIntervalRef.current);
+							lookingIntervalRef.current = null;
+						}
+						const mix = idleMixerRef.current;
+						const root = idleMixerRootRef.current;
+						const idleAction = idleActionRef.current;
+						if (!mix || !root || !idleAction) return;
+						let lookClip = lookingClipRef.current;
+						if (!lookClip) {
+							try {
+								const [{ FBXLoader: FBXLoader2 }, { retargetClip: retargetClip2 }] =
+									await Promise.all([
+										import("three/examples/jsm/loaders/FBXLoader.js"),
+										import("three/examples/jsm/utils/SkeletonUtils.js"),
+									]);
+								const fbxLook = await new FBXLoader2().loadAsync(`/${LOOKING_FBX}`);
+								if (cancelled || !fbxLook.animations?.length) return;
+								const charM = getFirstSkinnedMesh(scene);
+								const fbxM = getFirstSkinnedMesh(fbxLook);
+								const raw = fbxLook.animations[0];
+								if (charM && fbxM) {
+									const hip = charM.skeleton.bones.find((b) =>
+										b.name.toLowerCase().includes("hip"),
+									);
+									lookClip = retargetClip2(charM, fbxM, raw, {
+										names: AVATURN_TO_MIXAMO_NAMES,
+										hip: hip?.name ?? "Hips",
+									});
+								} else {
+									lookClip = filterClipForRoot(raw, scene);
+								}
+								lookingClipRef.current = lookClip;
+							} catch (e) {
+								if (!cancelled) console.warn("Looking FBX load failed:", e);
+								scheduleLooking();
+								return;
+							}
+						}
+						idleAction.stop();
+						if (!lookClip) {
+							scheduleLooking();
+							return;
+						}
+						const lookAction = mix.clipAction(lookClip, root);
+						lookAction.setLoop(THREE.LoopOnce, 1);
+						lookAction.clampWhenFinished = true;
+						const onFinished = () => {
+							mix.removeEventListener("finished", onFinished);
+							if (cancelled) return;
+							idleActionRef.current?.play();
+							scheduleLooking();
+						};
+						mix.addEventListener("finished", onFinished);
+						lookAction.play();
+					}, LOOKING_INTERVAL_MS);
+				};
+				scheduleLooking();
 			} catch (err) {
-				if (!cancelled) console.warn("Standing Idle FBX load failed:", err);
+				if (!cancelled) console.warn("Idle loop (happy-idle) FBX load failed:", err);
 			}
 		})();
 		return () => {
 			cancelled = true;
+			if (lookingIntervalRef.current) {
+				clearInterval(lookingIntervalRef.current);
+				lookingIntervalRef.current = null;
+			}
+			lookingClipRef.current = null;
 			if (idleActionRef.current) {
 				idleActionRef.current.stop();
 				idleActionRef.current = null;
@@ -271,7 +367,7 @@ export function AvatarGLB() {
 				idleMixerRootRef.current = null;
 			}
 		};
-	}, [isIdle, fbxPath, scene]);
+	}, [fbxPath, scene]);
 
 	// Play message audio when present; message advances when animation finishes (mixer 'finished')
 	useEffect(() => {
