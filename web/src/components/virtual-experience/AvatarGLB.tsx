@@ -2,19 +2,13 @@
 
 import { useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { useChat } from "@/hooks/useChat";
-import type { LipsyncData } from "@/types/virtual-experience";
-import { VISEME_TO_MORPH } from "./avatar-expressions";
 
 const CHARACTER_URL = "/models/character.glb";
 
-/**
- * FBX animations in public/animations/ (read from folder: dancing, defeated, idle, salute, standing-idle).
- * Playback: FBXLoader → AnimationMixer(scene) → filterClipForRoot → clipAction → play.
- */
+/** Mixamo FBX in public/animations/. Playback: FBXLoader → retargetClip or filterClipForRoot → AnimationMixer → play. */
 const ANIMATION_FBX: Record<string, string> = {
 	Dancing: "animations/dancing.fbx",
 	Defeated: "animations/defeated.fbx",
@@ -24,13 +18,11 @@ const ANIMATION_FBX: Record<string, string> = {
 	Hook: "animations/hook.fbx",
 };
 
-/** All animation keys (for chat keywords and test buttons). */
 export const ANIMATION_KEYS = Object.keys(ANIMATION_FBX);
 
-/** FBX played in a loop when no current message. */
+/** Idle when no current message. */
 const STANDING_IDLE_FBX = "animations/standing-idle.fbx";
 
-/** Collect all node/bone names under root (scene + skeleton bones) so we can filter clip tracks. */
 function collectNodeNames(root: THREE.Object3D): Set<string> {
 	const names = new Set<string>();
 	root.traverse((obj) => {
@@ -44,7 +36,6 @@ function collectNodeNames(root: THREE.Object3D): Set<string> {
 	return names;
 }
 
-/** Return a clip that only includes tracks whose target node exists under root. Silences "No target node found" warnings when FBX rig has more bones (e.g. finger/toe tips) than the character. */
 function filterClipForRoot(
 	clip: THREE.AnimationClip,
 	root: THREE.Object3D,
@@ -62,16 +53,6 @@ function filterClipForRoot(
 	return new THREE.AnimationClip(clip.name, clip.duration, keptTracks);
 }
 
-function getSkeleton(root: THREE.Object3D): THREE.Skeleton | null {
-	let sk: THREE.Skeleton | null = null;
-	root.traverse((child) => {
-		if (child instanceof THREE.SkinnedMesh && child.skeleton)
-			sk = child.skeleton;
-	});
-	return sk;
-}
-
-/** First SkinnedMesh with skeleton under root (for SkeletonUtils.retargetClip). */
 function getFirstSkinnedMesh(root: THREE.Object3D): THREE.SkinnedMesh | null {
 	let mesh: THREE.SkinnedMesh | null = null;
 	root.traverse((child) => {
@@ -81,12 +62,7 @@ function getFirstSkinnedMesh(root: THREE.Object3D): THREE.SkinnedMesh | null {
 	return mesh;
 }
 
-/**
- * Map Avaturn (target) bone name → Mixamo (source) bone name for retargetClip.
- * Mixamo FBX often uses "mixamorig" prefix (e.g. mixamorigHips). Customize for your
- * avatar: log skeleton.bones.map(b => b.name) in dev to see actual names.
- * @see doc/MIXAMO_AVATURN_ANIMATIONS.md
- */
+/** Avaturn (target) bone name → Mixamo (source) bone name for retargetClip. */
 const AVATURN_TO_MIXAMO_NAMES: Record<string, string> = {
 	Hips: "mixamorigHips",
 	Spine: "mixamorigSpine",
@@ -119,205 +95,10 @@ const AVATURN_TO_MIXAMO_NAMES: Record<string, string> = {
 	RightToeBase: "mixamorigRightToeBase",
 };
 
-const BREATH_AMPLITUDE = 0.004;
-const BREATH_SPEED = 1.2;
-const _breathAxis = new THREE.Vector3(0, 0, 1);
-const _breathOffset = new THREE.Vector3();
-
-function applyBreathing(
-	skeleton: THREE.Skeleton,
-	time: number,
-	prevScalarRef: React.MutableRefObject<number>,
-) {
-	const scalar = Math.sin(time * BREATH_SPEED);
-	for (const bone of skeleton.bones) {
-		const name = bone.name.toLowerCase();
-		const isChestOrSpine =
-			(name.includes("chest") || name.includes("spine")) &&
-			!name.includes("neck") &&
-			!name.includes("head");
-		if (!isChestOrSpine) continue;
-		_breathAxis.set(0, 0, 1).applyQuaternion(bone.quaternion);
-		_breathOffset
-			.copy(_breathAxis)
-			.multiplyScalar(BREATH_AMPLITUDE * prevScalarRef.current);
-		bone.position.sub(_breathOffset);
-		_breathOffset.copy(_breathAxis).multiplyScalar(BREATH_AMPLITUDE * scalar);
-		bone.position.add(_breathOffset);
-	}
-	prevScalarRef.current = scalar;
-}
-
-// Idle look: head and eyes look right 5° then turn back (cycle with breathing)
-const LOOK_RIGHT_ANGLE_MAX = (5 * Math.PI) / 180; // 5°
-const LOOK_CYCLE_SPEED = 0.8;
-const _lookY = new THREE.Vector3(0, 1, 0);
-const _lookQ = new THREE.Quaternion();
-
-// Idle eyes: look left then right every 5 sec
-const EYE_GAZE_INTERVAL = 5;
-const EYE_GAZE_ANGLE = (9 * Math.PI) / 180; // 6° left/right
-const _gazeQ = new THREE.Quaternion();
-
-function applyIdleLookRight(
-	skeleton: THREE.Skeleton,
-	time: number,
-	headBaseRef: React.MutableRefObject<THREE.Quaternion | null>,
-	neckBaseRef: React.MutableRefObject<THREE.Quaternion | null>,
-	eyeBasesRef: React.MutableRefObject<Map<string, THREE.Quaternion>>,
-) {
-	// 0 → 5° right → 0 (turn back) in a smooth cycle
-	const t = (1 + Math.sin(time * LOOK_CYCLE_SPEED)) / 2;
-	const angle = -LOOK_RIGHT_ANGLE_MAX * t; // negative Y = right
-
-	// Eyes: every 5 sec switch between look left and look right (phase 0 = left, 1 = right)
-	const gazePhase = Math.floor(time / EYE_GAZE_INTERVAL) % 2;
-	const gazeAngle = gazePhase === 0 ? -EYE_GAZE_ANGLE : EYE_GAZE_ANGLE;
-	_gazeQ.setFromAxisAngle(_lookY, gazeAngle);
-
-	let headBone: THREE.Bone | null = null;
-	let neckBone: THREE.Bone | null = null;
-	const eyeBones: THREE.Bone[] = [];
-	for (const bone of skeleton.bones) {
-		const name = bone.name.toLowerCase();
-		if (name.includes("head") && !name.includes("upper")) headBone = bone;
-		if ((name.includes("neck") || name === "upperneck") && !neckBone)
-			neckBone = bone;
-		if (
-			name.includes("eye") &&
-			(name.includes("left") || name.includes("right"))
-		)
-			eyeBones.push(bone);
-	}
-	_lookQ.setFromAxisAngle(_lookY, angle);
-	if (headBone) {
-		if (!headBaseRef.current) headBaseRef.current = headBone.quaternion.clone();
-		headBone.quaternion.copy(headBaseRef.current).premultiply(_lookQ);
-	}
-	_lookQ.setFromAxisAngle(_lookY, angle * 0.4);
-	if (neckBone) {
-		if (!neckBaseRef.current) neckBaseRef.current = neckBone.quaternion.clone();
-		neckBone.quaternion.copy(neckBaseRef.current).premultiply(_lookQ);
-	}
-	_lookQ.setFromAxisAngle(_lookY, angle * 0.5);
-	for (const bone of eyeBones) {
-		if (!eyeBasesRef.current.has(bone.uuid))
-			eyeBasesRef.current.set(bone.uuid, bone.quaternion.clone());
-		const base = eyeBasesRef.current.get(bone.uuid);
-		if (base) {
-			bone.quaternion.copy(base).premultiply(_lookQ).premultiply(_gazeQ);
-		}
-	}
-}
-
-function restoreIdleLook(
-	skeleton: THREE.Skeleton,
-	headBaseRef: React.MutableRefObject<THREE.Quaternion | null>,
-	neckBaseRef: React.MutableRefObject<THREE.Quaternion | null>,
-	eyeBasesRef: React.MutableRefObject<Map<string, THREE.Quaternion>>,
-) {
-	for (const bone of skeleton.bones) {
-		const name = bone.name.toLowerCase();
-		if (
-			name.includes("head") &&
-			!name.includes("upper") &&
-			headBaseRef.current
-		) {
-			bone.quaternion.copy(headBaseRef.current);
-		} else if (
-			(name.includes("neck") || name === "upperneck") &&
-			neckBaseRef.current
-		) {
-			bone.quaternion.copy(neckBaseRef.current);
-		} else if (
-			name.includes("eye") &&
-			(name.includes("left") || name.includes("right"))
-		) {
-			const base = eyeBasesRef.current.get(bone.uuid);
-			if (base) bone.quaternion.copy(base);
-		}
-	}
-	headBaseRef.current = null;
-	neckBaseRef.current = null;
-	eyeBasesRef.current.clear();
-}
-
-// Idle: arms relaxed — down, slightly away, with a bit of bend at shoulder and elbow (not stick-straight).
-const _ARMS_PARALLEL_ANGLE = Math.PI / 2;
-const _ARM_AWAY_ANGLE = 0.18; // rad, ~10° — upper arms away from body
-const _UPPER_ARM_BEND = 0.1; // rad, ~6° — slight bend at shoulder so upper arm not perfectly straight
-const _FOREARM_BEND = 0.22; // rad, ~12° — elbow bend so forearm angles slightly (relaxed hang)
-const _armX = new THREE.Vector3(1, 0, 0);
-const _armY = new THREE.Vector3(0, 1, 0);
-const _armZ = new THREE.Vector3(0, 0, 1);
-const _armQ = new THREE.Quaternion();
-const _armAwayQ = new THREE.Quaternion();
-const _armBendQ = new THREE.Quaternion();
-
-function captureTPose(
-	skeleton: THREE.Skeleton,
-	tPoseRef: React.MutableRefObject<Map<string, THREE.Quaternion>>,
-) {
-	for (const bone of skeleton.bones) {
-		tPoseRef.current.set(bone.uuid, bone.quaternion.clone());
-	}
-}
-
-/** Normalize for matching: lowercase, no underscores/dashes/spaces (e.g. "Brow_Inner_Up" -> "browinnerup"). */
-function normalizeMorphName(name: string): string {
-	return name.toLowerCase().replace(/[-_\s]/g, "");
-}
-
-/** Get morph index from dictionary: exact key first, then normalized match so "browInnerUp" matches "Brow_Inner_Up". */
-function getMorphIndex(
-	dict: Record<string, number>,
-	target: string,
-): number | undefined {
-	const exact = dict[target];
-	if (exact !== undefined) return exact;
-	const normalizedTarget = normalizeMorphName(target);
-	for (const [key, index] of Object.entries(dict)) {
-		if (normalizeMorphName(key) === normalizedTarget) return index;
-	}
-	return undefined;
-}
-
-function lerpMorphTarget(
-	scene: THREE.Group,
-	target: string,
-	value: number,
-	speed: number,
-) {
-	scene.traverse((child) => {
-		if (
-			child instanceof THREE.SkinnedMesh &&
-			child.morphTargetDictionary &&
-			child.morphTargetInfluences
-		) {
-			const index = getMorphIndex(child.morphTargetDictionary, target);
-			if (
-				index === undefined ||
-				child.morphTargetInfluences[index] === undefined
-			)
-				return;
-			child.morphTargetInfluences[index] = THREE.MathUtils.lerp(
-				child.morphTargetInfluences[index],
-				value,
-				speed,
-			);
-		}
-	});
-}
-
 export function AvatarGLB() {
 	const character = useGLTF(CHARACTER_URL, true);
 	const { scene } = character;
 	const groupRef = useRef<THREE.Group>(null);
-	const prevBreathScalarRef = useRef(0);
-	const headBaseRef = useRef<THREE.Quaternion | null>(null);
-	const neckBaseRef = useRef<THREE.Quaternion | null>(null);
-	const eyeBasesRef = useRef<Map<string, THREE.Quaternion>>(new Map());
-	const tPoseArmRef = useRef<Map<string, THREE.Quaternion>>(new Map());
 	const mixerRef = useRef<THREE.AnimationMixer | null>(null);
 	const mixerRootRef = useRef<THREE.Object3D | null>(null);
 	const fbxActionRef = useRef<THREE.AnimationAction | null>(null);
@@ -330,87 +111,15 @@ export function AvatarGLB() {
 	const animationKey = currentMessage?.animation;
 	const fbxPath =
 		!currentMessage?.animationGlb && animationKey
-			? (ANIMATION_FBX[animationKey] ??
+			? ANIMATION_FBX[animationKey] ??
 				ANIMATION_FBX[
 					animationKey.charAt(0).toUpperCase() +
 						animationKey.slice(1).toLowerCase()
 				] ??
-				(animationKey.endsWith(".fbx") ? animationKey : undefined))
+				(animationKey.endsWith(".fbx") ? animationKey : undefined)
 			: undefined;
-	const animationGlbPath = currentMessage?.animationGlb;
-	const animationGlbClip = currentMessage?.animationGlbClip ?? 0;
 
-	const [lipsyncData, setLipsyncData] = useState<LipsyncData | null>(null);
-	const audioRef = useRef<HTMLAudioElement | null>(null);
-	const [blink, setBlink] = useState(false);
-/*
-	// Eye blink when idle (part of breathing / idle behavior)
-	useEffect(() => {
-		if (!isIdle) return;
-		let blinkTimeout: ReturnType<typeof setTimeout>;
-		const scheduleNext = () => {
-			blinkTimeout = setTimeout(
-				() => {
-					setBlink(true);
-					setTimeout(() => {
-						setBlink(false);
-						scheduleNext();
-					}, 200);
-				},
-				THREE.MathUtils.randInt(2000, 5000),
-			);
-		};
-		scheduleNext();
-		return () => clearTimeout(blinkTimeout);
-	}, [isIdle]);
-
-	// Load animation.glb and play on character: mixer from model, then loader.load(animation.glb) → mixer.clipAction(animGltf.animations[0]).play()
-	useEffect(() => {
-		if (!animationGlbPath || !scene) return;
-		let cancelled = false;
-		if (fbxActionRef.current) {
-			fbxActionRef.current.stop();
-			fbxActionRef.current = null;
-		}
-		if (mixerRef.current) mixerRef.current.uncacheRoot(scene);
-		const mixer = new THREE.AnimationMixer(scene);
-		mixerRef.current = mixer;
-		const loader = new GLTFLoader();
-		loader.load(
-			animationGlbPath,
-			(animGltf) => {
-				if (cancelled || !animGltf.animations?.length) return;
-				const clips = animGltf.animations;
-				const clip =
-					typeof animationGlbClip === "number"
-						? clips[animationGlbClip]
-						: (clips.find((c) => c.name === animationGlbClip) ?? clips[0]);
-				if (!clip) return;
-				const action = mixer.clipAction(clip);
-				action.setLoop(THREE.LoopOnce, 1);
-				action.clampWhenFinished = true;
-				action.play();
-				fbxActionRef.current = action;
-			},
-			undefined,
-			(err) => {
-				if (!cancelled) console.warn("GLB animation load failed:", err);
-			},
-		);
-		return () => {
-			cancelled = true;
-			if (fbxActionRef.current) {
-				fbxActionRef.current.stop();
-				fbxActionRef.current = null;
-			}
-			if (mixerRef.current) {
-				mixerRef.current.uncacheRoot(scene);
-				mixerRef.current = null;
-			}
-		};
-	}, [animationGlbPath, animationGlbClip, scene]);
- */
-	// When message requests an FBX animation: retarget Mixamo→Avaturn when possible, else filter and play
+	// Message-driven Mixamo FBX: load, retarget or filter, play once
 	useEffect(() => {
 		if (!fbxPath || !scene) return;
 		let cancelled = false;
@@ -436,17 +145,6 @@ export function AvatarGLB() {
 				let clip: THREE.AnimationClip;
 				let mixerRoot: THREE.Object3D;
 				if (charMesh && fbxMesh) {
-					if (process.env.NODE_ENV === "development") {
-						const avatarBones = charMesh.skeleton.bones.map((b) => b.name);
-						const mixamoBones = fbxMesh.skeleton.bones.map((b) => b.name);
-						// eslint-disable-next-line no-console
-						console.log(
-							"[AvatarGLB] Retarget: Avatar bones (customize AVATURN_TO_MIXAMO_NAMES):",
-							avatarBones,
-						);
-						// eslint-disable-next-line no-console
-						console.log("[AvatarGLB] Retarget: Mixamo bones:", mixamoBones);
-					}
 					const hipBone = charMesh.skeleton.bones.find((b) =>
 						b.name.toLowerCase().includes("hip"),
 					);
@@ -454,21 +152,10 @@ export function AvatarGLB() {
 						names: AVATURN_TO_MIXAMO_NAMES,
 						hip: hipBone?.name ?? "Hips",
 					});
-					// Bones are descendants of the armature in the scene graph, NOT
-					// children of the SkinnedMesh. AnimationMixer resolves track names via
-					// root.getObjectByName(), so scene must be the root (not charMesh).
 					mixerRoot = scene;
 				} else {
 					clip = filterClipForRoot(rawClip, scene);
 					mixerRoot = scene;
-					if (process.env.NODE_ENV === "development" && !charMesh) {
-						const sk = getSkeleton(scene);
-						// eslint-disable-next-line no-console
-						console.warn(
-							"[AvatarGLB] No SkinnedMesh on character; retarget skipped. Avatar bone names:",
-							sk?.bones.map((b) => b.name) ?? [],
-						);
-					}
 				}
 				const mixer = new THREE.AnimationMixer(mixerRoot);
 				mixerRef.current = mixer;
@@ -496,7 +183,7 @@ export function AvatarGLB() {
 		};
 	}, [fbxPath, scene]);
 
-	// When idle (no current message), play Standing Idle FBX in a loop (with retarget when possible)
+	// Idle: play standing-idle FBX in a loop
 	useEffect(() => {
 		if (!isIdle || fbxPath || !scene) {
 			if (idleActionRef.current) {
@@ -570,102 +257,24 @@ export function AvatarGLB() {
 		};
 	}, [isIdle, fbxPath, scene]);
 
-	// When current message changes: set lipsync, play audio
+	// Advance message when no audio (so next animation can be triggered)
 	useEffect(() => {
-		if (!currentMessage) {
-			setLipsyncData(null);
-			return;
-		}
-		setLipsyncData(currentMessage.lipsync ?? null);
-
+		if (!currentMessage) return;
 		if (currentMessage.audio) {
 			const mime = currentMessage.audioMime ?? "audio/wav";
 			const audio = new Audio(`data:${mime};base64,${currentMessage.audio}`);
-			audioRef.current = audio;
-			audio.play().catch((err) => {
-				console.warn("Audio play failed:", err);
-				onMessagePlayed();
-			});
-			audio.onended = () => {
-				audioRef.current = null;
-				onMessagePlayed();
-			};
+			audio.play().catch(() => onMessagePlayed());
+			audio.onended = () => onMessagePlayed();
 		} else {
 			const t = setTimeout(() => onMessagePlayed(), 2000);
 			return () => clearTimeout(t);
 		}
 	}, [currentMessage, onMessagePlayed]);
 
-	// useFrame: update FBX mixers (message clip + idle clip); when no clip playing apply procedural pose
-	useFrame((state, delta) => {
-		// Use the delta R3F provides — calling state.clock.getDelta() here returns ~0
-		// because R3F already advanced the clock before invoking useFrame callbacks.
+	// Update Mixamo animation mixers only
+	useFrame((_state, delta) => {
 		if (mixerRef.current) mixerRef.current.update(delta);
 		if (idleMixerRef.current) idleMixerRef.current.update(delta);
-
-		const skeleton = getSkeleton(scene);
-		const fbxPlaying =
-			fbxActionRef.current?.isRunning() || idleActionRef.current?.isRunning();
-		if (skeleton && !fbxPlaying) {
-			if (tPoseArmRef.current.size === 0) captureTPose(skeleton, tPoseArmRef);
-			if (isIdle) {
-				applyBreathing(skeleton, state.clock.elapsedTime, prevBreathScalarRef);
-				applyIdleLookRight(
-					skeleton,
-					state.clock.elapsedTime,
-					headBaseRef,
-					neckBaseRef,
-					eyeBasesRef,
-				);
-				//_applyArmsParallelWithBody(skeleton, tPoseArmRef);
-				// Log left hand world position (x, y, z) once for debugging
-				/*if (!leftHandPositionLoggedRef.current) {
-					const pos = getLeftHandWorldPosition(skeleton, scene);
-					if (pos) {
-						// eslint-disable-next-line no-console
-						console.log("Left hand world position (x, y, z):", pos);
-						leftHandPositionLoggedRef.current = true;
-					}
-				}
-
-                */
-			} else {
-				if (
-					headBaseRef.current ??
-					neckBaseRef.current ??
-					eyeBasesRef.current.size > 0
-				) {
-					restoreIdleLook(skeleton, headBaseRef, neckBaseRef, eyeBasesRef);
-				}
-				//_restoreArmsToTPose(skeleton, tPoseArmRef);
-			}
-		}
-
-		const appliedVisemes: string[] = [];
-		// Idle blink only (facial expressions removed)
-		const blinkValue = isIdle ? (blink ? 1 : 0) : 0;
-		lerpMorphTarget(scene, "eyeBlinkLeft", blinkValue, 0.5);
-		lerpMorphTarget(scene, "eyeBlinkRight", blinkValue, 0.5);
-
-		const audio = audioRef.current;
-		if (currentMessage && lipsyncData?.mouthCues && audio) {
-			const time = audio.currentTime;
-			for (const cue of lipsyncData.mouthCues) {
-				if (time >= cue.start && time <= cue.end) {
-					const morph = VISEME_TO_MORPH[cue.value];
-					if (morph) {
-						appliedVisemes.push(morph);
-						lerpMorphTarget(scene, morph, 1, 0.2);
-					}
-					break;
-				}
-			}
-		}
-		for (const morph of Object.values(VISEME_TO_MORPH)) {
-			if (!appliedVisemes.includes(morph)) {
-				lerpMorphTarget(scene, morph, 0, 0.1);
-			}
-		}
 	});
 
 	return (
