@@ -65,7 +65,7 @@ export const auth = betterAuth({
 		accountLinking: {
 			enabled: true,
 			allowDifferentEmails: true,
-			trustedProviders: ["google", "line", "phone"],
+			trustedProviders: ["google", "line", "apple", "phone"],
 		},
 	},
 	emailAndPassword: {
@@ -76,7 +76,7 @@ export const auth = betterAuth({
 				enabled: true,
 			},
 		},
-		sendResetPassword: async ({ user, url, token }, _request) => {
+		sendResetPassword: async ({ user, url, to ken }, _request) => {
 			await sendAuthPasswordReset(user.email, url);
 		},
 	},
@@ -100,13 +100,12 @@ export const auth = betterAuth({
 			clientSecret: process.env.AUTH_LINE_SECRET as string,
 			scopes: ["openid", "profile", "email"],
 		},
-		/*
 		apple: {
 			clientId: process.env.AUTH_APPLE_ID as string,
 			clientSecret: process.env.AUTH_APPLE_SECRET as string,
-			// Optional
+			// Optional: for native iOS id token flow
 			appBundleIdentifier: process.env.APPLE_APP_BUNDLE_IDENTIFIER as string,
-		},*/
+		},
 	},
 	trustedOrigins: ["https://appleid.apple.com", "https://mingster.com"],
 	plugins: [
