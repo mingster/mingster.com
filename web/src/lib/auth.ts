@@ -65,7 +65,7 @@ export const auth = betterAuth({
 		accountLinking: {
 			enabled: true,
 			allowDifferentEmails: true,
-			trustedProviders: ["google", "line", "apple", "phone"],
+			trustedProviders: ["google", "line", "phone", "apple"],
 		},
 	},
 	emailAndPassword: {
@@ -76,7 +76,7 @@ export const auth = betterAuth({
 				enabled: true,
 			},
 		},
-		sendResetPassword: async ({ user, url, to ken }, _request) => {
+		sendResetPassword: async ({ user, url, token }, _request) => {
 			await sendAuthPasswordReset(user.email, url);
 		},
 	},
