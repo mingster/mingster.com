@@ -8,7 +8,8 @@
     "build": "bun run postinstall; next build",
     "start": "next start -p 3002",
     "format": "npx biome format --write ./src",
-    "postinstall": "bun run sql:generate",
+    "postinstall": "bun run sql:generate && node scripts/patch-three-clock.js",
+    "patch:three-clock": "node scripts/patch-three-clock.js",
     "dbpush": "bun run sql:dbpush",
     "sql:generate": "npx prisma generate",
     "sql:dbpush": "npx prisma db push --schema prisma/schema.prisma",
@@ -94,17 +95,17 @@
     "embla-carousel-react": "^8.6.0",
     "flatpickr": "^4.6.13",
     "focus-visible": "^5.2.1",
-    "framer-motion": "^12.35.1",
+    "framer-motion": "^12.35.2",
     "i18next": "25.8.1",
     "i18next-browser-languagedetector": "^8.2.1",
     "i18next-resources-for-ts": "^1.9.0",
     "i18next-resources-to-backend": "^1.2.1",
     "input-otp": "^1.4.2",
-    "libphonenumber-js": "^1.12.38",
+    "libphonenumber-js": "^1.12.39",
     "lodash": "^4.17.23",
     "lucide-react": "^0.553.0",
     "next": "^16.1.6",
-    "next-client-cookies": "^2.1.0",
+    "next-client-cookies": "^2.1.1",
     "next-qrcode": "^2.5.1",
     "next-safe-action": "^8.1.8",
     "next-themes": "^0.4.6",
@@ -168,8 +169,8 @@
     "@types/react-google-recaptcha": "^2.1.9",
     "@types/three": "^0.183.1",
     "@types/uuid": "^11.0.0",
-    "@typescript-eslint/eslint-plugin": "^8.56.1",
-    "@typescript-eslint/parser": "^8.56.1",
+    "@typescript-eslint/eslint-plugin": "^8.57.0",
+    "@typescript-eslint/parser": "^8.57.0",
     "autoprefixer": "^10.4.27",
     "dotenv": "^16.6.1",
     "eslint": "^9.39.4",
@@ -186,7 +187,7 @@
     "shiki": "^3.23.0",
     "tailwindcss": "^4.2.1",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.56.1"
+    "typescript-eslint": "^8.57.0"
   },
   "husky": {
     "hooks": {
@@ -207,6 +208,6 @@
     ]
   },
   "overrides": {
-    "react-dom": "^19.2.3"
+    "react-dom": "^19.2.4"
   }
 }
