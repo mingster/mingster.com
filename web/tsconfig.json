@@ -26,6 +26,12 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@prisma/client": [
+        "./prisma/generated/client"
+      ],
+      "prisma/prisma-client": [
+        "./prisma/generated/client"
       ]
     },
     // Performance optimizations

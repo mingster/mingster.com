@@ -110,7 +110,7 @@ const getCurrentUser = async (): Promise<User | null> => {
 
 	transformPrismaDataForJson(obj);
 	//console.log(obj.Rsvp.map((r) => r.rsvpTime));
-	return obj as User;
+	return obj as unknown as User;
 };
 
 export default getCurrentUser;

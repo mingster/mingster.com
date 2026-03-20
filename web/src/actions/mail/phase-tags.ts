@@ -85,11 +85,14 @@ export async function PhaseTags(
 				pattern: /%Order\.CreatedOn%/gi,
 				value:
 					formatDateTime(
-						typeof order.createdAt === "number"
-							? (epochToDate(BigInt(order.createdAt)) ?? new Date())
-							: order.createdAt instanceof Date
-								? order.createdAt
-								: new Date(),
+						(() => {
+							const ca = order.createdAt;
+							if (ca == null) return new Date();
+							if (typeof ca === "bigint") return epochToDate(ca) ?? new Date();
+							if (typeof ca === "number")
+								return epochToDate(BigInt(ca)) ?? new Date();
+							return ca;
+						})(),
 					) || "",
 			},
 			{
