@@ -48,12 +48,18 @@ const ChatContext = createContext<ChatContextValue | null>(null);
 
 const CHAT_API = "/api/chat";
 
+interface ChatHistoryEntry {
+	role: "user" | "model";
+	text: string;
+}
+
 export function ChatProvider({ children }: { children: ReactNode }) {
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
 	const [currentIndex, setCurrentIndex] = useState(-1);
 	const [loading, setLoading] = useState(false);
 	const [cameraZoomed, setCameraZoomed] = useState(false);
 	const [danceTrigger, setDanceTrigger] = useState<number | null>(null);
+	const [chatHistory, setChatHistory] = useState<ChatHistoryEntry[]>([]);
 
 	const currentMessage =
 		currentIndex >= 0 && currentIndex < messages.length
@@ -78,7 +84,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 				const res = await fetch(CHAT_API, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ message: trimmed }),
+					body: JSON.stringify({ message: trimmed, history: chatHistory }),
 				});
 
 				if (!res.ok) {
@@ -90,6 +96,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 				const newMessages = Array.isArray(data.messages) ? data.messages : [];
 				if (newMessages.length === 0) return;
 
+				// Update conversation history with this exchange
+				const modelText = newMessages.map((m) => m.text).join(" ");
+				setChatHistory((prev) => [
+					...prev,
+					{ role: "user" as const, text: trimmed },
+					{ role: "model" as const, text: modelText },
+				]);
+
 				setMessages((prev) => [...prev, ...newMessages]);
 				// If nothing was "current", start playing the first new one
 				setCurrentIndex((prev) => {
@@ -98,7 +112,6 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 				});
 			} catch (err) {
 				console.error("Chat error:", err);
-				// Optionally add an error message to UI
 				setMessages((prev) => [
 					...prev,
 					{
@@ -111,7 +124,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 				setLoading(false);
 			}
 		},
-		[messages.length],
+		[messages.length, chatHistory],
 	);
 
 	const clearMessages = useCallback(() => {
