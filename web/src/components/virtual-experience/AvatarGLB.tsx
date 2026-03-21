@@ -30,6 +30,9 @@ const ANIMATION_FBX: Record<string, string> = {
 	Salute: "animations/salute.fbx",
 	Smoking: "animations/smoking.fbx",
 	Talking: "animations/talking.fbx",
+	Talking_0: "animations/talking.fbx",
+	Talking_1: "animations/talking.fbx",
+	Talking_2: "animations/talking.fbx",
 	TellingASecret: "animations/telling_a_secret.fbx",
 	WipingSweat: "animations/wiping_sweat.fbx",
 };
@@ -375,13 +378,37 @@ export function AvatarGLB() {
 		};
 	}, [fbxPath, scene]);
 
-	// Play message audio when present; message advances when animation finishes (mixer 'finished')
+	// Play message audio; if no FBX/GLB animation drives onMessagePlayed, advance when audio ends
 	useEffect(() => {
-		if (!currentMessage?.audio) return;
-		const mime = currentMessage.audioMime ?? "audio/wav";
-		const audio = new Audio(`data:${mime};base64,${currentMessage.audio}`);
-		audio.play().catch(() => {});
-	}, [currentMessage]);
+		if (!currentMessage) return;
+
+		const hasAnimationDriver = !!fbxPath || !!currentMessage.animationGlb;
+
+		if (currentMessage.audio) {
+			const mime = currentMessage.audioMime ?? "audio/wav";
+			const audio = new Audio(`data:${mime};base64,${currentMessage.audio}`);
+
+			if (!hasAnimationDriver) {
+				audio.addEventListener("ended", () => onMessagePlayed());
+				audio.addEventListener("error", () => onMessagePlayed());
+			}
+
+			audio.play().catch(() => {
+				if (!hasAnimationDriver) onMessagePlayed();
+			});
+
+			return () => {
+				audio.pause();
+				audio.currentTime = 0;
+			};
+		}
+
+		if (!hasAnimationDriver) {
+			// No audio and no animation — advance after a brief display pause
+			const timer = setTimeout(onMessagePlayed, 2000);
+			return () => clearTimeout(timer);
+		}
+	}, [currentMessage, fbxPath, onMessagePlayed]);
 
 	// Update Mixamo animation mixers only
 	useFrame((_state, delta) => {
