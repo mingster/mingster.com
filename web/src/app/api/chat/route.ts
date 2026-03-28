@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { ChatMessage } from "@/types/virtual-experience";
+import type { ChatHistoryEntry } from "./gemini";
 import { getGeminiReply } from "./gemini";
 import { runRhubarb } from "./lipsync";
 import { textToSpeech } from "./tts";
@@ -9,7 +10,7 @@ const GEMINI_API_KEY =
 
 /**
  * POST /api/chat
- * Body: { message?: string }
+ * Body: { message?: string, history?: ChatHistoryEntry[] }
  * Returns: { messages: ChatMessage[] }
  *
  * When message is empty or missing, returns static intro messages.
@@ -19,6 +20,9 @@ export async function POST(req: Request) {
 	try {
 		const body = await req.json().catch(() => ({}));
 		const message = typeof body.message === "string" ? body.message.trim() : "";
+		const history: ChatHistoryEntry[] = Array.isArray(body.history)
+			? body.history
+			: [];
 
 		// No message → return intro messages (static placeholders)
 		if (!message) {
@@ -55,8 +59,8 @@ export async function POST(req: Request) {
 			return NextResponse.json({ messages: errorMessages });
 		}
 
-		// Call Gemini; then Edge TTS per message; when WAV, run Rhubarb for lip sync
-		const parts = await getGeminiReply(message, GEMINI_API_KEY);
+		// Call Gemini with conversation history; then Edge TTS per message; when WAV, run Rhubarb for lip sync
+		const parts = await getGeminiReply(message, GEMINI_API_KEY, history);
 		const replyMessages: ChatMessage[] = [];
 		const disableLipSync = process.env.DISABLE_LIP_SYNC === "true";
 		for (const p of parts) {
