@@ -1,11 +1,11 @@
 "use client";
+import { IconKey } from "@tabler/icons-react";
+import { useRouter } from "next/navigation";
+import { useTranslation } from "react-i18next";
 import { analytics } from "@/lib/analytics";
 import { authClient } from "@/lib/auth-client";
 import { clientLogger } from "@/lib/client-logger";
 import { useI18n } from "@/providers/i18n-provider";
-import { IconKey } from "@tabler/icons-react";
-import { useRouter } from "next/navigation";
-import { useTranslation } from "react-i18next";
 import { toastError } from "../toaster";
 import { Button } from "../ui/button";
 
@@ -28,8 +28,11 @@ const PasskeyLoginButton = ({
 			analytics.trackLogin("passkey");
 
 			if (response?.error) {
+				const rawMessage = response.error.message;
+				const description =
+					typeof rawMessage === "string" ? rawMessage : "Unknown error";
 				toastError({
-					description: response.error.message || "Unknown error",
+					description,
 				});
 			} else {
 				router.push(callbackUrl);
@@ -46,7 +49,9 @@ const PasskeyLoginButton = ({
 				environment: process.env.NODE_ENV,
 				version: process.env.npm_package_version,
 			});
-			toastError({ description: error as string });
+			toastError({
+				description: error instanceof Error ? error.message : String(error),
+			});
 		}
 	};
 
