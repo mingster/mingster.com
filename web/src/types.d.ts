@@ -1,5 +1,5 @@
-//import type { Product } from "prisma/prisma-client";
-import { Prisma } from "prisma/prisma-client";
+//import type { Product } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 /* #region next-auth */
 /*

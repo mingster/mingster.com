@@ -1,7 +1,6 @@
 "use client";
 
 import {
-	ApiKeysCard,
 	PasskeysCard,
 	ProvidersCard,
 	SessionsCard,
@@ -63,7 +62,7 @@ export const UserClient: React.FC<iUserTabProps> = ({ user }) => {
 					<TabsTrigger className="px-5 lg:min-w-40" value="user">
 						{t("account_tabs_account")}
 					</TabsTrigger>
-					{/* 
+					{/*
 					<TabsTrigger className="px-5 lg:min-w-40" value="orders">
 						{t("account_tabs_subscriptionHistory")}
 					</TabsTrigger>
@@ -71,13 +70,13 @@ export const UserClient: React.FC<iUserTabProps> = ({ user }) => {
 						{t("account_tabs_password")}
 					</TabsTrigger>
 
+                    				<TabsTrigger className="px-5 lg:min-w-40" value="api">
+						{t("account_tabs_api_keys")}
+					</TabsTrigger>
 */}
 
 					<TabsTrigger className="px-5 lg:min-w-40" value="providers">
 						{t("account_tabs_providers")}
-					</TabsTrigger>
-					<TabsTrigger className="px-5 lg:min-w-40" value="api">
-						{t("account_tabs_api_keys")}
 					</TabsTrigger>
 				</TabsList>
 
@@ -130,7 +129,7 @@ export const UserClient: React.FC<iUserTabProps> = ({ user }) => {
 						}}
 					/>
 				</TabsContent>
-				{/* 
+				{/*
 				<TabsContent value="changePassword">
 					<ChangePasswordCard
 						classNames={{
@@ -146,6 +145,9 @@ export const UserClient: React.FC<iUserTabProps> = ({ user }) => {
 					/>
 				</TabsContent>
 				*/}
+
+				{/*
+
 				<TabsContent value="api">
 					<ApiKeysCard
 						classNames={{
@@ -156,8 +158,6 @@ export const UserClient: React.FC<iUserTabProps> = ({ user }) => {
 						}}
 					/>
 				</TabsContent>
-
-				{/*
         <TabsContent value="password">
           <Card>
             <CardHeader>

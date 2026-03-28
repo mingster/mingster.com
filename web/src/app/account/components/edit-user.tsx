@@ -54,12 +54,12 @@ export default function EditUser({ serverData }: props) {
 	const cookies = useCookies();
 	const { t } = useTranslation(activeLng);
 
-	const defaultValues = {
-		...dbUser,
-		//id: user.id,
-		//name: user.name || "",
-		locale: dbUser?.locale || activeLng,
+	const defaultValues: UpdateUserSettingsInput = {
+		id: dbUser?.id ?? "",
+		name: dbUser?.name ?? "",
+		locale: dbUser?.locale || activeLng || "",
 		timezone: dbUser?.timezone || "America/Los_Angeles",
+		phone: dbUser?.phoneNumber ?? undefined,
 	};
 
 	const form = useForm<UpdateUserSettingsInput>({
