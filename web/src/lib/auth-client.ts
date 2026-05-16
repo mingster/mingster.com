@@ -29,9 +29,7 @@ export const authClient = createAuthClient({
 	plugins: [
 		inferAdditionalFields<typeof auth>(),
 		customSessionClient<typeof auth>(),
-		stripeClient({
-			subscription: true, //if you want to enable subscription management
-		}),
+		stripeClient({ subscription: false }),
 		organizationClient(),
 		adminClient(),
 		twoFactorClient(),

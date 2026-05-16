@@ -11,12 +11,12 @@ import { useChat } from "@/hooks/useChat";
  */
 export function AvatarCapsule() {
 	const meshRef = useRef<Mesh>(null);
-	const { currentMessage, onMessagePlayed } = useChat();
+	const { currentMessage, onMessagePlayed, soundEnabled } = useChat();
 
 	// Play audio and advance queue when message changes (same contract as AvatarGLB)
 	useEffect(() => {
 		if (!currentMessage) return;
-		if (currentMessage.audio) {
+		if (currentMessage.audio && soundEnabled) {
 			const mime = currentMessage.audioMime ?? "audio/wav";
 			const audio = new Audio(`data:${mime};base64,${currentMessage.audio}`);
 			audio.play().catch((err) => {

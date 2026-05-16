@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import dynamic from "next/dynamic";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatProvider, useChat } from "@/hooks/useChat";
+import { cn } from "@/lib/utils";
 import { ChatUI } from "./ChatUI";
 
 const OUTDOOR_BG = "/images/backgrounds/outdoor.jpg";
@@ -37,6 +39,43 @@ const Scene = dynamic(
 	},
 );
 
+function ChatHistory() {
+	const { displayHistory, currentMessage } = useChat();
+	const scrollEndRef = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		scrollEndRef.current?.scrollIntoView({ behavior: "smooth" });
+	}, [displayHistory]);
+
+	if (displayHistory.length === 0) return null;
+
+	return (
+		<div className="absolute inset-x-0 top-0 z-20 flex justify-center px-4 pt-6">
+			<ScrollArea className="w-full max-w-xl max-h-52 rounded-xl bg-black/40 backdrop-blur-sm">
+				<div className="px-5 py-3 space-y-1.5">
+					{displayHistory.map((entry, i) => (
+						<p
+							// biome-ignore lint/suspicious/noArrayIndexKey: entries have no stable id
+							key={i}
+							className={cn(
+								"text-sm leading-snug transition-colors duration-300",
+								entry.role === "user"
+									? "text-sky-300"
+									: entry.messageRef === currentMessage
+										? "text-white"
+										: "text-white/55",
+							)}
+						>
+							{entry.text}
+						</p>
+					))}
+					<div ref={scrollEndRef} />
+				</div>
+			</ScrollArea>
+		</div>
+	);
+}
+
 function VirtualExperienceInner() {
 	const { loadIntro } = useChat();
 
@@ -46,10 +85,10 @@ function VirtualExperienceInner() {
 
 	return (
 		<div className="flex h-screen w-full flex-col overflow-hidden md:relative">
-			{/* Mobile: avatar above chat. Desktop: full-screen avatar, chat overlays bottom */}
 			<div className="relative min-h-0 flex-1 md:absolute md:inset-0">
 				<Scene background={OUTDOOR_BG} />
 			</div>
+			<ChatHistory />
 			<ChatUI />
 		</div>
 	);

@@ -1,5 +1,5 @@
 /**
- * Edge TTS: generate speech from text, optionally convert MP3 → WAV via ffmpeg for Rhubarb.
+ * TTS: generate speech from text using edge-tts-universal, optionally convert MP3 → WAV via ffmpeg for Rhubarb.
  * When ffmpeg is not available (e.g. Vercel), returns base64 MP3 and no WAV (lip sync skipped).
  */
 
@@ -7,14 +7,10 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-// Use compiled output; package ships as .ts which Next.js cannot bundle
-import { tts } from "edge-tts/out/index.js";
+import { Communicate } from "edge-tts-universal";
 
 const DEFAULT_VOICE = process.env.EDGE_TTS_VOICE ?? "en-US-JennyNeural";
 
-/**
- * Convert MP3 buffer to WAV using ffmpeg. Returns base64 WAV or null if ffmpeg fails.
- */
 async function mp3ToWav(mp3Buffer: Buffer): Promise<string | null> {
 	const tmpDir = os.tmpdir();
 	const mp3Path = path.join(
@@ -73,24 +69,27 @@ async function mp3ToWav(mp3Buffer: Buffer): Promise<string | null> {
 }
 
 export interface TtsResult {
-	/** Base64-encoded audio (WAV if ffmpeg succeeded, else MP3) */
 	audioBase64: string;
-	/** True if output is WAV (suitable for Rhubarb); false if MP3 */
 	isWav: boolean;
 }
 
-/**
- * Generate speech for the given text. Uses Edge TTS; converts to WAV when ffmpeg is available.
- */
 export async function textToSpeech(
 	text: string,
 	voice: string = DEFAULT_VOICE,
 ): Promise<TtsResult> {
-	const mp3Buffer = await tts(text, { voice });
+	const communicate = new Communicate(text, { voice });
+	const chunks: Buffer[] = [];
+
+	for await (const chunk of communicate.stream()) {
+		if (chunk.type === "audio" && chunk.data) {
+			chunks.push(Buffer.from(chunk.data));
+		}
+	}
+
+	const mp3Buffer = Buffer.concat(chunks);
 	const wavBase64 = await mp3ToWav(mp3Buffer);
 	if (wavBase64) {
 		return { audioBase64: wavBase64, isWav: true };
 	}
-	// Fallback: return MP3 (client can still play it; lip sync will be skipped for this message)
 	return { audioBase64: mp3Buffer.toString("base64"), isWav: false };
 }

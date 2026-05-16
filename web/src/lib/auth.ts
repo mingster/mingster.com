@@ -18,6 +18,7 @@ import { emailHarmony } from "better-auth-harmony";
 import { sendAuthMagicLink } from "@/actions/mail/send-auth-magic-link";
 import { sendAuthPasswordReset } from "@/actions/mail/send-auth-password-reset";
 import { stripe as stripeClient } from "@/lib/stripe/config";
+import { handleStripeSubscriptionEvent } from "@/lib/stripe/handle-subscription-event";
 import { linkAnonymousAccount } from "@/utils/account-linking";
 import logger from "./logger";
 import { sqlClient } from "./prismadb";
@@ -133,30 +134,8 @@ export const auth = betterAuth({
 			stripeClient,
 			stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET as string,
 			createCustomerOnSignUp: false,
-			enabled: true,
-			plans: async () => {
-				const setting = await sqlClient.platformSettings.findFirst();
-				if (!setting) {
-					return [];
-				}
-
-				const _pricesResponse = await stripeClient.prices
-					.list({
-						product: setting.stripeProductId as string,
-					})
-					.then((obj) => {
-						return obj.data.map((price) => ({
-							name: price.nickname,
-							priceId: price.id,
-							//limits: JSON.parse(price.metadata.limits),
-							freeTrial: {
-								days: price.metadata.freeTrial,
-							},
-							active: price.active,
-							lookup_key: price.lookup_key,
-							group: price.metadata.group,
-						}));
-					});
+			onEvent: async (event) => {
+				await handleStripeSubscriptionEvent(event);
 			},
 		}),
 		phoneNumber({

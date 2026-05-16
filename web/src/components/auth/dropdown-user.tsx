@@ -77,7 +77,7 @@ export default function DropdownUser({ db_user }: UserButtonProps) {
 				<DropdownMenuGroup>
 					<DropdownMenuItem className="cursor-pointer" asChild>
 						<Link
-							href="/account/order-history"
+							href="/account/subscription"
 							className="flex items-center gap-2"
 						>
 							<IconBrandStripe className="size-4 shrink-0" />
