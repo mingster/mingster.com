@@ -138,7 +138,7 @@ export function AvatarGLB() {
 		null,
 	);
 
-	const { currentMessage, onMessagePlayed } = useChat();
+	const { currentMessage, onMessagePlayed, soundEnabled } = useChat();
 	const animationKey = currentMessage?.animation;
 	const fbxPath =
 		!currentMessage?.animationGlb && animationKey
@@ -384,7 +384,7 @@ export function AvatarGLB() {
 
 		const hasAnimationDriver = !!fbxPath || !!currentMessage.animationGlb;
 
-		if (currentMessage.audio) {
+		if (currentMessage.audio && soundEnabled) {
 			const mime = currentMessage.audioMime ?? "audio/wav";
 			const audio = new Audio(`data:${mime};base64,${currentMessage.audio}`);
 

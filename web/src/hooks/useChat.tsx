@@ -5,12 +5,22 @@ import {
 	type ReactNode,
 	useCallback,
 	useContext,
+	useEffect,
 	useState,
 } from "react";
 import type { ChatMessage } from "@/types/virtual-experience";
 
+export interface DisplayEntry {
+	role: "user" | "assistant";
+	text: string;
+	/** For assistant entries: reference to the ChatMessage for active-highlight comparison */
+	messageRef?: ChatMessage;
+}
+
 export interface ChatContextValue {
 	messages: ChatMessage[];
+	/** Flat display history with both user and assistant turns */
+	displayHistory: DisplayEntry[];
 	/** Current message being played (for avatar lip sync / animation) */
 	currentMessage: ChatMessage | null;
 	/** Index in messages of the current one */
@@ -22,7 +32,7 @@ export interface ChatContextValue {
 	onMessagePlayed: () => void;
 	cameraZoomed: boolean;
 	setCameraZoomed: (zoomed: boolean) => void;
-	/** Clear all messages (e.g. new conversation) */
+	/** Clear all messages and history */
 	clearMessages: () => void;
 	/** Fetch intro messages (POST with no message); call on mount to show intro. */
 	loadIntro: () => Promise<void>;
@@ -42,6 +52,9 @@ export interface ChatContextValue {
 	stopDance: () => void;
 	/** True when dance is active (no current message and danceTrigger set). */
 	isDancing: boolean;
+	/** Whether TTS audio is enabled. When false, server skips TTS and client skips playback. */
+	soundEnabled: boolean;
+	setSoundEnabled: (enabled: boolean) => void;
 }
 
 const ChatContext = createContext<ChatContextValue | null>(null);
@@ -53,13 +66,52 @@ interface ChatHistoryEntry {
 	text: string;
 }
 
+async function readNdjsonStream(
+	res: Response,
+	onMessage: (msg: ChatMessage) => void,
+) {
+	const reader = res.body?.getReader();
+	if (!reader) return;
+	const decoder = new TextDecoder();
+	let buffer = "";
+	while (true) {
+		const { done, value } = await reader.read();
+		if (done) break;
+		buffer += decoder.decode(value, { stream: true });
+		const lines = buffer.split("\n");
+		buffer = lines.pop() ?? "";
+		for (const line of lines) {
+			const trimmed = line.trim();
+			if (!trimmed) continue;
+			try {
+				onMessage(JSON.parse(trimmed) as ChatMessage);
+			} catch {
+				// skip malformed line
+			}
+		}
+	}
+}
+
 export function ChatProvider({ children }: { children: ReactNode }) {
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
+	const [displayHistory, setDisplayHistory] = useState<DisplayEntry[]>([]);
 	const [currentIndex, setCurrentIndex] = useState(-1);
 	const [loading, setLoading] = useState(false);
 	const [cameraZoomed, setCameraZoomed] = useState(false);
 	const [danceTrigger, setDanceTrigger] = useState<number | null>(null);
 	const [chatHistory, setChatHistory] = useState<ChatHistoryEntry[]>([]);
+	const [soundEnabled, setSoundEnabledState] = useState(true);
+
+	// Persist sound preference to localStorage
+	useEffect(() => {
+		const stored = localStorage.getItem("chat:soundEnabled");
+		if (stored !== null) setSoundEnabledState(stored !== "false");
+	}, []);
+
+	const setSoundEnabled = useCallback((enabled: boolean) => {
+		setSoundEnabledState(enabled);
+		localStorage.setItem("chat:soundEnabled", String(enabled));
+	}, []);
 
 	const currentMessage =
 		currentIndex >= 0 && currentIndex < messages.length
@@ -79,57 +131,71 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 			const trimmed = text.trim();
 			if (!trimmed) return;
 
+			// Show user message immediately
+			setDisplayHistory((prev) => [...prev, { role: "user", text: trimmed }]);
+
 			setLoading(true);
+			const startIndex = messages.length;
+			let isFirst = true;
+			const collectedTexts: string[] = [];
+
 			try {
 				const res = await fetch(CHAT_API, {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ message: trimmed, history: chatHistory }),
+					body: JSON.stringify({
+						message: trimmed,
+						history: chatHistory,
+						noAudio: !soundEnabled,
+					}),
 				});
 
-				if (!res.ok) {
-					const errBody = await res.text();
-					throw new Error(res.statusText || errBody || "Chat request failed");
-				}
+				if (!res.ok) throw new Error(res.statusText || "Chat request failed");
 
-				const data = (await res.json()) as { messages?: ChatMessage[] };
-				const newMessages = Array.isArray(data.messages) ? data.messages : [];
-				if (newMessages.length === 0) return;
+				await readNdjsonStream(res, (msg) => {
+					collectedTexts.push(msg.text);
+					setMessages((prev) => [...prev, msg]);
+					if (msg.text.trim()) {
+						setDisplayHistory((prev) => [
+							...prev,
+							{ role: "assistant", text: msg.text, messageRef: msg },
+						]);
+					}
+					if (isFirst) {
+						setCurrentIndex((prev) => (prev < 0 ? startIndex : prev));
+						isFirst = false;
+					}
+				});
 
-				// Update conversation history with this exchange
-				const modelText = newMessages.map((m) => m.text).join(" ");
 				setChatHistory((prev) => [
 					...prev,
 					{ role: "user" as const, text: trimmed },
-					{ role: "model" as const, text: modelText },
+					{ role: "model" as const, text: collectedTexts.join(" ") },
 				]);
-
-				setMessages((prev) => [...prev, ...newMessages]);
-				// If nothing was "current", start playing the first new one
-				setCurrentIndex((prev) => {
-					if (prev < 0) return messages.length;
-					return prev;
-				});
 			} catch (err) {
 				console.error("Chat error:", err);
-				setMessages((prev) => [
+				const errMsg: ChatMessage = {
+					text: err instanceof Error ? err.message : "Something went wrong.",
+					facialExpression: "sad",
+					animation: "Idle",
+				};
+				setMessages((prev) => [...prev, errMsg]);
+				setDisplayHistory((prev) => [
 					...prev,
-					{
-						text: err instanceof Error ? err.message : "Something went wrong.",
-						facialExpression: "sad",
-						animation: "Idle",
-					},
+					{ role: "assistant", text: errMsg.text, messageRef: errMsg },
 				]);
 			} finally {
 				setLoading(false);
 			}
 		},
-		[messages.length, chatHistory],
+		[messages.length, chatHistory, soundEnabled],
 	);
 
 	const clearMessages = useCallback(() => {
 		setMessages([]);
+		setDisplayHistory([]);
 		setCurrentIndex(-1);
+		setChatHistory([]);
 	}, []);
 
 	const triggerDance = useCallback(() => setDanceTrigger(Date.now()), []);
@@ -139,6 +205,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 	const loadIntro = useCallback(async () => {
 		if (messages.length > 0) return;
 		setLoading(true);
+		let isFirst = true;
 		try {
 			const res = await fetch(CHAT_API, {
 				method: "POST",
@@ -146,12 +213,19 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 				body: JSON.stringify({}),
 			});
 			if (!res.ok) return;
-			const data = (await res.json()) as { messages?: ChatMessage[] };
-			const intro = Array.isArray(data.messages) ? data.messages : [];
-			if (intro.length > 0) {
-				setMessages(intro);
-				setCurrentIndex(0);
-			}
+			await readNdjsonStream(res, (msg) => {
+				setMessages((prev) => [...prev, msg]);
+				if (msg.text.trim()) {
+					setDisplayHistory((prev) => [
+						...prev,
+						{ role: "assistant", text: msg.text, messageRef: msg },
+					]);
+				}
+				if (isFirst) {
+					setCurrentIndex(0);
+					isFirst = false;
+				}
+			});
 		} catch {
 			// ignore
 		} finally {
@@ -192,6 +266,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
 	const value: ChatContextValue = {
 		messages,
+		displayHistory,
 		currentMessage,
 		currentIndex,
 		loading,
@@ -207,6 +282,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 		triggerDance,
 		stopDance,
 		isDancing,
+		soundEnabled,
+		setSoundEnabled,
 	};
 
 	return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
