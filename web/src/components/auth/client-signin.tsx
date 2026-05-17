@@ -56,15 +56,16 @@ export default function ClientSignIn({
 			)}
 
 			<CardContent className="flex flex-col gap-10">
-				{/* Phone OTP form - shown by default */}
-				<FormPhoneOtp callbackUrl={callbackUrl} />
+				{/* shown by default */}
+				<GoogleLoginButton callbackUrl={callbackUrl} />
 
 				{/* Other authentication methods - shown when "More Options" is clicked */}
 				{showMoreOptions && (
 					<div className="flex flex-col gap-1">
 						<Separator />
-						<GoogleLoginButton callbackUrl={callbackUrl} />
+
 						<LineLoginButton callbackUrl={callbackUrl} />
+						<FormPhoneOtp callbackUrl={callbackUrl} />
 						<AppleLoginButton callbackUrl={callbackUrl} />
 						<FormMagicLink callbackUrl={callbackUrl} />
 
