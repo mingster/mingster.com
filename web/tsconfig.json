@@ -28,10 +28,10 @@
         "./src/*"
       ],
       "@prisma/client": [
-        "./prisma/generated/client"
+        "./prisma/generated/client/client"
       ],
       "prisma/prisma-client": [
-        "./prisma/generated/client"
+        "./prisma/generated/client/client"
       ]
     },
     // Performance optimizations
