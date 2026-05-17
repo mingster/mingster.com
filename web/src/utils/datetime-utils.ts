@@ -1,4 +1,5 @@
 import { format } from "date-fns";
+import { intlLocaleFromAppLang } from "@/lib/intl-locale";
 import logger from "@/lib/logger";
 
 // https://nextjs.org/learn-pages-router/basics/dynamic-routes/polishing-post-page
@@ -13,6 +14,92 @@ export const formatDateTimeFull = (d: Date | undefined) => {
 
 	return format(d, "yyyy-MM-dd HH:mm zzz");
 };
+
+/**
+ * Formats a date-time for the user's app language (i18n) using `Intl`
+ * (locale-appropriate field order, month names, 12/24h).
+ */
+export function formatDateTimeForAppLocale(
+	instant: Date,
+	appLng: string,
+): string {
+	if (!(instant instanceof Date) || Number.isNaN(instant.getTime())) {
+		return "—";
+	}
+	const locale = intlLocaleFromAppLang(appLng);
+	try {
+		return new Intl.DateTimeFormat(locale, {
+			dateStyle: "medium",
+			timeStyle: "medium",
+		}).format(instant);
+	} catch (err: unknown) {
+		logger.warn("formatDateTimeForAppLocale: Intl failed", {
+			metadata: {
+				locale,
+				error: err instanceof Error ? err.message : String(err),
+			},
+		});
+		return format(instant, "PPpp");
+	}
+}
+
+/**
+ * Formats an epoch millisecond value for the user's app language.
+ */
+export function formatEpochForAppLocale(
+	epoch: bigint | number | null | undefined,
+	appLng: string,
+): string {
+	if (epoch === null || epoch === undefined) {
+		return "—";
+	}
+	const ms = typeof epoch === "bigint" ? Number(epoch) : epoch;
+	if (!Number.isFinite(ms)) {
+		return "—";
+	}
+	return formatDateTimeForAppLocale(new Date(ms), appLng);
+}
+
+/**
+ * Short human-readable duration from milliseconds (e.g. waitlist wait time).
+ */
+export function formatDurationMsShort(ms: number): string {
+	if (!Number.isFinite(ms) || ms < 0) {
+		return "0m";
+	}
+	const totalSec = Math.floor(ms / 1000);
+	const minutes = Math.floor(totalSec / 60);
+	const hours = Math.floor(minutes / 60);
+	if (hours > 0) {
+		const remMin = minutes % 60;
+		return remMin > 0 ? `${hours}h ${remMin}m` : `${hours}h`;
+	}
+	if (minutes > 0) {
+		return `${minutes}m`;
+	}
+	return "<1m";
+}
+
+/**
+ * Runtime `Date` check with `unknown` input. Prisma 7 epoch fields are often typed as `bigint`;
+ * using `value instanceof Date` directly can error when TypeScript has narrowed away `Date`.
+ */
+export function isDateValue(value: unknown): value is Date {
+	return value instanceof Date;
+}
+
+export function toBigIntEpochUnknown(value: unknown): bigint | null {
+	if (value == null) return null;
+	if (typeof value === "bigint") return value;
+	if (typeof value === "number" && Number.isFinite(value)) return BigInt(value);
+	if (isDateValue(value)) return BigInt(value.getTime());
+	return null;
+}
+
+export function toEpochMsUnknown(value: unknown): number | null {
+	const epoch = toBigIntEpochUnknown(value);
+	return epoch == null ? null : Number(epoch);
+}
 
 export function getNowTimeInTz(offsetHours: number) {
 	//throw error if offsetHours is not a number
@@ -169,18 +256,71 @@ export function getTimezoneOffsetForDate(date: Date, timezone: string): number {
 	}
 
 	try {
-		// Calculate offset by comparing the same instant in UTC vs target timezone.
-		// This approach is server-timezone independent because it relies on Intl APIs.
-		const local = new Date(
-			date.toLocaleString("en-US", { timeZone: timezone }),
-		);
-		const utc = new Date(date.toLocaleString("en-US", { timeZone: "UTC" }));
-		const offsetMinutes = (local.getTime() - utc.getTime()) / (1000 * 60);
+		// Calculate offset by comparing the same UTC instant in target timezone vs UTC.
+		// Use Intl.DateTimeFormat with formatToParts to get numeric components (server independent).
+		const tzFormatter = new Intl.DateTimeFormat("en", {
+			timeZone: timezone,
+			year: "numeric",
+			month: "2-digit",
+			day: "2-digit",
+			hour: "2-digit",
+			minute: "2-digit",
+			second: "2-digit",
+			hour12: false,
+		});
+
+		const utcFormatter = new Intl.DateTimeFormat("en", {
+			timeZone: "UTC",
+			year: "numeric",
+			month: "2-digit",
+			day: "2-digit",
+			hour: "2-digit",
+			minute: "2-digit",
+			second: "2-digit",
+			hour12: false,
+		});
+
+		// Format the same UTC instant in both timezones
+		const tzParts = tzFormatter.formatToParts(date);
+		const utcParts = utcFormatter.formatToParts(date);
+
+		// Extract values from parts
+		const getValue = (
+			parts: Intl.DateTimeFormatPart[],
+			type: string,
+		): number => {
+			const part = parts.find((p) => p.type === type);
+			if (!part) {
+				return NaN;
+			}
+			const value = Number.parseInt(part.value, 10);
+			return Number.isNaN(value) ? NaN : value;
+		};
+
+		const tzHour = getValue(tzParts, "hour");
+		const tzMinute = getValue(tzParts, "minute");
+		const utcHour = getValue(utcParts, "hour");
+		const utcMinute = getValue(utcParts, "minute");
+
+		// Calculate offset in minutes
+		const tzMinutes = tzHour * 60 + tzMinute;
+		const utcMinutes = utcHour * 60 + utcMinute;
+		let offsetMinutes = tzMinutes - utcMinutes;
+
+		// Handle day differences (if timezone crosses date boundary)
+		const tzDay = getValue(tzParts, "day");
+		const utcDay = getValue(utcParts, "day");
+		if (tzDay !== utcDay) {
+			const dayDiff = tzDay - utcDay;
+			offsetMinutes += dayDiff * 24 * 60;
+		}
+
 		const offsetHours = offsetMinutes / 60;
 
+		// Validate result
 		if (Number.isNaN(offsetHours) || !Number.isFinite(offsetHours)) {
 			logger.warn("Calculated offset is NaN or infinite", {
-				metadata: { timezone, offsetMinutes },
+				metadata: { timezone, offsetMinutes, tzHour, utcHour },
 				tags: ["datetime", "timezone", "warn"],
 			});
 			const fallback = getOffsetHours(timezone);
@@ -438,24 +578,20 @@ export function getTimezoneOffset(timezone: string): number {
 	}
 }
 
+/**
+ * Get current UTC time (server independent)
+ * @returns Date object representing current UTC time
+ *
+ * Note: Date objects are always stored internally as UTC timestamps.
+ * This function is redundant but kept for clarity and consistency.
+ * We could simplify to just `return new Date()`, but keeping the explicit
+ * UTC construction ensures server independence is clear.
+ */
 export function getUtcNow() {
-	const d = new Date();
-	// Use Date.UTC() to ensure server-independent UTC time
-	// This was previously using local timezone constructor which is server-dependent!
-	const utcDate = new Date(
-		Date.UTC(
-			d.getUTCFullYear(),
-			d.getUTCMonth(),
-			d.getUTCDate(),
-			d.getUTCHours(),
-			d.getUTCMinutes(),
-			d.getUTCSeconds(),
-			d.getUTCMilliseconds(),
-		),
-	);
-
-	//console.log('utcDate', utcDate);
-	return utcDate;
+	// Date.now() returns milliseconds since epoch (UTC by definition)
+	// new Date(timestamp) creates a Date object from UTC timestamp
+	// This is server-independent because timestamps are always UTC
+	return new Date(Date.now());
 }
 
 /**
@@ -464,6 +600,37 @@ export function getUtcNow() {
  */
 export function getUtcNowEpoch(): bigint {
 	return BigInt(Date.now());
+}
+
+/**
+ * Get start and end of "today" in store timezone as UTC epoch (BigInt ms).
+ * Used for per-day queue number scope (e.g. waitlist).
+ */
+export function getStoreTodayStartEndEpoch(storeTimezone: string): {
+	start: bigint;
+	end: bigint;
+} {
+	const now = new Date();
+	const offsetHours = getTimezoneOffsetForDate(now, storeTimezone);
+	const formatter = new Intl.DateTimeFormat("en-CA", {
+		timeZone: storeTimezone,
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+	});
+	const parts = formatter.formatToParts(now);
+	const getPart = (type: string) => {
+		const p = parts.find((x) => x.type === type);
+		return p ? Number.parseInt(p.value, 10) : 0;
+	};
+	const year = getPart("year");
+	const month = getPart("month") - 1;
+	const day = getPart("day");
+	const utcMidnight = Date.UTC(year, month, day);
+	const startMs = utcMidnight - Math.round(offsetHours * 3600 * 1000);
+	const start = BigInt(startMs);
+	const end = BigInt(startMs + 24 * 3600 * 1000);
+	return { start, end };
 }
 
 /**
@@ -622,6 +789,75 @@ export function addHours(dt: Date, hours: number): Date {
 }
 
 /**
+ * Calendar date of an instant in an IANA timezone (e.g. store default).
+ * - App locale `tw`: `YYYY年MM月DD日` (zero-padded month/day, e.g. 2026年05月11日)
+ * - Otherwise: long English month in that zone (e.g. May 11, 2026)
+ *
+ * Does not append a timezone label; the date is already interpreted in `ianaTimeZone`.
+ */
+export function formatCalendarDateInIanaTimeZone(
+	instant: Date,
+	ianaTimeZone: string | null | undefined,
+	appLng: string,
+): string {
+	if (!(instant instanceof Date) || Number.isNaN(instant.getTime())) {
+		return "";
+	}
+	const tzRaw =
+		typeof ianaTimeZone === "string" && ianaTimeZone.trim() !== ""
+			? ianaTimeZone.trim()
+			: "UTC";
+
+	const formatInZone = (zone: string): string => {
+		if (appLng === "tw") {
+			const f = new Intl.DateTimeFormat("en-CA", {
+				timeZone: zone,
+				year: "numeric",
+				month: "2-digit",
+				day: "2-digit",
+			});
+			const parts = f.formatToParts(instant);
+			let y = "";
+			let m = "";
+			let d = "";
+			for (const p of parts) {
+				if (p.type === "year") {
+					y = p.value;
+				}
+				if (p.type === "month") {
+					m = p.value.padStart(2, "0");
+				}
+				if (p.type === "day") {
+					d = p.value.padStart(2, "0");
+				}
+			}
+			if (!y || !m || !d) {
+				return f.format(instant);
+			}
+			return `${y}年${m}月${d}日`;
+		}
+		return new Intl.DateTimeFormat("en-US", {
+			timeZone: zone,
+			year: "numeric",
+			month: "long",
+			day: "numeric",
+		}).format(instant);
+	};
+
+	try {
+		return formatInZone(tzRaw);
+	} catch (err: unknown) {
+		logger.warn("formatCalendarDateInIanaTimeZone: falling back to UTC", {
+			metadata: {
+				timeZone: tzRaw,
+				error: err instanceof Error ? err.message : String(err),
+			},
+		});
+		return formatInZone("UTC");
+	}
+}
+
+/**
  * Helper to format date using UTC components (not browser timezone)
  * This is needed because we store user's local time as UTC components
  * @param date - Date object to format
@@ -661,3 +897,53 @@ export const formatDateUTC = (date: Date, formatString: string): string => {
 		.replace("EEEE", weekday)
 		.replace("EEE", weekdayShort);
 };
+
+/**
+ * Convert store timezone datetime string to UTC Date
+ * @param datetimeLocalString - String in format "YYYY-MM-DDTHH:mm" from datetime-local input
+ * @param storeTimezone - Store's timezone (e.g., "Asia/Taipei")
+ * @returns Date object in UTC
+ */
+export function convertStoreTimezoneToUtc(
+	datetimeLocalString: string,
+	storeTimezone: string,
+): Date {
+	return convertToUtc(datetimeLocalString, storeTimezone);
+}
+
+/**
+ * Calculate reminder scheduled time (when reminder should be sent)
+ * @param rsvpTime - Reservation time in epoch milliseconds (BigInt, UTC)
+ * @param reminderHours - Hours before reservation to send reminder
+ * @param storeTimezone - Store's timezone (e.g., "Asia/Taipei")
+ * @returns BigInt representing reminder scheduled time in epoch milliseconds (UTC)
+ */
+export function calculateReminderTime(
+	rsvpTime: bigint,
+	reminderHours: number,
+	storeTimezone: string,
+): bigint {
+	// Convert UTC epoch to Date
+	const rsvpDate = epochToDate(rsvpTime);
+	if (!rsvpDate) {
+		throw new Error("Invalid rsvpTime");
+	}
+
+	// Get timezone offset for the reservation date (accounts for DST)
+	const offsetHours = getTimezoneOffsetForDate(rsvpDate, storeTimezone);
+
+	// Convert UTC date to store timezone representation
+	const rsvpDateInStoreTz = getDateInTz(rsvpDate, offsetHours);
+
+	// Subtract reminder hours in store timezone
+	const reminderDateInStoreTz = new Date(
+		rsvpDateInStoreTz.getTime() - reminderHours * 3600000,
+	);
+
+	// Convert back to UTC epoch by subtracting the offset
+	// If reminder time in store TZ is 11:00 and offset is +8, UTC is 03:00 (11 - 8 = 3)
+	const reminderUtcDate = addHours(reminderDateInStoreTz, -offsetHours);
+
+	// Convert to BigInt epoch milliseconds
+	return dateToEpoch(reminderUtcDate) ?? BigInt(0);
+}

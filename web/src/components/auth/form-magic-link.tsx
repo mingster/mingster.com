@@ -12,6 +12,7 @@ import { useRecaptcha } from "@/hooks/use-recaptcha";
 import { analytics } from "@/lib/analytics";
 import { authClient } from "@/lib/auth-client";
 import { clientLogger } from "@/lib/client-logger";
+import { cn } from "@/lib/utils";
 import { useI18n } from "@/providers/i18n-provider";
 import { toastError, toastSuccess } from "../toaster";
 import { Button } from "../ui/button";
@@ -25,7 +26,13 @@ import {
 } from "../ui/form";
 import { Input } from "../ui/input";
 
-function FormMagicLinkInner({ callbackUrl = "/" }: { callbackUrl?: string }) {
+function FormMagicLinkInner({
+	callbackUrl = "/",
+	className,
+}: {
+	callbackUrl?: string;
+	className?: string;
+}) {
 	const { lng } = useI18n();
 	const { t } = useTranslation(lng);
 	const isHydrated = useIsHydrated();
@@ -114,7 +121,7 @@ function FormMagicLinkInner({ callbackUrl = "/" }: { callbackUrl?: string }) {
 			<form
 				onSubmit={form.handleSubmit(sendMagicLink)}
 				noValidate={isHydrated}
-				className="grid w-full gap-1"
+				className={cn("grid w-full gap-1", className)}
 			>
 				<FormField
 					control={form.control}
@@ -157,8 +164,10 @@ function FormMagicLinkInner({ callbackUrl = "/" }: { callbackUrl?: string }) {
 // Wrapper component with RecaptchaV3 provider
 export default function FormMagicLink({
 	callbackUrl = "/",
+	className,
 }: {
 	callbackUrl?: string;
+	className?: string;
 }) {
-	return <FormMagicLinkInner callbackUrl={callbackUrl} />;
+	return <FormMagicLinkInner callbackUrl={callbackUrl} className={className} />;
 }

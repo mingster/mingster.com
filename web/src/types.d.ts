@@ -1,5 +1,5 @@
 //import type { Product } from "@prisma/client";
-import { Prisma } from "@prisma/client";
+import { Prisma, type User as PrismaClientUser } from "@prisma/client";
 
 /* #region next-auth */
 /*
@@ -160,6 +160,40 @@ export type StoreWithProducts = Prisma.StoreGetPayload<
 	typeof storeWithProductObj
 >;
 
+/** Store shape for admin order editor (add product modal): categories + payment/shipping mappings. */
+const orderEditStoreObj = Prisma.validator<Prisma.StoreDefaultArgs>()({
+	include: {
+		StoreShippingMethods: {
+			include: { ShippingMethod: true },
+		},
+		StorePaymentMethods: {
+			include: { PaymentMethod: true },
+		},
+		Categories: {
+			include: {
+				ProductCategories: {
+					include: {
+						Product: {
+							include: {
+								ProductImages: true,
+								ProductAttribute: true,
+								ProductOptions: {
+									include: {
+										ProductOptionSelections: true,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+});
+export type StoreForOrderEdit = Prisma.StoreGetPayload<
+	typeof orderEditStoreObj
+>;
+
 const orderObj = Prisma.validator<Prisma.StoreOrderDefaultArgs>()({
 	include: {
 		Store: true,
@@ -228,7 +262,8 @@ export type StoreProductOptionTemplate =
 		typeof storeProductOptionTemplateObj
 	>;
 
-const userObj = Prisma.validator<Prisma.UserDefaultArgs>()({
+/** Prisma 7: prefer `satisfies` over removed `Prisma.validator` for correct `GetPayload` inference (see riben.life types). */
+const userObj = {
 	include: {
 		accounts: true,
 		twofactors: true,
@@ -238,15 +273,33 @@ const userObj = Prisma.validator<Prisma.UserDefaultArgs>()({
 		members: true,
 		invitations: true,
 		Addresses: true,
-		Orders: true,
+		Orders: {
+			include: {
+				ShippingMethod: true,
+				PaymentMethod: true,
+				OrderItemView: true,
+				Store: {
+					select: {
+						id: true,
+						name: true,
+					},
+				},
+			},
+			orderBy: {
+				updatedAt: "desc",
+			},
+		},
 		Reservations: true,
 		CustomerCredit: true,
 		CustomerCreditLedger: true,
 		StoreLedgerCreated: true,
 		//NotificationTo: true,
 	},
-});
-export type User = Prisma.UserGetPayload<typeof userObj>;
+} satisfies Prisma.UserDefaultArgs;
+
+/** Scalar `User` from Prisma + optional relations from `userObj` (matches riben.life `User` shape). */
+export type User = PrismaClientUser &
+	Partial<Prisma.UserGetPayload<typeof userObj>>;
 
 const customerInviteObj = Prisma.validator<Prisma.CustomerInviteDefaultArgs>()({
 	include: {
@@ -259,22 +312,40 @@ export type CustomerInvite = Prisma.CustomerInviteGetPayload<
 	typeof customerInviteObj
 >;
 
-const sysmsgObj = Prisma.validator<Prisma.SystemMessageDefaultArgs>()({});
+const sysmsgObj = Prisma.validator<Prisma.SystemMessageDefaultArgs>()({
+	include: { locales: true },
+});
 export type SystemMessage = Prisma.SystemMessageGetPayload<typeof sysmsgObj>;
+
+const sysmsgLocaleObj =
+	Prisma.validator<Prisma.SystemMessageLocaleDefaultArgs>()({});
+export type SystemMessageLocale = Prisma.SystemMessageLocaleGetPayload<
+	typeof sysmsgLocaleObj
+>;
 
 const FaqCategoryObj = Prisma.validator<Prisma.FaqCategoryDefaultArgs>()({
 	include: {
-		FAQ: true,
+		locales: true,
+		FAQ: {
+			include: { locales: true },
+		},
 	},
 });
 export type FaqCategory = Prisma.FaqCategoryGetPayload<typeof FaqCategoryObj>;
 
+const faqCategoryLocaleObj =
+	Prisma.validator<Prisma.FaqCategoryLocaleDefaultArgs>()({});
+export type FaqCategoryLocale = Prisma.FaqCategoryLocaleGetPayload<
+	typeof faqCategoryLocaleObj
+>;
+
 const faqObj = Prisma.validator<Prisma.FaqDefaultArgs>()({
-	include: {
-		FaqCategory: true,
-	},
+	include: { locales: true },
 });
 export type Faq = Prisma.FaqGetPayload<typeof faqObj>;
+
+const faqLocaleObj = Prisma.validator<Prisma.FaqLocaleDefaultArgs>()({});
+export type FaqLocale = Prisma.FaqLocaleGetPayload<typeof faqLocaleObj>;
 
 const supportTicketObj = Prisma.validator<Prisma.SupportTicketDefaultArgs>()({
 	include: {

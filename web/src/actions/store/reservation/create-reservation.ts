@@ -1,0 +1,790 @@
+"use server";
+
+import { Prisma } from "@prisma/client";
+import { headers } from "next/headers";
+import { getT } from "@/app/i18n";
+import { auth } from "@/lib/auth";
+import { queueRsvpGoogleCalendarSync } from "@/lib/google-calendar/sync-rsvp-to-google-calendar";
+import logger from "@/lib/logger";
+import { getRsvpNotificationRouter } from "@/lib/notification/rsvp-notification-router";
+import { sqlClient } from "@/lib/prismadb";
+import { trackReserveWithGoogleConversionEvent } from "@/lib/reserve-with-google";
+import type { Rsvp } from "@/types";
+import { MemberRole, RsvpMode, RsvpStatus } from "@/types/enum";
+import { baseClient } from "@/utils/actions/safe-action";
+import { generateCheckInCode } from "@/utils/check-in-code";
+import {
+	convertDateToUtc,
+	dateToEpoch,
+	getUtcNowEpoch,
+} from "@/utils/datetime-utils";
+import { SafeError } from "@/utils/error";
+import { normalizePhoneNumber, validatePhoneNumber } from "@/utils/phone-utils";
+import { calculateRsvpPrice } from "@/lib/reservation/calculate-price";
+import { ensureCustomerIsStoreMember } from "@/utils/store-member-utils";
+import { transformPrismaDataForJson } from "@/utils/utils";
+import { createReservationSchema } from "./create-reservation.validation";
+import { resolveRsvpStoreOrderPaymentMethodPayUrl } from "@/lib/payment/resolve-rsvp-store-order-payment-method-pay-url";
+import { createRsvpStoreOrder } from "./create-rsvp-store-order";
+import { validateFacilityBusinessHours } from "./validate-facility-business-hours";
+import { validateReservationTimeWindow } from "./validate-reservation-time-window";
+import { validateRsvpAvailability } from "./validate-rsvp-availability";
+import { validateServiceStaffBusinessHours } from "./validate-service-staff-business-hours";
+import { validateRestaurantCapacity } from "./validate-restaurant-capacity";
+import { getEffectiveFacilityBusinessHoursJson } from "@/lib/facility/get-effective-facility-business-hours";
+import { effectiveRsvpSlotDurationMinutes } from "@/lib/reservation/utils";
+import { computeRequiredRsvpPrepaidMajor } from "@/lib/reservation/prepaid-utils";
+
+// Create a reservation by the customer.
+// Creates an unpaid store order only when the required online prepayment is greater than 0.
+// Otherwise the reservation stands without checkout (pay at venue / confirmation flow).
+//
+export const createReservationAction = baseClient
+	.metadata({ name: "createReservation" })
+	.schema(createReservationSchema)
+	.action(async ({ parsedInput }) => {
+		const {
+			storeId,
+			customerId,
+			name,
+			phone,
+			facilityId,
+			serviceStaffId,
+			numOfAdult,
+			numOfChild,
+			rsvpTime: rsvpTimeInput,
+			message,
+			source,
+			externalSource,
+			externalTrackingId,
+		} = parsedInput;
+		const initialConversationMessage = message?.trim() || null;
+
+		// Get session to check if user is logged in
+		const session = await auth.api.getSession({
+			headers: await headers(),
+		});
+
+		const sessionUserId = session?.user?.id;
+		const sessionUserEmail = session?.user?.email;
+
+		// Check if user is anonymous (no session OR anonymous user with guest-*@riben.life email)
+		// Anonymous users created via Better Auth anonymous plugin have emails like guest-{id}@riben.life
+		const isAnonymousUser =
+			sessionUserEmail?.startsWith("guest-") &&
+			sessionUserEmail.endsWith("@riben.life");
+
+		// Get store, RSVP settings, and store settings (for facility hours fallback when facility.businessHours is null)
+		const [store, rsvpSettings, storeSettings] = await Promise.all([
+			sqlClient.store.findUnique({
+				where: { id: storeId },
+				select: {
+					id: true,
+					name: true,
+					useBusinessHours: true,
+					defaultTimezone: true,
+					useCustomerCredit: true,
+					creditExchangeRate: true,
+					defaultCurrency: true,
+				},
+			}),
+			sqlClient.rsvpSettings.findFirst({
+				where: { storeId },
+			}),
+			sqlClient.storeSettings.findFirst({
+				where: { storeId },
+				select: { businessHours: true },
+			}),
+		]);
+
+		if (!store) {
+			const { t } = await getT();
+			throw new SafeError(t("rsvp_store_not_found") || "Store not found");
+		}
+
+		const storeTimezone = store.defaultTimezone || "Asia/Taipei";
+
+		if (!rsvpSettings?.acceptReservation) {
+			const { t } = await getT();
+			throw new SafeError(
+				t("rsvp_not_currently_accepted") ||
+					"Reservations are not currently accepted",
+			);
+		}
+
+		if (rsvpSettings?.requireSignIn) {
+			const { t } = await getT();
+			if (!sessionUserId) {
+				throw new SafeError(t("rsvp_please_sign_in"));
+			}
+			// Guest / anonymous-plugin sessions (guest-*@riben.life) do not count as “signed in”
+			if (isAnonymousUser) {
+				throw new SafeError(t("rsvp_please_sign_in"));
+			}
+		}
+
+		// Convert rsvpTime to UTC Date, then to BigInt epoch
+		// The Date object from datetime-local input represents a time in the browser's local timezone
+		// We need to interpret it as store timezone time and convert to UTC
+		let rsvpTimeUtc: Date;
+		try {
+			rsvpTimeUtc = convertDateToUtc(rsvpTimeInput, storeTimezone);
+		} catch (error) {
+			const { t } = await getT();
+			throw new SafeError(
+				error instanceof Error
+					? error.message
+					: t("rsvp_failed_convert_rsvp_time_utc") ||
+							"Failed to convert rsvpTime to UTC",
+			);
+		}
+
+		const rsvpTime = dateToEpoch(rsvpTimeUtc);
+		if (!rsvpTime) {
+			const { t } = await getT();
+			throw new SafeError(
+				t("rsvp_failed_convert_rsvp_time_epoch") ||
+					"Failed to convert rsvpTime to epoch",
+			);
+		}
+
+		const rsvpMode = Number(rsvpSettings?.rsvpMode ?? RsvpMode.FACILITY);
+		const mustSelectFacility = rsvpSettings?.mustSelectFacility === true;
+		const effectiveFacilityId =
+			rsvpMode === RsvpMode.RESTAURANT
+				? null
+				: rsvpMode === RsvpMode.PERSONNEL
+					? mustSelectFacility
+						? facilityId?.trim() || null
+						: null
+					: facilityId?.trim() || null;
+		const effectiveServiceStaffId =
+			rsvpMode === RsvpMode.RESTAURANT ? null : serviceStaffId?.trim() || null;
+
+		// Validate reservation time window (canReserveBefore and canReserveAfter)
+		await validateReservationTimeWindow(rsvpSettings, rsvpTime);
+
+		// Check if user is anonymous (no session, anonymous user via plugin, or no customerId provided)
+		// Anonymous users include:
+		// 1. Users with no session (completely anonymous)
+		// 2. Users signed in via Better Auth anonymous plugin (guest-*@riben.life emails)
+		let isAnonymous = (!sessionUserId || isAnonymousUser) && !customerId;
+		let foundCustomerIdByPhone: string | null = null;
+
+		if (isAnonymous && phone?.trim()) {
+			// Try to locate user from phone number
+			try {
+				const normalizedPhone = normalizePhoneNumber(phone);
+				const userByPhone = await sqlClient.user.findFirst({
+					where: {
+						phoneNumber: normalizedPhone,
+					},
+					select: {
+						id: true,
+						email: true,
+						name: true,
+					},
+				});
+
+				if (userByPhone) {
+					// Found existing user with this phone number
+					logger.info("Found user by phone number for anonymous reservation", {
+						metadata: {
+							storeId,
+							userId: userByPhone.id,
+							phoneNumber: normalizedPhone,
+							reservationName: name,
+						},
+						tags: ["rsvp", "user-lookup", "phone"],
+					});
+
+					// Store found user's ID
+					foundCustomerIdByPhone = userByPhone.id;
+					isAnonymous = false; // No longer anonymous since we found a user
+				} else {
+					logger.info(
+						"No user found by phone number for anonymous reservation",
+						{
+							metadata: {
+								storeId,
+								phoneNumber: normalizedPhone,
+								reservationName: name,
+							},
+							tags: ["rsvp", "user-lookup", "phone", "anonymous"],
+						},
+					);
+
+					// Note: User creation/sign-in should be handled on the client side using authClient
+					// Anonymous users should sign in before creating reservations that require payment
+				}
+			} catch (error) {
+				// Log error but don't block reservation creation
+				logger.error("Failed to lookup user by phone number", {
+					metadata: {
+						storeId,
+						phone,
+						error: error instanceof Error ? error.message : String(error),
+					},
+					tags: ["rsvp", "user-lookup", "error"],
+				});
+			}
+		}
+
+		// Use session userId if available, otherwise use provided customerId or found customerId by phone
+		const finalCustomerId =
+			sessionUserId || customerId || foundCustomerIdByPhone || null;
+
+		// Get current user ID for createdBy field (if logged in or found by phone)
+		const createdBy = sessionUserId || foundCustomerIdByPhone || null;
+
+		// Check if user is blacklisted (only for logged-in users)
+		if (finalCustomerId) {
+			const isBlacklisted = await sqlClient.rsvpBlacklist.findFirst({
+				where: {
+					storeId,
+					userId: finalCustomerId,
+				},
+			});
+
+			if (isBlacklisted) {
+				const { t } = await getT();
+				throw new SafeError(
+					t("rsvp_not_allowed_to_create") ||
+						"You are not allowed to create reservations",
+				);
+			}
+		}
+
+		if (rsvpSettings?.requireName) {
+			const { t } = await getT();
+			let resolvedName = (name ?? "").trim() || null;
+			if (finalCustomerId && !resolvedName) {
+				const u = await sqlClient.user.findUnique({
+					where: { id: finalCustomerId },
+					select: { name: true },
+				});
+				resolvedName = u?.name?.trim() || null;
+			}
+			if (!resolvedName || resolvedName.toLowerCase() === "anonymous") {
+				throw new SafeError(
+					t("rsvp_name_required") || t("rsvp_name_required_for_anonymous"),
+				);
+			}
+		}
+
+		if (rsvpSettings?.requirePhone) {
+			const { t } = await getT();
+			const trimmedInput = phone?.trim() ?? "";
+			let resolvedPhone = trimmedInput.length > 0 ? trimmedInput : null;
+			if (finalCustomerId && !resolvedPhone) {
+				const dbUser = await sqlClient.user.findUnique({
+					where: { id: finalCustomerId },
+					select: { phoneNumber: true },
+				});
+				resolvedPhone = dbUser?.phoneNumber?.trim() || null;
+			}
+			if (!resolvedPhone || !validatePhoneNumber(resolvedPhone)) {
+				throw new SafeError(
+					t("rsvp_phone_required") ||
+						t("phone_number_required") ||
+						"Phone number is required",
+				);
+			}
+		}
+
+		// Validate facilityId if mustSelectFacility is true (facility or personnel mode)
+		if (
+			(rsvpMode === RsvpMode.FACILITY || rsvpMode === RsvpMode.PERSONNEL) &&
+			mustSelectFacility &&
+			!effectiveFacilityId
+		) {
+			const { t } = await getT();
+			throw new SafeError(
+				t("rsvp_facility_required") || "Facility is required",
+			);
+		}
+
+		// Staff-first mode always requires service staff; facility mode uses store toggle
+		const staffRequired =
+			rsvpMode === RsvpMode.PERSONNEL ||
+			(rsvpMode === RsvpMode.FACILITY && rsvpSettings?.mustHaveServiceStaff);
+		if (staffRequired && !effectiveServiceStaffId) {
+			const { t } = await getT();
+			throw new SafeError(
+				rsvpMode === RsvpMode.PERSONNEL
+					? t("rsvp_staff_required") || "Service staff is required"
+					: t("rsvp_service_staff_required") || "Service staff is required",
+			);
+		}
+
+		// Get service staff if provided
+		let serviceStaff = null;
+		let serviceStaffName: string | null = null;
+		if (effectiveServiceStaffId) {
+			serviceStaff = await sqlClient.serviceStaff.findFirst({
+				where: {
+					id: effectiveServiceStaffId,
+					storeId,
+					isDeleted: false,
+				},
+				select: {
+					id: true,
+					capacity: true,
+					defaultCost: true,
+					defaultCredit: true,
+					User: {
+						select: {
+							name: true,
+							email: true,
+						},
+					},
+				},
+			});
+
+			if (!serviceStaff) {
+				const { t } = await getT();
+				throw new SafeError(
+					t("rsvp_service_staff_not_found") || "Service staff not found",
+				);
+			}
+
+			if (serviceStaff.capacity <= 0) {
+				const { t } = await getT();
+				throw new SafeError(
+					t("rsvp_service_staff_not_available") ||
+						"This service staff is not available for booking",
+				);
+			}
+
+			// Get service staff display name (name || email || id)
+			serviceStaffName =
+				serviceStaff.User?.name ||
+				serviceStaff.User?.email ||
+				effectiveServiceStaffId;
+
+			// Validate that service staff has a positive cost
+			// Service staff line items require positive cost to avoid invalid order items
+			if (!serviceStaff.defaultCost || Number(serviceStaff.defaultCost) <= 0) {
+				const { t } = await getT();
+				throw new SafeError(
+					t("rsvp_service_staff_must_have_positive_cost") ||
+						"Service staff must have a positive cost configured",
+				);
+			}
+
+			// Validate service staff business hours (now resolves from ServiceStaffFacilitySchedule)
+			await validateServiceStaffBusinessHours(
+				storeId,
+				effectiveServiceStaffId,
+				effectiveFacilityId,
+				rsvpTimeUtc,
+				storeTimezone,
+			);
+		}
+
+		// Validate facility if provided (optional)
+		let facility: {
+			id: string;
+			facilityName: string;
+			useOwnBusinessHours: boolean;
+			businessHours: string | null;
+			defaultCost: number | null;
+			defaultCredit: number | null;
+			defaultDuration: number | null;
+		} | null = null;
+
+		if (effectiveFacilityId) {
+			const facilityResult = await sqlClient.storeFacility.findFirst({
+				where: {
+					id: effectiveFacilityId,
+					storeId,
+				},
+				select: {
+					id: true,
+					facilityName: true,
+					useOwnBusinessHours: true,
+					businessHours: true,
+					defaultCost: true,
+					defaultCredit: true,
+					defaultDuration: true,
+				},
+			});
+
+			if (!facilityResult) {
+				const { t } = await getT();
+				throw new SafeError(
+					t("rsvp_facility_not_found") || "Facility not found",
+				);
+			}
+
+			// Convert Decimal to number for type compatibility
+			facility = {
+				id: facilityResult.id,
+				facilityName: facilityResult.facilityName,
+				useOwnBusinessHours: facilityResult.useOwnBusinessHours,
+				businessHours: facilityResult.businessHours,
+				defaultCost: facilityResult.defaultCost
+					? Number(facilityResult.defaultCost)
+					: null,
+				defaultCredit: facilityResult.defaultCredit
+					? Number(facilityResult.defaultCredit)
+					: null,
+				defaultDuration: facilityResult.defaultDuration
+					? Number(facilityResult.defaultDuration)
+					: null,
+			};
+		}
+
+		// Facility mode uses facility hours when available. Personnel mode validates
+		// against the selected staff schedule instead, with RSVP/store fallback.
+		if (facility && rsvpMode === RsvpMode.FACILITY) {
+			const facilityHours = getEffectiveFacilityBusinessHoursJson(
+				facility,
+				rsvpSettings,
+				store.useBusinessHours,
+				storeSettings?.businessHours ?? null,
+			);
+			await validateFacilityBusinessHours(
+				facilityHours,
+				rsvpTimeUtc,
+				storeTimezone,
+				facility.id,
+			);
+
+			// Validate availability based on singleServiceMode - only if facility exists
+			await validateRsvpAvailability(
+				storeId,
+				rsvpSettings,
+				rsvpTime,
+				facility.id,
+				effectiveRsvpSlotDurationMinutes(rsvpSettings, facility),
+			);
+		}
+
+		if (rsvpMode === RsvpMode.RESTAURANT) {
+			const cap = rsvpSettings?.maxCapacity ?? 0;
+			if (cap > 0) {
+				await validateRestaurantCapacity({
+					storeId,
+					rsvpTimeUtc,
+					partyHeadcount: numOfAdult + numOfChild,
+					defaultDurationMinutes:
+						rsvpSettings?.defaultDuration != null
+							? Number(rsvpSettings.defaultDuration)
+							: 60,
+					maxCapacity: cap,
+				});
+			}
+		}
+
+		const minPrepaidPercentage = rsvpSettings?.minPrepaidPercentage ?? 0;
+		const minPrepaidAmount = rsvpSettings?.minPrepaidAmount ?? 0;
+
+		// Normalize IDs (never trust client in restaurant mode; effective* already cleared)
+		const normalizedServiceStaffId =
+			effectiveServiceStaffId && effectiveServiceStaffId.trim() !== ""
+				? effectiveServiceStaffId.trim()
+				: null;
+		const normalizedFacilityId =
+			effectiveFacilityId && effectiveFacilityId.trim() !== ""
+				? effectiveFacilityId.trim()
+				: null;
+
+		// Validate: If service staff cost exists, serviceStaffId must be present
+		if (serviceStaff && !normalizedServiceStaffId) {
+			const { t } = await getT();
+			throw new SafeError(
+				t("rsvp_service_staff_id_required") ||
+					"Service staff ID is required when service staff is selected",
+			);
+		}
+
+		// Calculate total cost using shared logic
+		const pricingResult = await calculateRsvpPrice({
+			storeId,
+			facilityId: facility?.id || null,
+			serviceStaffId: normalizedServiceStaffId,
+			rsvpTime: rsvpTime,
+		});
+
+		// Use the discounted costs directly from pricingResult
+		// The cross discounts (facilityDiscount and serviceStaffDiscount) are already
+		// applied in calculateRsvpPrice, so the discountedCost values already reflect
+		// the final prices after all discounts. We use these directly for order items.
+		const facilityCost = pricingResult.facility.discountedCost;
+		const facilityCredit = pricingResult.facility.discountedCredit;
+
+		const serviceStaffCost = pricingResult.serviceStaff.discountedCost;
+		const serviceStaffCredit = pricingResult.serviceStaff.discountedCredit;
+
+		// Total cost is already calculated in pricingResult with all discounts applied
+		const totalCost = pricingResult.totalCost;
+
+		const requiredPrepaidMajor = computeRequiredRsvpPrepaidMajor({
+			minPrepaidPercentage,
+			minPrepaidAmount,
+			totalCostMajor: totalCost,
+		});
+		const prepaidRequired = requiredPrepaidMajor > 0;
+
+		// Only create an order when online prepayment is required
+		const shouldCreateOrder = requiredPrepaidMajor > 0;
+
+		// Determine RSVP status and payment status
+		const rsvpStatus = prepaidRequired
+			? Number(RsvpStatus.Pending)
+			: Number(RsvpStatus.ReadyToConfirm);
+		const alreadyPaid = false;
+		let orderId: string | null = null;
+
+		const { t } = await getT();
+		const reservationPaymentNoteText =
+			t("rsvp_reservation_payment_note") || "RSVP reservation payment";
+
+		try {
+			// Create RSVP first, then create order if prepaid is required
+			const createdRsvpId = await sqlClient.$transaction(async (tx) => {
+				const checkInCode = await generateCheckInCode(storeId, tx);
+				// Step 1: Create RSVP first (without orderId initially)
+				const createdRsvp = await tx.rsvp.create({
+					data: {
+						storeId,
+						checkInCode,
+						customerId: finalCustomerId,
+						numOfAdult,
+						numOfChild,
+						rsvpTime,
+
+						// Store name/phone for anonymous & guest; for real accounts also persist form overrides when provided
+						name:
+							finalCustomerId && !isAnonymousUser
+								? name?.trim() || null
+								: name || null,
+						phone:
+							finalCustomerId && !isAnonymousUser
+								? phone?.trim() || null
+								: phone || null,
+
+						facilityId: normalizedFacilityId,
+						facilityCost:
+							facilityCost > 0 ? new Prisma.Decimal(facilityCost) : null,
+						facilityCredit:
+							facilityCredit > 0 ? new Prisma.Decimal(facilityCredit) : null,
+						pricingRuleId: null, // Pricing rules not used in simple reservation flow
+
+						serviceStaffId: normalizedServiceStaffId,
+						serviceStaffCost:
+							serviceStaffCost > 0
+								? new Prisma.Decimal(serviceStaffCost)
+								: null,
+						serviceStaffCredit:
+							serviceStaffCredit > 0
+								? new Prisma.Decimal(serviceStaffCredit)
+								: null,
+
+						status: rsvpStatus,
+						alreadyPaid,
+						orderId: null, // Will be updated after order creation
+						source: source?.trim() || null,
+						externalSource: externalSource?.trim() || null,
+						externalTrackingId: externalTrackingId?.trim() || null,
+						confirmedByStore: false,
+						confirmedByCustomer: false,
+						createdBy,
+						createdAt: getUtcNowEpoch(),
+						updatedAt: getUtcNowEpoch(),
+					},
+				});
+
+				if (initialConversationMessage) {
+					const now = getUtcNowEpoch();
+					await tx.rsvpConversation.create({
+						data: {
+							rsvpId: createdRsvp.id,
+							storeId,
+							customerId: finalCustomerId,
+							lastMessageAt: now,
+							createdAt: now,
+							updatedAt: now,
+							Messages: {
+								create: {
+									rsvpId: createdRsvp.id,
+									storeId,
+									senderUserId: finalCustomerId,
+									senderType: "customer",
+									message: initialConversationMessage,
+									createdAt: now,
+									updatedAt: now,
+								},
+							},
+						},
+					});
+				}
+
+				// Ensure customer becomes a store member if finalCustomerId is provided
+				if (finalCustomerId) {
+					await ensureCustomerIsStoreMember(
+						storeId,
+						finalCustomerId,
+						MemberRole.customer,
+						tx,
+					);
+				}
+
+				// Step 2: If prepaid is required and customer is signed in, create unpaid order for checkout
+				if (shouldCreateOrder && finalCustomerId) {
+					const paymentMethodPayUrl =
+						await resolveRsvpStoreOrderPaymentMethodPayUrl(
+							tx,
+							storeId,
+							store.useCustomerCredit,
+						);
+
+					// Create order note with RSVP ID
+					const orderNote = `${reservationPaymentNoteText} (RSVP ID: ${createdRsvp.id})`;
+
+					// Calculate order amounts
+					// Pass costs even if 0 when IDs are provided, so line items are created
+					// The order helper rejects zero payable amounts.
+					const facilityOrderAmount: number | null = normalizedFacilityId
+						? (facilityCost ?? 0)
+						: null;
+					const serviceStaffOrderAmount: number | null =
+						normalizedServiceStaffId ? (serviceStaffCost ?? 0) : null;
+
+					// Create unpaid order (customer will pay at checkout)
+					const createdOrderId = await createRsvpStoreOrder({
+						tx,
+						storeId,
+						customerId: finalCustomerId, // finalCustomerId is guaranteed to be non-null here
+						facilityCost: facilityOrderAmount,
+						serviceStaffCost: serviceStaffOrderAmount,
+						currency: store.defaultCurrency || "twd",
+						paymentMethodPayUrl,
+						rsvpId: createdRsvp.id, // Pass RSVP ID for pickupCode
+						facilityId: normalizedFacilityId, // Pass facility ID for pickupCode (optional)
+						productName: facility?.facilityName || "Reservation", // Pass facility name for product name
+						serviceStaffId: normalizedServiceStaffId, // Pass service staff ID (optional)
+						serviceStaffName, // Pass service staff name for product name (optional)
+						rsvpTime, // Pass RSVP time (BigInt epoch)
+						note: orderNote,
+						displayToCustomer: false, // Internal note, not displayed to customer
+						isPaid: false, // Customer will pay at checkout
+						requiredPrepaidMajor,
+					});
+
+					// Step 3: Update RSVP with orderId
+					await tx.rsvp.update({
+						where: { id: createdRsvp.id },
+						data: { orderId: createdOrderId },
+					});
+
+					orderId = createdOrderId;
+				}
+
+				return createdRsvp.id;
+			});
+
+			const rsvp = await sqlClient.rsvp.findUnique({
+				where: { id: createdRsvpId },
+				include: {
+					Store: true,
+					Customer: true,
+					CreatedBy: true,
+					Facility: true,
+					Order: true,
+					ServiceStaff: {
+						include: {
+							User: {
+								select: { name: true, email: true },
+							},
+						},
+					},
+					RsvpConversation: {
+						include: {
+							Messages: {
+								where: { deletedAt: null },
+								orderBy: { createdAt: "asc" },
+							},
+						},
+					},
+				},
+			});
+
+			if (!rsvp) {
+				const { t } = await getT();
+				throw new SafeError(
+					t("rsvp_failed_to_create") || "Failed to create reservation",
+				);
+			}
+
+			// Notify store staff on create only when no online prepay is pending (staff see "new request" after payment.)
+			if (!prepaidRequired) {
+				const notificationRouter = getRsvpNotificationRouter();
+				await notificationRouter.routeNotification({
+					rsvpId: rsvp.id,
+					storeId: rsvp.storeId,
+					checkInCode: rsvp.checkInCode ?? null,
+					eventType: "created",
+					customerId: rsvp.customerId ?? undefined,
+					customerName: rsvp.Customer?.name ?? rsvp.name ?? null,
+					customerEmail: rsvp.Customer?.email ?? null,
+					customerPhone: rsvp.Customer?.phoneNumber ?? rsvp.phone ?? null,
+					storeName: rsvp.Store?.name ?? null,
+					storeOwnerId: rsvp.Store?.ownerId ?? null,
+					rsvpTime: rsvp.rsvpTime,
+					status: rsvp.status ?? undefined,
+					orderId: rsvp.orderId,
+					facilityName: rsvp.Facility?.facilityName ?? null,
+					serviceStaffName:
+						rsvp.ServiceStaff?.User?.name ??
+						rsvp.ServiceStaff?.User?.email ??
+						null,
+					numOfAdult: rsvp.numOfAdult ?? undefined,
+					numOfChild: rsvp.numOfChild ?? undefined,
+					message: initialConversationMessage,
+					paymentAmount: undefined,
+					paymentCurrency: store.defaultCurrency ?? undefined,
+					actionUrl: `/s/${rsvp.storeId}/reservation/history`,
+				});
+			}
+
+			queueRsvpGoogleCalendarSync(rsvp.id);
+
+			await trackReserveWithGoogleConversionEvent({
+				rsvpId: rsvp.id,
+				storeId: rsvp.storeId,
+				eventType: "created",
+				source: rsvp.source,
+				externalSource: rsvp.externalSource,
+				externalTrackingId: rsvp.externalTrackingId,
+			});
+
+			const transformedRsvp = { ...rsvp } as Rsvp;
+			transformPrismaDataForJson(transformedRsvp);
+
+			const requiresSignIn =
+				shouldCreateOrder &&
+				Boolean(foundCustomerIdByPhone) &&
+				sessionUserId !== foundCustomerIdByPhone;
+
+			return {
+				rsvp: transformedRsvp,
+				orderId, // Return orderId so frontend can redirect to checkout
+				// If prepaid order is phone-matched to a real account but current session isn't that account, require sign-in handoff.
+				requiresSignIn,
+			};
+		} catch (error: unknown) {
+			if (
+				error instanceof Prisma.PrismaClientKnownRequestError &&
+				error.code === "P2002"
+			) {
+				const { t } = await getT();
+				throw new SafeError(
+					t("rsvp_already_exists") || "Reservation already exists.",
+				);
+			}
+
+			throw error;
+		}
+	});

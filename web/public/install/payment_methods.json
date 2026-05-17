@@ -6,34 +6,58 @@
 		"fee": 0.029,
 		"feeAdditional": 0.3,
 		"clearDays": 3,
-		"isDefault": true
+		"isDefault": true,
+		"canDelete": false,
+		"visibleToCustomer": true,
+		"platformEnabled": true
 	},
 	{
 		"name": "PayPal",
-		"payUrl": "payPal",
+		"payUrl": "paypal",
 		"priceDescr": "4% + 30¢",
 		"fee": 0.04,
 		"feeAdditional": 0.3,
 		"clearDays": 5,
-		"isDefault": false
+		"isDefault": false,
+		"canDelete": false,
+		"visibleToCustomer": false,
+		"platformEnabled": true
 	},
 	{
-		"name": "LinePay",
-		"payUrl": "linePay",
+		"name": "LINE Pay",
+		"payUrl": "linepay",
 		"priceDescr": "3.0%",
 		"fee": 0.03,
 		"feeAdditional": 0,
 		"clearDays": 2,
-		"isDefault": true
+		"isDefault": true,
+		"canDelete": false,
+		"visibleToCustomer": true,
+		"platformEnabled": true
 	},
 	{
-		"name": "ApplePay",
-		"payUrl": "applePay",
+		"name": "NewebPay",
+		"payUrl": "newebpay",
 		"priceDescr": "2.8%",
-		"fee": 0.0275,
+		"fee": 0.028,
 		"feeAdditional": 0,
-		"clearDays": 2,
-		"isDefault": false
+		"clearDays": 5,
+		"isDefault": false,
+		"canDelete": false,
+		"visibleToCustomer": true,
+		"platformEnabled": true
+	},
+	{
+		"name": "銀行轉帳（ATM）",
+		"payUrl": "atm",
+		"priceDescr": "依店家帳號轉帳；入款確認後生效",
+		"fee": 0,
+		"feeAdditional": 0,
+		"clearDays": 0,
+		"isDefault": false,
+		"canDelete": false,
+		"visibleToCustomer": true,
+		"platformEnabled": true
 	},
 	{
 		"name": "現金",
@@ -42,6 +66,21 @@
 		"fee": 0,
 		"feeAdditional": 0,
 		"clearDays": 0,
-		"isDefault": false
+		"isDefault": false,
+		"canDelete": false,
+		"visibleToCustomer": true,
+		"platformEnabled": true
+	},
+	{
+		"name": "帳戶餘額",
+		"payUrl": "credit",
+		"priceDescr": "fiat account balance of the customer",
+		"fee": 0,
+		"feeAdditional": 0,
+		"clearDays": 0,
+		"isDefault": true,
+		"canDelete": false,
+		"visibleToCustomer": true,
+		"platformEnabled": true
 	}
 ]

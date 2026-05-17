@@ -11,6 +11,7 @@ import { useIsHydrated } from "@/hooks/use-hydrated";
 import { analytics } from "@/lib/analytics";
 import { authClient } from "@/lib/auth-client";
 import { clientLogger } from "@/lib/client-logger";
+import { getPostSignInRedirect } from "@/lib/liff-return-path";
 import { useI18n } from "@/providers/i18n-provider";
 import { formatPhoneNumber, maskPhoneNumber } from "@/utils/phone-utils";
 import { toastError, toastSuccess } from "../toaster";
@@ -383,8 +384,8 @@ function FormPhoneOtpInner({
 					});
 				}
 
-				// Redirect to callback URL
-				router.push(callbackUrl);
+				// Redirect to callback URL (prefer stored LIFF deep link when present)
+				router.push(getPostSignInRedirect(callbackUrl));
 				router.refresh();
 			}
 		} catch (error: any) {

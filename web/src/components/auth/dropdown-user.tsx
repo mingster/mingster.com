@@ -29,9 +29,14 @@ import SignOutButton from "./sign-out-button";
 
 interface UserButtonProps {
 	db_user?: User | undefined | null;
+	/** When logged out, passed to the sign-in dialog (default `/`). */
+	callbackUrl?: string;
 }
 
-export default function DropdownUser({ db_user }: UserButtonProps) {
+export default function DropdownUser({
+	db_user: _db_user,
+	callbackUrl,
+}: UserButtonProps) {
 	const [mounted, setMounted] = useState(false);
 	const { lng } = useI18n();
 	const { t } = useTranslation(lng);
@@ -48,7 +53,7 @@ export default function DropdownUser({ db_user }: UserButtonProps) {
 	//logger.info("session", session);
 
 	if (!session) {
-		return <DialogSignIn />;
+		return <DialogSignIn callbackUrl={callbackUrl} />;
 	}
 
 	const user = session.user;
@@ -58,14 +63,14 @@ export default function DropdownUser({ db_user }: UserButtonProps) {
 			<DropdownMenuTrigger asChild>
 				<Button
 					size="icon"
-					className="h-10 w-10 flex-none rounded-full border-gray/20 bg-stroke/20 hover:text-meta-1 active:bg-stroke/30 dark:border-strokedark dark:bg-meta-4 dark:text-primary dark:hover:text-meta-1 sm:h-9 sm:w-9"
+					className="flex-none rounded-full border-gray/20 bg-stroke/20 hover:text-meta-1 dark:border-strokedark dark:bg-meta-4 dark:text-primary dark:hover:text-meta-1"
 				>
 					<Image
 						src={user.image || avatarPlaceholder}
 						alt="User profile picture"
-						width={30}
-						height={30}
-						className="aspect-square rounded-full bg-background object-cover hover:opacity-50"
+						width={28}
+						height={28}
+						className="size-7 rounded-full bg-background object-cover hover:opacity-50"
 					/>
 				</Button>
 			</DropdownMenuTrigger>
@@ -77,7 +82,7 @@ export default function DropdownUser({ db_user }: UserButtonProps) {
 				<DropdownMenuGroup>
 					<DropdownMenuItem className="cursor-pointer" asChild>
 						<Link
-							href="/account/subscription"
+							href="/account/order-history"
 							className="flex items-center gap-2"
 						>
 							<IconBrandStripe className="size-4 shrink-0" />
@@ -87,7 +92,7 @@ export default function DropdownUser({ db_user }: UserButtonProps) {
 					<DropdownMenuItem className="cursor-pointer" asChild>
 						<Link href="/account" className="flex items-center gap-2">
 							<IconSettings className="size-4 shrink-0" />
-							<span>{t("user_profile_myAccount")}</span>
+							<span>{t("user_profile_my_account")}</span>
 						</Link>
 					</DropdownMenuItem>
 
@@ -100,11 +105,14 @@ export default function DropdownUser({ db_user }: UserButtonProps) {
 						</Link>
 					</DropdownMenuItem>
 
-					{(user.role === Role.admin || user.role === Role.owner) && (
+					{(user.role === Role.admin ||
+						user.role === Role.owner ||
+						user.role === Role.storeAdmin ||
+						user.role === Role.staff) && (
 						<DropdownMenuItem className="cursor-pointer" asChild>
 							<Link href="/storeAdmin/" className="flex items-center gap-2">
 								<IconLock className="size-4 shrink-0" />
-								<span>{t("user_profile_linkTo_storeDashboard")}</span>
+								<span>{t("user_profile_link_to_store_dashboard")}</span>
 							</Link>
 						</DropdownMenuItem>
 					)}
@@ -114,7 +122,7 @@ export default function DropdownUser({ db_user }: UserButtonProps) {
 							<DropdownMenuItem className="cursor-pointer" asChild>
 								<Link href="/sysAdmin" className="flex items-center gap-2">
 									<IconLock className="size-4 shrink-0" />
-									<span>{t("user_profile_linkTo_admin")}</span>
+									<span>{t("user_profile_link_to_admin")}</span>
 								</Link>
 							</DropdownMenuItem>
 							<DropdownMenuSeparator />

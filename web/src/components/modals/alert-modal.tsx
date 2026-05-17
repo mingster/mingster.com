@@ -1,11 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
+import { useTranslation } from "@/app/i18n/client";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
-
-import { useTranslation } from "@/app/i18n/client";
 import { useI18n } from "@/providers/i18n-provider";
 
 interface AlertModalProps {
@@ -13,6 +11,10 @@ interface AlertModalProps {
 	onClose: () => void;
 	onConfirm: () => void;
 	loading: boolean;
+	/** Overrides default translated title when set */
+	title?: string;
+	/** Overrides default translated description when set */
+	description?: string;
 }
 
 export const AlertModal: React.FC<AlertModalProps> = ({
@@ -20,6 +22,8 @@ export const AlertModal: React.FC<AlertModalProps> = ({
 	onClose,
 	onConfirm,
 	loading,
+	title: titleProp,
+	description: descriptionProp,
 }) => {
 	const [isMounted, setIsMounted] = useState(false);
 
@@ -33,17 +37,20 @@ export const AlertModal: React.FC<AlertModalProps> = ({
 	if (!isMounted) {
 		return null;
 	}
+	if (!isOpen) {
+		return null;
+	}
 
 	return (
 		<Modal
-			title={t("AlertTitle")}
-			description={t("AlertDescr")}
+			title={titleProp ?? t("alert_title")}
+			description={descriptionProp ?? t("alert_descr")}
 			isOpen={isOpen}
 			onClose={onClose}
 		>
 			<div className="flex w-full items-center justify-end space-x-2 pt-6">
 				<Button disabled={loading} variant="outline" onClick={onClose}>
-					{t("Cancel")}
+					{t("cancel")}
 				</Button>
 				<Button disabled={loading} variant="destructive" onClick={onConfirm}>
 					{t("confirm")}

@@ -5,11 +5,10 @@
  * Combines authentication, authorization, and store access checks.
  */
 
-import isProLevel from "@/actions/storeAdmin/is-pro-level";
-import { requireAuthWithRole, UserRole } from "@/lib/auth-utils";
+import isProLevel from "@/lib/store/is-pro-level";
+import { requireAuth } from "@/lib/auth-utils";
 import { requireStoreAccess } from "@/lib/store-access";
 import type { Store } from "@/types";
-import { Role } from "@prisma/client";
 import { cache } from "react";
 
 /**
@@ -51,23 +50,14 @@ import { cache } from "react";
  */
 export const checkStoreStaffAccess = cache(
 	async (storeId: string): Promise<Store> => {
-		// 1. Require authentication with owner, staff, or storeAdmin role
-		const session = await requireAuthWithRole([
-			Role.owner,
-			Role.staff,
-			Role.storeAdmin,
-			Role.admin,
-		] as UserRole[]);
+		const session = await requireAuth();
 
-		// 2. Require store access/ownership
-		// Pass user role so admins can access any store
 		const store = await requireStoreAccess(
 			storeId,
 			session.user.id,
 			session.user.role ?? undefined,
 		);
 
-		// 3. Return minimal store data
 		return store;
 	},
 );

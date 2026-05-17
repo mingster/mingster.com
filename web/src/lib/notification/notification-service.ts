@@ -20,6 +20,7 @@ import { PreferenceManager } from "./preference-manager";
 import { QueueManager } from "./queue-manager";
 import { DeliveryTracker } from "./delivery-tracker";
 import { TemplateEngine } from "./template-engine";
+import { messageQueueToNotification } from "./message-queue-to-notification";
 
 export class NotificationService {
 	private preferenceManager: PreferenceManager;
@@ -40,6 +41,7 @@ export class NotificationService {
 	async createNotification(
 		input: CreateNotificationInput,
 	): Promise<Notification> {
+		/*
 		logger.info("Creating notification", {
 			metadata: {
 				senderId: input.senderId,
@@ -49,6 +51,7 @@ export class NotificationService {
 			},
 			tags: ["notification", "create"],
 		});
+		*/
 
 		// Check system-wide notification settings
 		const systemSettings =
@@ -58,36 +61,43 @@ export class NotificationService {
 		}
 
 		// Check if notification should be sent based on preferences
+		const requestedChannels = input.channels || ["onsite", "email"];
 		const shouldSend = await this.preferenceManager.shouldSendNotification(
 			input.recipientId,
 			input.storeId || null,
 			input.notificationType || null,
-			input.channels || ["onsite", "email"],
+			requestedChannels,
 		);
 
+		const finalChannels = shouldSend.allowedChannels ?? requestedChannels;
+
 		if (!shouldSend.allowed) {
-			logger.info("Notification blocked by preferences", {
-				metadata: {
-					recipientId: input.recipientId,
-					storeId: input.storeId,
-					reason: shouldSend.reason,
-				},
-				tags: ["notification", "preferences"],
-			});
 			throw new Error(`Notification blocked: ${shouldSend.reason}`);
 		}
 
-		// Render template if templateId is provided
+		// Render template if templateId is provided; otherwise substitute {{...}} in custom text
 		let subject = input.subject;
 		let message = input.message;
+		const variables = input.templateVariables ?? {};
 		if (input.templateId) {
 			const rendered = await this.templateEngine.render(
 				input.templateId,
 				input.recipientId, // Will resolve locale from user
-				input.templateVariables || {},
+				variables,
 			);
 			subject = rendered.subject;
 			message = rendered.body;
+		} else if (Object.keys(variables).length > 0) {
+			const subjectRendered = await this.templateEngine.renderContent(
+				subject,
+				variables,
+			);
+			const messageRendered = await this.templateEngine.renderContent(
+				message,
+				variables,
+			);
+			subject = subjectRendered.rendered;
+			message = messageRendered.rendered;
 		}
 
 		// Create notification record
@@ -100,6 +110,8 @@ export class NotificationService {
 				message,
 				notificationType: input.notificationType || null,
 				actionUrl: input.actionUrl || null,
+				htmlBodyFooter: input.htmlBodyFooter ?? null,
+				lineFlexPayload: input.lineFlexPayload ?? null,
 				priority: input.priority ?? 0,
 				createdAt: getUtcNowEpoch(),
 				updatedAt: getUtcNowEpoch(),
@@ -112,22 +124,15 @@ export class NotificationService {
 		});
 
 		// Route to appropriate channels
-		const channels = shouldSend.allowedChannels || input.channels || ["onsite"];
-		await this.queueManager.addToQueue(notification.id, channels);
+		await this.queueManager.addToQueue(notification.id, finalChannels);
 
-		// Prisma returns BigInt for createdAt/updatedAt, which matches our Notification interface
-		return notification as unknown as Notification;
+		return messageQueueToNotification(notification);
 	}
 
 	/**
 	 * Send a notification immediately
 	 */
 	async sendNotification(notificationId: string): Promise<DeliveryResult[]> {
-		logger.info("Sending notification", {
-			metadata: { notificationId },
-			tags: ["notification", "send"],
-		});
-
 		const notification = await sqlClient.messageQueue.findUnique({
 			where: { id: notificationId },
 		});
@@ -174,27 +179,24 @@ export class NotificationService {
 	async sendBulkNotifications(
 		input: BulkNotificationInput,
 	): Promise<BulkResult> {
-		logger.info("Sending bulk notifications", {
-			metadata: {
-				senderId: input.senderId,
-				recipientCount: input.recipientIds.length,
-				storeId: input.storeId,
-			},
-			tags: ["notification", "bulk"],
-		});
-
+		const { recipientIds, resolveTemplateVariables, ...createBase } = input;
 		const results: BulkResult = {
-			total: input.recipientIds.length,
+			total: recipientIds.length,
 			successful: 0,
 			failed: 0,
 			results: [],
 		};
 
-		for (const recipientId of input.recipientIds) {
+		for (const recipientId of recipientIds) {
 			try {
+				const templateVariables =
+					resolveTemplateVariables != null
+						? await resolveTemplateVariables(recipientId)
+						: (createBase.templateVariables ?? {});
 				const notification = await this.createNotification({
-					...input,
+					...createBase,
 					recipientId,
+					templateVariables,
 				});
 				const deliveryResults = await this.sendNotification(notification.id);
 				results.results.push({
@@ -233,6 +235,8 @@ export class NotificationService {
 
 	/**
 	 * Get notification status
+	 * Derives email status from EmailQueue when no NotificationDeliveryStatus exists for email
+	 * (email channel does not create delivery status on enqueue; send-mails-in-queue updates EmailQueue only).
 	 */
 	async getNotificationStatus(
 		notificationId: string,
@@ -258,6 +262,28 @@ export class NotificationService {
 			readAt: status.readAt || undefined,
 			error: status.errorMessage || undefined,
 		}));
+
+		// Email does not create NotificationDeliveryStatus on enqueue; derive from EmailQueue
+		const hasEmailDeliveryStatus = channels.some((c) => c.channel === "email");
+		if (!hasEmailDeliveryStatus) {
+			const emailQueueItem = await sqlClient.emailQueue.findFirst({
+				where: { notificationId },
+				orderBy: { createdOn: "desc" },
+			});
+			if (emailQueueItem) {
+				const emailStatus: DeliveryStatus = emailQueueItem.sentOn
+					? "sent"
+					: "pending";
+				channels.push({
+					channel: "email",
+					status: emailStatus,
+					messageId: emailQueueItem.id,
+					deliveredAt: emailQueueItem.sentOn ?? undefined,
+					readAt: undefined,
+					error: undefined,
+				});
+			}
+		}
 
 		// Determine overall status
 		let overallStatus: DeliveryStatus = "pending";

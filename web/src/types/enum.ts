@@ -46,6 +46,18 @@ export const ProductStatuses: GeneralNVType[] = [
 	},
 ];
 
+/** i18n key under `product_status_*` (snake_case suffix). */
+export function getProductStatusTranslationKey(status: number): string {
+	const match = ProductStatuses.find((s) => s.value === status);
+	if (match) {
+		return `product_status_${match.label.toLowerCase()}`;
+	}
+	if (status === ProductStatus.Deleted) {
+		return "product_status_deleted";
+	}
+	return "product_status_unknown";
+}
+
 export enum PayoutScheduleNum {
 	Manual = 0,
 	Auto_Daily = 1,
@@ -56,19 +68,19 @@ export enum PayoutScheduleNum {
 export const PayoutSchedule: GeneralNVType[] = [
 	{
 		value: PayoutScheduleNum.Manual,
-		label: "Manual",
+		label: "manual",
 	},
 	{
 		value: PayoutScheduleNum.Auto_Daily,
-		label: "Auto_Daily",
+		label: "auto_daily",
 	},
 	{
 		value: PayoutScheduleNum.Auto_Weekly,
-		label: "Auto_Weekly",
+		label: "auto_weekly",
 	},
 	{
 		value: PayoutScheduleNum.Auto_Monthly,
-		label: "Auto_Monthly",
+		label: "auto_monthly",
 	},
 ];
 
@@ -103,6 +115,26 @@ export enum OrderStatus {
 	Refunded = 60,
 	Voided = 90,
 	//Cancelled = 100,
+}
+
+/** PascalCase enum member name → snake_case suffix for i18n (e.g. InShipping → in_shipping). */
+function orderStatusEnumNameToSnakeCase(name: string): string {
+	// Use /[A-Z]/g (no capture): with /([A-Z])/g the 2nd callback arg is the group, not offset.
+	return name.replace(/[A-Z]/g, (char, offset) =>
+		offset === 0 ? char.toLowerCase() : `_${char.toLowerCase()}`,
+	);
+}
+
+/**
+ * Full `order_status_*` translation key for a numeric {@link OrderStatus} value
+ * (matches keys such as `order_status_pending`, `order_status_in_shipping`).
+ */
+export function getOrderStatusTranslationKey(status: number): string {
+	const name = OrderStatus[status];
+	if (typeof name !== "string") {
+		return "order_status_unknown";
+	}
+	return `order_status_${orderStatusEnumNameToSnakeCase(name)}`;
 }
 
 /*
@@ -163,13 +195,30 @@ export enum ReturnStatus {
 }
 
 export enum RsvpStatus {
-	Pending = 0, //尚未付款
-	ReadyToConfirm = 10, //待確認
-	Ready = 40, //預約中 ready for service
-	Completed = 50, //已完成 checkout
+	Pending = 0, // Awaiting prepaid checkout when prepay is required (not yet paid)
+	ReadyToConfirm = 10, // Awaiting staff confirmation (typical when no upfront prepay at booking)
+	Ready = 40, // Scheduled / prepaid completed or staff-confirmed ("預約中")
+	ConfirmedByCustomer = 41, //客戶已確認預約
+	CheckedIn = 45, //已簽到
+	Completed = 50, //已完成 completed
 	Cancelled = 60, //已取消
 	NoShow = 70, //未到
 }
+
+export enum RsvpReminderStatus {
+	Sent = 0,
+	Failed = 10,
+	Skipped = 20,
+}
+
+/** Matches `RsvpSettings.rsvpMode` (Prisma). */
+export const RsvpMode = {
+	FACILITY: 0, // 場館預約
+	PERSONNEL: 1, // 服務人員 (e.g. doctor, coach, trainer, etc.)
+	RESTAURANT: 2, // 餐廳模式／不指定座位
+} as const;
+
+export type RsvpModeValue = (typeof RsvpMode)[keyof typeof RsvpMode];
 
 export const MemberRole = {
 	customer: "customer",

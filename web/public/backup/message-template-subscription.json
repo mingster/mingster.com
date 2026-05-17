@@ -1,0 +1,578 @@
+[
+  {
+    "id": "f000ca01-1001-41ca-81ca-000000000001",
+    "name": "subscription.created.customer.email",
+    "templateType": "email",
+    "isGlobal": true,
+    "storeId": null,
+    "MessageTemplateLocalized": [
+      {
+        "id": "f000ca01-1001-41ca-81ca-c10101010101",
+        "messageTemplateId": "f000ca01-1001-41ca-81ca-000000000001",
+        "localeId": "zh-TW",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - 訂閱已生效",
+        "body": "您好，\n\n感謝您的訂閱。「{{store.name}}」的訂閱已生效，後續將依方案週期計費。\n\n您可隨時在{{subscription.url}} 查看/管理。\n\n{{support.email}}\n[{{platform.name}}]",
+        "isActive": true
+      },
+      {
+        "id": "f000ca01-1001-41ca-81ca-c10101010102",
+        "messageTemplateId": "f000ca01-1001-41ca-81ca-000000000001",
+        "localeId": "en-US",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - Subscription activated",
+        "body": "Hello,\n\nThank you for subscribing. Your subscription to {{store.name}} is now active and will renew according to your plan billing cycle.\n\nYou can view and manage it anytime at {{subscription.url}}\n\n{{support.email}}\n[{{platform.name}}]",
+        "isActive": true
+      },
+      {
+        "id": "f000ca01-1001-41ca-81ca-c10101010103",
+        "messageTemplateId": "f000ca01-1001-41ca-81ca-000000000001",
+        "localeId": "ja-JP",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - サブスクリプションが有効になりました",
+        "body": "こんにちは。\n\nご利用ありがとうございます。「{{store.name}}」のサブスクリプションが有効になりました。プランの請求サイクルに沿って更新されます。\n\n{{subscription.url}} でいつでも確認・管理できます。\n\n{{support.email}}\n[{{platform.name}}]",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "id": "f000ca02-1002-41ca-81ca-000000000002",
+    "name": "subscription.created.customer.onsite",
+    "templateType": "onsite",
+    "isGlobal": true,
+    "storeId": null,
+    "MessageTemplateLocalized": [
+      {
+        "id": "f000ca02-1002-41ca-81ca-c10202020201",
+        "messageTemplateId": "f000ca02-1002-41ca-81ca-000000000002",
+        "localeId": "zh-TW",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - 訂閱已生效",
+        "body": "感謝您的訂閱。「{{store.name}}」已生效，依方案週期計費。管理：{{subscription.url}}",
+        "isActive": true
+      },
+      {
+        "id": "f000ca02-1002-41ca-81ca-c10202020202",
+        "messageTemplateId": "f000ca02-1002-41ca-81ca-000000000002",
+        "localeId": "en-US",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - Subscription activated",
+        "body": "Thank you. Your {{store.name}} subscription is active and renews per your plan. Manage: {{subscription.url}}",
+        "isActive": true
+      },
+      {
+        "id": "f000ca02-1002-41ca-81ca-c10202020203",
+        "messageTemplateId": "f000ca02-1002-41ca-81ca-000000000002",
+        "localeId": "ja-JP",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - サブスクリプションが有効になりました",
+        "body": "ご利用ありがとうございます。「{{store.name}}」のサブスクリプションが有効です。管理：{{subscription.url}}",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "id": "f000ca03-1003-41ca-81ca-000000000003",
+    "name": "subscription.created.customer.line",
+    "templateType": "line",
+    "isGlobal": true,
+    "storeId": null,
+    "MessageTemplateLocalized": [
+      {
+        "id": "f000ca03-1003-41ca-81ca-c10303030301",
+        "messageTemplateId": "f000ca03-1003-41ca-81ca-000000000003",
+        "localeId": "zh-TW",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - 訂閱已生效",
+        "body": "感謝訂閱。「{{store.name}}」已生效，依方案計費。管理：{{subscription.url}}",
+        "isActive": true
+      },
+      {
+        "id": "f000ca03-1003-41ca-81ca-c10303030302",
+        "messageTemplateId": "f000ca03-1003-41ca-81ca-000000000003",
+        "localeId": "en-US",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - Subscription activated",
+        "body": "Thanks for subscribing. {{store.name}} is active; billing follows your plan. {{subscription.url}}",
+        "isActive": true
+      },
+      {
+        "id": "f000ca03-1003-41ca-81ca-c10303030303",
+        "messageTemplateId": "f000ca03-1003-41ca-81ca-000000000003",
+        "localeId": "ja-JP",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - サブスクリプションが有効になりました",
+        "body": "ご利用ありがとうございます。「{{store.name}}」が有効です。{{subscription.url}}",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "id": "f000ca04-1004-41ca-81ca-000000000004",
+    "name": "subscription.created.customer.whatsapp",
+    "templateType": "whatsapp",
+    "isGlobal": true,
+    "storeId": null,
+    "MessageTemplateLocalized": [
+      {
+        "id": "f000ca04-1004-41ca-81ca-c10404040401",
+        "messageTemplateId": "f000ca04-1004-41ca-81ca-000000000004",
+        "localeId": "zh-TW",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - 訂閱已生效",
+        "body": "感謝訂閱。「{{store.name}}」已生效，依方案計費。管理：{{subscription.url}}",
+        "isActive": true
+      },
+      {
+        "id": "f000ca04-1004-41ca-81ca-c10404040402",
+        "messageTemplateId": "f000ca04-1004-41ca-81ca-000000000004",
+        "localeId": "en-US",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - Subscription activated",
+        "body": "Thank you. {{store.name}} subscription is active; billed per plan. Manage: {{subscription.url}}",
+        "isActive": true
+      },
+      {
+        "id": "f000ca04-1004-41ca-81ca-c10404040403",
+        "messageTemplateId": "f000ca04-1004-41ca-81ca-000000000004",
+        "localeId": "ja-JP",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - サブスクリプションが有効になりました",
+        "body": "「{{store.name}}」のサブスクリプションが有効です。{{subscription.url}}",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "id": "f000ca05-1005-41ca-81ca-000000000005",
+    "name": "subscription.created.customer.wechat",
+    "templateType": "wechat",
+    "isGlobal": true,
+    "storeId": null,
+    "MessageTemplateLocalized": [
+      {
+        "id": "f000ca05-1005-41ca-81ca-c10505050501",
+        "messageTemplateId": "f000ca05-1005-41ca-81ca-000000000005",
+        "localeId": "zh-TW",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - 訂閱已生效",
+        "body": "感謝訂閱。「{{store.name}}」已生效，依方案計費。管理：{{subscription.url}}",
+        "isActive": true
+      },
+      {
+        "id": "f000ca05-1005-41ca-81ca-c10505050502",
+        "messageTemplateId": "f000ca05-1005-41ca-81ca-000000000005",
+        "localeId": "en-US",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - Subscription activated",
+        "body": "Thank you. {{store.name}} subscription is active; billed per plan. {{subscription.url}}",
+        "isActive": true
+      },
+      {
+        "id": "f000ca05-1005-41ca-81ca-c10505050503",
+        "messageTemplateId": "f000ca05-1005-41ca-81ca-000000000005",
+        "localeId": "ja-JP",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - サブスクリプションが有効になりました",
+        "body": "「{{store.name}}」のサブスクリプションが有効です。{{subscription.url}}",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "id": "f000ca06-1006-41ca-81ca-000000000006",
+    "name": "subscription.created.customer.sms",
+    "templateType": "sms",
+    "isGlobal": true,
+    "storeId": null,
+    "MessageTemplateLocalized": [
+      {
+        "id": "f000ca06-1006-41ca-81ca-c10606060601",
+        "messageTemplateId": "f000ca06-1006-41ca-81ca-000000000006",
+        "localeId": "zh-TW",
+        "bCCEmailAddresses": null,
+        "subject": "【{{store.name}}】訂閱已生效",
+        "body": "「{{store.name}}」訂閱已生效，依方案計費。{{subscription.url}}",
+        "isActive": true
+      },
+      {
+        "id": "f000ca06-1006-41ca-81ca-c10606060602",
+        "messageTemplateId": "f000ca06-1006-41ca-81ca-000000000006",
+        "localeId": "en-US",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - Subscription activated",
+        "body": "{{store.name}} Subscription activated. Billed per plan. {{subscription.url}}",
+        "isActive": true
+      },
+      {
+        "id": "f000ca06-1006-41ca-81ca-c10606060603",
+        "messageTemplateId": "f000ca06-1006-41ca-81ca-000000000006",
+        "localeId": "ja-JP",
+        "bCCEmailAddresses": null,
+        "subject": "【{{store.name}}】契約開始",
+        "body": "「{{store.name}}」のサブスクリプションが有効です。{{subscription.url}}",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "id": "f000ca07-1007-41ca-81ca-000000000007",
+    "name": "subscription.created.customer.telegram",
+    "templateType": "telegram",
+    "isGlobal": true,
+    "storeId": null,
+    "MessageTemplateLocalized": [
+      {
+        "id": "f000ca07-1007-41ca-81ca-c10707070701",
+        "messageTemplateId": "f000ca07-1007-41ca-81ca-000000000007",
+        "localeId": "zh-TW",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - 訂閱已生效",
+        "body": "感謝訂閱。「{{store.name}}」已生效，依方案計費。管理：{{subscription.url}}",
+        "isActive": true
+      },
+      {
+        "id": "f000ca07-1007-41ca-81ca-c10707070702",
+        "messageTemplateId": "f000ca07-1007-41ca-81ca-000000000007",
+        "localeId": "en-US",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - Subscription activated",
+        "body": "Thanks for subscribing. {{store.name}} is active; billing follows your plan. {{subscription.url}}",
+        "isActive": true
+      },
+      {
+        "id": "f000ca07-1007-41ca-81ca-c10707070703",
+        "messageTemplateId": "f000ca07-1007-41ca-81ca-000000000007",
+        "localeId": "ja-JP",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - サブスクリプションが有効になりました",
+        "body": "ご利用ありがとうございます。「{{store.name}}」が有効です。{{subscription.url}}",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "id": "f000ca08-1008-41ca-81ca-000000000008",
+    "name": "subscription.created.customer.push",
+    "templateType": "push",
+    "isGlobal": true,
+    "storeId": null,
+    "MessageTemplateLocalized": [
+      {
+        "id": "f000ca08-1008-41ca-81ca-c10808080801",
+        "messageTemplateId": "f000ca08-1008-41ca-81ca-000000000008",
+        "localeId": "zh-TW",
+        "bCCEmailAddresses": null,
+        "subject": "{{store.name}} · 訂閱已生效",
+        "body": "訂閱已生效，依方案週期計費。管理：{{subscription.url}}",
+        "isActive": true
+      },
+      {
+        "id": "f000ca08-1008-41ca-81ca-c10808080802",
+        "messageTemplateId": "f000ca08-1008-41ca-81ca-000000000008",
+        "localeId": "en-US",
+        "bCCEmailAddresses": null,
+        "subject": "{{store.name}} · Subscription activated",
+        "body": "Subscription activated and renews per your plan. {{subscription.url}}",
+        "isActive": true
+      },
+      {
+        "id": "f000ca08-1008-41ca-81ca-c10808080803",
+        "messageTemplateId": "f000ca08-1008-41ca-81ca-000000000008",
+        "localeId": "ja-JP",
+        "bCCEmailAddresses": null,
+        "subject": "{{store.name}} · 契約開始",
+        "body": "サブスクリプションが有効になりました。{{subscription.url}}",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "id": "41be8e53-8bb2-49d1-a363-1d9e079aa7ee",
+    "name": "subscription.cancelled.customer.email",
+    "templateType": "email",
+    "isGlobal": true,
+    "storeId": null,
+    "MessageTemplateLocalized": [
+      {
+        "id": "93c091c2-7f85-4eeb-811b-2aaf00b01f5e",
+        "messageTemplateId": "41be8e53-8bb2-49d1-a363-1d9e079aa7ee",
+        "localeId": "zh-TW",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - 訂閱已取消",
+        "body": "您好，\n\n我們已收到您的訂閱取消請求並已執行完成。您未來不會收到「{{store.name}}」的訂閱帳單或扣款，請放心使用至訂閱截止日。\n\n您可隨時在{{subscription.url}} 查看/管理。\n\n{{support.email}}\n[{{platform.name}}]",
+        "isActive": true
+      },
+      {
+        "id": "f6a7b8c9-d0e1-42f3-a4b5-c6d7e8f9a0b1",
+        "messageTemplateId": "41be8e53-8bb2-49d1-a363-1d9e079aa7ee",
+        "localeId": "en-US",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - Subscription cancelled",
+        "body": "Hello,\n\nWe have received and processed your subscription cancellation request. You will not receive any further billing or charges for {{store.name}}. You may continue using the service until your subscription end date.\n\nYou can view and manage it anytime at {{subscription.url}}\n\n{{support.email}}\n[{{platform.name}}]",
+        "isActive": true
+      },
+      {
+        "id": "b4c5d6e7-f8a9-40b1-c2d3-e4f5a6b7c8d9",
+        "messageTemplateId": "41be8e53-8bb2-49d1-a363-1d9e079aa7ee",
+        "localeId": "ja-JP",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - サブスクリプションを解約しました",
+        "body": "こんにちは。\n\nサブスクリプション解約のリクエストを受け付け、処理が完了しました。今後「{{store.name}}」のサブスクリプションに関する請求や課金は発生しません。サブスクリプションの終了日までご利用いただけます。\n\n{{subscription.url}} でいつでも確認・管理できます。\n\n{{support.email}}\n[{{platform.name}}]",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "id": "c8d9e0f1-a2b3-4c5d-8e9f-0a1b2c3d4e5f",
+    "name": "subscription.cancelled.customer.onsite",
+    "templateType": "onsite",
+    "isGlobal": true,
+    "storeId": null,
+    "MessageTemplateLocalized": [
+      {
+        "id": "aa111111-1111-4111-8111-111111111101",
+        "messageTemplateId": "c8d9e0f1-a2b3-4c5d-8e9f-0a1b2c3d4e5f",
+        "localeId": "zh-TW",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - 訂閱已取消",
+        "body": "訂閱取消已完成。「{{store.name}}」不再扣款，截止日前仍可使用。管理：{{subscription.url}}",
+        "isActive": true
+      },
+      {
+        "id": "aa111111-1111-4111-8111-111111111102",
+        "messageTemplateId": "c8d9e0f1-a2b3-4c5d-8e9f-0a1b2c3d4e5f",
+        "localeId": "en-US",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - Subscription cancelled",
+        "body": "Cancellation complete. No further {{store.name}} charges. Use until end date. Manage: {{subscription.url}}",
+        "isActive": true
+      },
+      {
+        "id": "aa111111-1111-4111-8111-111111111103",
+        "messageTemplateId": "c8d9e0f1-a2b3-4c5d-8e9f-0a1b2c3d4e5f",
+        "localeId": "ja-JP",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - サブスクリプションを解約しました",
+        "body": "解約が完了しました。「{{store.name}}」の請求はありません。管理：{{subscription.url}}",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "id": "d9e0f1a2-b3c4-4d5e-9f0a-1b2c3d4e5f6a",
+    "name": "subscription.cancelled.customer.line",
+    "templateType": "line",
+    "isGlobal": true,
+    "storeId": null,
+    "MessageTemplateLocalized": [
+      {
+        "id": "bb222222-2222-4222-8222-222222222201",
+        "messageTemplateId": "d9e0f1a2-b3c4-4d5e-9f0a-1b2c3d4e5f6a",
+        "localeId": "zh-TW",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - 訂閱已取消",
+        "body": "訂閱取消已完成。「{{store.name}}」不再扣款，截止日前仍可使用。管理：{{subscription.url}}",
+        "isActive": true
+      },
+      {
+        "id": "bb222222-2222-4222-8222-222222222202",
+        "messageTemplateId": "d9e0f1a2-b3c4-4d5e-9f0a-1b2c3d4e5f6a",
+        "localeId": "en-US",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - Subscription cancelled",
+        "body": "Cancellation complete. No further {{store.name}} charges. Use until end date. {{subscription.url}}",
+        "isActive": true
+      },
+      {
+        "id": "bb222222-2222-4222-8222-222222222203",
+        "messageTemplateId": "d9e0f1a2-b3c4-4d5e-9f0a-1b2c3d4e5f6a",
+        "localeId": "ja-JP",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - サブスクリプションを解約しました",
+        "body": "解約が完了しました。「{{store.name}}」の請求はありません。{{subscription.url}}",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "id": "e0f1a2b3-c4d5-4e6f-0a1b-2c3d4e5f6a7b",
+    "name": "subscription.cancelled.customer.whatsapp",
+    "templateType": "whatsapp",
+    "isGlobal": true,
+    "storeId": null,
+    "MessageTemplateLocalized": [
+      {
+        "id": "cc333333-3333-4333-8333-333333333301",
+        "messageTemplateId": "e0f1a2b3-c4d5-4e6f-0a1b-2c3d4e5f6a7b",
+        "localeId": "zh-TW",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - 訂閱已取消",
+        "body": "訂閱取消已完成。「{{store.name}}」不再扣款，截止日前仍可使用。管理：{{subscription.url}}",
+        "isActive": true
+      },
+      {
+        "id": "cc333333-3333-4333-8333-333333333302",
+        "messageTemplateId": "e0f1a2b3-c4d5-4e6f-0a1b-2c3d4e5f6a7b",
+        "localeId": "en-US",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - Subscription cancelled",
+        "body": "Cancellation complete. No further {{store.name}} charges. Use until end date. {{subscription.url}}",
+        "isActive": true
+      },
+      {
+        "id": "cc333333-3333-4333-8333-333333333303",
+        "messageTemplateId": "e0f1a2b3-c4d5-4e6f-0a1b-2c3d4e5f6a7b",
+        "localeId": "ja-JP",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - サブスクリプションを解約しました",
+        "body": "解約が完了しました。「{{store.name}}」の請求はありません。{{subscription.url}}",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "id": "44e57d78-3494-4072-bf2b-d6866ca2b409",
+    "name": "subscription.cancelled.customer.wechat",
+    "templateType": "wechat",
+    "isGlobal": true,
+    "storeId": null,
+    "MessageTemplateLocalized": [
+      {
+        "id": "f1e499b1-b3dd-4f8a-821c-6b2e4471d0bc",
+        "messageTemplateId": "44e57d78-3494-4072-bf2b-d6866ca2b409",
+        "localeId": "zh-TW",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - 訂閱已取消",
+        "body": "訂閱取消已完成。「{{store.name}}」不再扣款，截止日前仍可使用。管理：{{subscription.url}}",
+        "isActive": true
+      },
+      {
+        "id": "d9731e0f-de75-4eae-bf99-24ab3d6d8ae5",
+        "messageTemplateId": "44e57d78-3494-4072-bf2b-d6866ca2b409",
+        "localeId": "en-US",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - Subscription cancelled",
+        "body": "Cancellation complete. No further {{store.name}} charges. Use until end date. {{subscription.url}}",
+        "isActive": true
+      },
+      {
+        "id": "e755556c-b84a-4e83-b797-927fe32527f1",
+        "messageTemplateId": "44e57d78-3494-4072-bf2b-d6866ca2b409",
+        "localeId": "ja-JP",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - サブスクリプションを解約しました",
+        "body": "解約が完了しました。「{{store.name}}」の請求はありません。{{subscription.url}}",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "id": "889a98ac-2072-4dc0-910a-a0a83c898aee",
+    "name": "subscription.cancelled.customer.sms",
+    "templateType": "sms",
+    "isGlobal": true,
+    "storeId": null,
+    "MessageTemplateLocalized": [
+      {
+        "id": "0d55b8da-ea68-4a25-893a-50467508a048",
+        "messageTemplateId": "889a98ac-2072-4dc0-910a-a0a83c898aee",
+        "localeId": "zh-TW",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - 訂閱已取消",
+        "body": "訂閱取消已完成。「{{store.name}}」不再扣款，截止日前仍可使用。{{subscription.url}}",
+        "isActive": true
+      },
+      {
+        "id": "1e650313-d40c-470c-8c2e-10ab5e7a1cf6",
+        "messageTemplateId": "889a98ac-2072-4dc0-910a-a0a83c898aee",
+        "localeId": "en-US",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - Subscription cancelled",
+        "body": "Cancelled. No further {{store.name}} charges. Use until end date. {{subscription.url}}",
+        "isActive": true
+      },
+      {
+        "id": "573a0b1e-2dd6-444d-9779-d85ef19f7720",
+        "messageTemplateId": "889a98ac-2072-4dc0-910a-a0a83c898aee",
+        "localeId": "ja-JP",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - サブスクリプションを解約しました",
+        "body": "解約完了。「{{store.name}}」の請求はありません。{{subscription.url}}",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "id": "a4cf0ea7-bce8-46b0-a5c8-6d1b79b088a0",
+    "name": "subscription.cancelled.customer.telegram",
+    "templateType": "telegram",
+    "isGlobal": true,
+    "storeId": null,
+    "MessageTemplateLocalized": [
+      {
+        "id": "317407a1-0be0-433f-9f7d-c1ae5614445a",
+        "messageTemplateId": "a4cf0ea7-bce8-46b0-a5c8-6d1b79b088a0",
+        "localeId": "zh-TW",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - 訂閱已取消",
+        "body": "訂閱取消已完成。「{{store.name}}」不再扣款，截止日前仍可使用。管理：{{subscription.url}}",
+        "isActive": true
+      },
+      {
+        "id": "4e8a9c47-25b3-4144-91d9-2d5db8fbe6eb",
+        "messageTemplateId": "a4cf0ea7-bce8-46b0-a5c8-6d1b79b088a0",
+        "localeId": "en-US",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - Subscription cancelled",
+        "body": "Cancellation complete. No further {{store.name}} charges. Use until end date. {{subscription.url}}",
+        "isActive": true
+      },
+      {
+        "id": "bd79e0cc-240c-4977-83a4-3f22d532bcd0",
+        "messageTemplateId": "a4cf0ea7-bce8-46b0-a5c8-6d1b79b088a0",
+        "localeId": "ja-JP",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - サブスクリプションを解約しました",
+        "body": "解約が完了しました。「{{store.name}}」の請求はありません。{{subscription.url}}",
+        "isActive": true
+      }
+    ]
+  },
+  {
+    "id": "dfabec21-eb6b-4a9a-bbcd-eb3db6bb09e6",
+    "name": "subscription.cancelled.customer.push",
+    "templateType": "push",
+    "isGlobal": true,
+    "storeId": null,
+    "MessageTemplateLocalized": [
+      {
+        "id": "6baaf891-f6a6-407a-b5d9-382d3b91c0b6",
+        "messageTemplateId": "dfabec21-eb6b-4a9a-bbcd-eb3db6bb09e6",
+        "localeId": "zh-TW",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - 訂閱已取消",
+        "body": "訂閱取消已完成。「{{store.name}}」不再扣款，截止日前仍可使用。",
+        "isActive": true
+      },
+      {
+        "id": "2756c469-a2b4-436c-b869-8a9670bd5a07",
+        "messageTemplateId": "dfabec21-eb6b-4a9a-bbcd-eb3db6bb09e6",
+        "localeId": "en-US",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - Subscription cancelled",
+        "body": "Cancellation complete. No further {{store.name}} charges. Use until end date.",
+        "isActive": true
+      },
+      {
+        "id": "004c1c5e-c56e-43d3-b15e-30ca8055d4fb",
+        "messageTemplateId": "dfabec21-eb6b-4a9a-bbcd-eb3db6bb09e6",
+        "localeId": "ja-JP",
+        "bCCEmailAddresses": null,
+        "subject": "[{{store.name}}] - サブスクリプションを解約しました",
+        "body": "解約が完了しました。「{{store.name}}」の請求はありません。",
+        "isActive": true
+      }
+    ]
+  }
+]

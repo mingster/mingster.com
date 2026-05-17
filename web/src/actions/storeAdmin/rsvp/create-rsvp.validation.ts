@@ -1,0 +1,22 @@
+import { z } from "zod";
+
+export const createRsvpSchema = z.object({
+	customerId: z.string().nullable().optional(),
+	facilityId: z.string().nullable().optional(),
+	serviceStaffId: z.string().nullable().optional(),
+	numOfAdult: z.coerce.number().int().min(1).default(1),
+	numOfChild: z.coerce.number().int().min(0).default(0),
+	rsvpTime: z.coerce.date(),
+	arriveTime: z.coerce.date().nullable().optional(),
+	message: z.string().nullable().optional(),
+	alreadyPaid: z.boolean().default(false),
+	confirmedByStore: z.boolean().default(false),
+	confirmedByCustomer: z.boolean().default(false),
+	facilityCost: z.coerce.number().min(0).nullable().optional(),
+	pricingRuleId: z.string().nullable().optional(),
+	source: z.string().trim().nullable().optional(),
+	externalSource: z.string().trim().nullable().optional(),
+	externalTrackingId: z.string().trim().nullable().optional(),
+});
+
+export type CreateRsvpInput = z.infer<typeof createRsvpSchema>;

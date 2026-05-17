@@ -20,6 +20,17 @@ export type NotificationChannel =
 	| "telegram"
 	| "push";
 
+/** Channels that can be configured at store level (email + plugins; excludes onsite) */
+export const NOTIFICATION_CHANNELS_CONFIGURABLE: NotificationChannel[] = [
+	"email",
+	"line",
+	"whatsapp",
+	"wechat",
+	"sms",
+	"telegram",
+	"push",
+];
+
 export type NotificationPriority = 0 | 1 | 2; // 0=normal, 1=high, 2=urgent
 
 export type DeliveryStatus =
@@ -38,6 +49,10 @@ export interface CreateNotificationInput {
 	message: string;
 	notificationType?: NotificationType | null;
 	actionUrl?: string | null;
+	/** Optional HTML footer for email (e.g. check-in QR code). Rendered in template {{footer}}. */
+	htmlBodyFooter?: string | null;
+	/** JSON for LINE Flex (e.g. { type: "reminder", data: LineReminderCardData }). */
+	lineFlexPayload?: string | null;
 	priority?: NotificationPriority;
 	channels?: NotificationChannel[];
 	templateId?: string | null;
@@ -53,6 +68,10 @@ export interface Notification {
 	message: string;
 	notificationType: string | null;
 	actionUrl: string | null;
+	/** Optional HTML footer for email (e.g. check-in QR code). Rendered in template {{footer}}. */
+	htmlBodyFooter?: string | null;
+	/** JSON for LINE Flex (e.g. { type: "reminder", data: LineReminderCardData }). */
+	lineFlexPayload?: string | null;
 	priority: NotificationPriority;
 	createdAt: bigint;
 	updatedAt: bigint;
@@ -81,6 +100,10 @@ export interface BulkNotificationInput {
 	channels?: NotificationChannel[];
 	templateId?: string | null;
 	templateVariables?: Record<string, any>;
+	/** When set, variables are resolved per recipient before template render (e.g. sysAdmin sample data). */
+	resolveTemplateVariables?: (
+		recipientId: string,
+	) => Promise<Record<string, any>>;
 }
 
 export interface BulkResult {
@@ -130,6 +153,8 @@ export interface RenderedTemplate {
 	subject: string;
 	body: string;
 	textBody?: string; // For email channels
+	localeUsed?: string;
+	unresolvedTokens?: string[];
 }
 
 export interface NotificationContext {

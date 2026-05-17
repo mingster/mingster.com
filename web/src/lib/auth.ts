@@ -2,6 +2,7 @@ import { apiKey } from "@better-auth/api-key";
 import { passkey } from "@better-auth/passkey";
 import { stripe } from "@better-auth/stripe";
 import { type BetterAuthOptions, betterAuth } from "better-auth";
+import { emailHarmony } from "better-auth-harmony";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import {
 	admin,
@@ -13,14 +14,13 @@ import {
 	phoneNumber,
 	twoFactor,
 } from "better-auth/plugins";
-import { emailHarmony } from "better-auth-harmony";
 
-import { sendAuthMagicLink } from "@/actions/mail/send-auth-magic-link";
-import { sendAuthPasswordReset } from "@/actions/mail/send-auth-password-reset";
 import { stripe as stripeClient } from "@/lib/stripe/config";
 import { handleStripeSubscriptionEvent } from "@/lib/stripe/handle-subscription-event";
 import { linkAnonymousAccount } from "@/utils/account-linking";
 import logger from "./logger";
+import { sendAuthMagicLink } from "./mail/send-auth-magic-link";
+import { sendAuthPasswordReset } from "./mail/send-auth-password-reset";
 import { sqlClient } from "./prismadb";
 
 const options = {
@@ -340,4 +340,16 @@ export const auth = betterAuth({
 		},
 	},
 });
+
+/** Better Auth session `user` payload (DB fields + optional role/email for UI). */
+export type CustomSessionUser = {
+	id?: string;
+	role?: string | null;
+	email?: string | null;
+	name?: string | null;
+	image?: string | null;
+	locale?: string | null;
+	[key: string]: unknown;
+};
+
 export type Session = typeof auth.$Infer.Session;

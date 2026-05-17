@@ -13,6 +13,7 @@ import type {
 import type { Notification } from "../types";
 import type { NotificationChannelAdapter } from "./index";
 
+// Firebase Cloud Messaging (Android/iOS) and Apple Push Notification Service (APNs)
 export class PushChannel implements NotificationChannelAdapter {
 	name: NotificationChannel = "push";
 
@@ -26,10 +27,12 @@ export class PushChannel implements NotificationChannelAdapter {
 		error?: string;
 		deliveredAt?: bigint;
 	}> {
+		/*
 		logger.info("Sending push notification", {
 			metadata: { notificationId: notification.id },
 			tags: ["channel", "push"],
 		});
+		*/
 
 		// TODO: Implement FCM/APNs integration
 		// Support both Firebase Cloud Messaging (Android/iOS) and Apple Push Notification Service

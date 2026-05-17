@@ -3,13 +3,22 @@
  * Handles asynchronous notification processing
  */
 
+import "./register-channel-adapters";
 import { sqlClient } from "@/lib/prismadb";
 import logger from "@/lib/logger";
 import { getUtcNowEpoch } from "@/utils/datetime-utils";
+import { isValidPhoneNumberForSms } from "@/utils/phone-utils";
 import type { NotificationChannel, DeliveryResult } from "./types";
+import { messageQueueToNotification } from "./message-queue-to-notification";
 import { getChannelAdapter } from "./channels";
+import { NotificationRateLimiter } from "./rate-limiter";
 
 export class QueueManager {
+	private readonly rateLimiter: NotificationRateLimiter;
+
+	constructor() {
+		this.rateLimiter = new NotificationRateLimiter();
+	}
 	/**
 	 * Add notification to processing queue
 	 */
@@ -17,42 +26,70 @@ export class QueueManager {
 		notificationId: string,
 		channels: NotificationChannel[],
 	): Promise<void> {
+		// Create a copy to avoid mutating the parameter
+		let channelsToProcess = [...channels];
+		/*
 		logger.info("Adding notification to queue", {
 			metadata: { notificationId, channels },
 			tags: ["queue", "add"],
 		});
+		*/
 
-		// For email channel, add to EmailQueue
-		if (channels.includes("email")) {
-			const notification = await sqlClient.messageQueue.findUnique({
-				where: { id: notificationId },
+		// Fetch notification once if we need to validate email or SMS
+		const needsValidation =
+			channelsToProcess.includes("email") || channelsToProcess.includes("sms");
+		const notification = needsValidation
+			? await sqlClient.messageQueue.findUnique({
+					where: { id: notificationId },
+				})
+			: null;
+
+		// For email channel, use EmailChannel adapter to add to queue
+		// This ensures consistent behavior and validation
+		if (notification && channelsToProcess.includes("email")) {
+			const emailAdapter = getChannelAdapter("email");
+			if (emailAdapter) {
+				const config = await this.getChannelConfig(
+					notification.storeId || "",
+					"email",
+				);
+				const result = await emailAdapter.send(
+					messageQueueToNotification(notification),
+					config,
+				);
+				if (!result.success) {
+					// Remove email from channels list if failed to add to queue
+					channelsToProcess = channelsToProcess.filter((ch) => ch !== "email");
+					logger.warn("Email channel failed to add to queue", {
+						metadata: {
+							notificationId,
+							error: result.error,
+						},
+						tags: ["queue", "email", "error"],
+					});
+				}
+			}
+		}
+
+		// For SMS channel, validate phone number before adding to queue
+		if (notification && channelsToProcess.includes("sms")) {
+			// Get recipient's phone number
+			const recipient = await sqlClient.user.findUnique({
+				where: { id: notification.recipientId },
+				select: { phoneNumber: true },
 			});
 
-			if (notification) {
-				await sqlClient.emailQueue.create({
-					data: {
-						from: "noreply@example.com", // TODO: Get from store settings
-						fromName: notification.storeId
-							? "Store Notification"
-							: "System Notification",
-						to: "", // TODO: Get from recipient
-						toName: "",
-						subject: notification.subject,
-						textMessage: notification.message,
-						htmMessage: notification.message,
-						createdOn: getUtcNowEpoch(),
-						sendTries: 0,
-						sentOn: null,
-						storeId: notification.storeId,
-						notificationId: notification.id,
-						priority: notification.priority,
-					},
-				});
+			const recipientPhone = recipient?.phoneNumber || null;
+
+			// Skip if phone number is invalid or missing
+			if (!isValidPhoneNumberForSms(recipientPhone)) {
+				// Remove SMS from channels list to prevent processing
+				channelsToProcess = channelsToProcess.filter((ch) => ch !== "sms");
 			}
 		}
 
 		// For other channels, create delivery status records
-		for (const channel of channels) {
+		for (const channel of channelsToProcess) {
 			if (channel !== "email") {
 				await sqlClient.notificationDeliveryStatus.create({
 					data: {
@@ -107,17 +144,51 @@ export class QueueManager {
 		notificationId: string,
 		channel: NotificationChannel,
 	): Promise<DeliveryResult> {
-		logger.info("Processing notification", {
-			metadata: { notificationId, channel },
-			tags: ["queue", "process"],
-		});
-
 		const notification = await sqlClient.messageQueue.findUnique({
 			where: { id: notificationId },
 		});
 
 		if (!notification) {
 			throw new Error(`Notification not found: ${notificationId}`);
+		}
+
+		// Check per-channel rate limit before contacting external providers
+		const rateLimitCheck = await this.rateLimiter.checkRateLimit(
+			channel,
+			notification.storeId,
+		);
+
+		if (!rateLimitCheck.allowed) {
+			const retryAfter = rateLimitCheck.retryAfter ?? 0;
+
+			logger.warn("Notification processing rate-limited, deferring send", {
+				metadata: {
+					notificationId,
+					channel,
+					storeId: notification.storeId,
+					retryAfter,
+				},
+				tags: ["rate-limit", "notification", "queue"],
+			});
+
+			// Keep status as pending but record rate-limit info for observability.
+			await sqlClient.notificationDeliveryStatus.updateMany({
+				where: {
+					notificationId,
+					channel,
+					status: "pending",
+				},
+				data: {
+					errorMessage: `Rate limited. Retry after ${retryAfter} seconds.`,
+					updatedAt: getUtcNowEpoch(),
+				},
+			});
+
+			return {
+				success: false,
+				channel,
+				error: `Rate limit exceeded. Retry after ${retryAfter} seconds.`,
+			};
 		}
 
 		// Get channel adapter
@@ -147,7 +218,10 @@ export class QueueManager {
 		try {
 			// Send notification - adapter expects Notification type
 			// Prisma notification has all required fields, just cast it
-			const result = await adapter.send(notification as any, config);
+			const result = await adapter.send(
+				messageQueueToNotification(notification),
+				config,
+			);
 
 			// Update or create delivery status
 			const existing = await sqlClient.notificationDeliveryStatus.findFirst({
@@ -242,10 +316,12 @@ export class QueueManager {
 		successful: number;
 		failed: number;
 	}> {
+		/*
 		logger.info("Processing notification batch", {
 			metadata: { batchSize },
 			tags: ["queue", "batch"],
 		});
+		*/
 
 		// Get system settings for batch size
 		const systemSettings =
@@ -342,6 +418,14 @@ export class QueueManager {
 		});
 
 		if (!config) {
+			// Onsite: no store config => enabled. Email: no store config => use system emailEnabled
+			if (channel === "onsite") return { enabled: true };
+			if (channel === "email") {
+				const sys = await sqlClient.systemNotificationSettings.findFirst();
+				return {
+					enabled: sys?.emailEnabled !== false,
+				};
+			}
 			return { enabled: false };
 		}
 

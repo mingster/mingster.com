@@ -1,0 +1,107 @@
+import { sqlClient } from "@/lib/prismadb";
+
+import type {
+	Store,
+	StorePaymentMethodMapping,
+	StoreShipMethodMapping,
+} from "@/types";
+import { transformPrismaDataForJson } from "@/utils/utils";
+import type { PaymentMethod, ShippingMethod } from "@prisma/client";
+
+const getStoreById = async (storeId: string): Promise<Store> => {
+	if (!storeId) {
+		throw Error("storeId is required");
+	}
+
+	const store = (await sqlClient.store.findFirst({
+		where: {
+			id: storeId,
+		},
+		include: {
+			Categories: {
+				where: { isFeatured: true },
+				orderBy: { sortOrder: "asc" },
+			},
+			//StoreAnnouncement: true,
+			StoreShippingMethods: {
+				include: {
+					ShippingMethod: true,
+				},
+			},
+			StorePaymentMethods: {
+				include: {
+					PaymentMethod: true,
+				},
+			},
+		},
+	})) as Store;
+
+	if (!store) {
+		throw Error("store not found");
+	}
+
+	const storePaymentMethods = store.StorePaymentMethods ?? [];
+	const storeShippingMethods = store.StoreShippingMethods ?? [];
+
+	if (storePaymentMethods.length === 0) {
+		const defaultPaymentMethods = (await sqlClient.paymentMethod.findMany({
+			where: {
+				isDefault: true,
+			},
+		})) as PaymentMethod[];
+
+		// add default payment methods to the store
+		// skip if store already has the method(s)
+		defaultPaymentMethods.map((paymentMethod) => {
+			if (
+				!storePaymentMethods.find(
+					(existingMethod: { id: string }) =>
+						existingMethod.id === paymentMethod.id,
+				)
+			) {
+				const mapping = {
+					storeId: store.id,
+					methodId: paymentMethod.id,
+					PaymentMethod: paymentMethod,
+				} as StorePaymentMethodMapping;
+
+				storePaymentMethods.push(mapping);
+			}
+		});
+	}
+
+	if (storeShippingMethods.length === 0) {
+		// add default shipping methods to the store
+		// skip if store already has the method(s)
+		const defaultShippingMethods = (await sqlClient.shippingMethod.findMany({
+			where: {
+				isDefault: true,
+			},
+		})) as ShippingMethod[];
+
+		defaultShippingMethods.map((method) => {
+			if (
+				!storeShippingMethods.find(
+					(existingMethod: { id: string }) => existingMethod.id === method.id,
+				)
+			) {
+				const mapping = {
+					storeId: store.id,
+					methodId: method.id,
+					ShippingMethod: method,
+				} as StoreShipMethodMapping;
+
+				storeShippingMethods.push(mapping);
+			}
+		});
+	}
+
+	store.StorePaymentMethods = storePaymentMethods;
+	store.StoreShippingMethods = storeShippingMethods;
+
+	// Transform Decimal objects to numbers for client components
+	transformPrismaDataForJson(store);
+
+	return store;
+};
+export default getStoreById;

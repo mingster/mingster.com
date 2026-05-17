@@ -76,14 +76,16 @@ model User {
   invitations Invitation[]
 
   Addresses         Address[]
-  SupportTicketFrom SupportTicket[] @relation("SupportTicketFrom")
-  SupportTicketTo   SupportTicket[] @relation("SupportTicketTo")
-  NotificationFrom  MessageQueue[]  @relation("NotificationFrom")
-  NotificationTo    MessageQueue[]  @relation("NotificationTo")
+  SupportTicketFrom SupportTicket[]           @relation("SupportTicketFrom")
+  SupportTicketTo   SupportTicket[]           @relation("SupportTicketTo")
+  NotificationFrom  MessageQueue[]            @relation("NotificationFrom")
+  NotificationTo    MessageQueue[]            @relation("NotificationTo")
   Store             Store[]
-  Orders            StoreOrder[]    @relation("UserOrders")
+  Orders            StoreOrder[]              @relation("UserOrders")
   Reservations      Rsvp[]
-  RsvpCreator       Rsvp[]          @relation("RsvpCreatedBy")
+  RsvpCreator       Rsvp[]                    @relation("RsvpCreatedBy")
+  RsvpConversations RsvpConversation[]        @relation("RsvpConversationCustomer")
+  RsvpMessages      RsvpConversationMessage[] @relation("RsvpConversationMessageSender")
 
   CustomerCredit             CustomerCredit?
   CustomerCreditLedger       CustomerCreditLedger[] @relation("UserCustomerCreditLogs")
@@ -95,11 +97,15 @@ model User {
   NotificationPreferences NotificationPreferences[]
   ServiceStaff            ServiceStaff[]
 
-  Invitee           CustomerInvite[]   @relation("UserCustomerInvite")
-  CustomerInviter   CustomerInvite[]   @relation("CustomerInviter")
-  RsvpReminderSents RsvpReminderSent[]
-  rsvpBlacklists    RsvpBlacklist[]
-  waitLists         WaitList[]
+  Invitee                  CustomerInvite[]          @relation("UserCustomerInvite")
+  CustomerInviter          CustomerInvite[]          @relation("CustomerInviter")
+  RsvpReminderSents        RsvpReminderSent[]
+  RsvpCustomerConfirmSents RsvpCustomerConfirmSent[]
+  rsvpBlacklists           RsvpBlacklist[]
+  waitLists                WaitList[]
+
+  SavedProductCustomizations         SavedProductCustomization[]
+  storeUserGoogleCalendarConnections StoreUserGoogleCalendarConnection[]
 
   @@unique([normalizedEmail])
   @@index([email])
@@ -161,8 +167,8 @@ model Verification {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @default(now()) @updatedAt
 
-  @@map("verification")
   @@index([identifier])
+  @@map("verification")
 }
 
 model TwoFactor {
@@ -175,8 +181,8 @@ model TwoFactor {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-  @@map("twoFactor")
   @@index([secret])
+  @@map("twoFactor")
 }
 
 model Passkey {
@@ -195,8 +201,8 @@ model Passkey {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-  @@map("passkey")
   @@index([credentialID])
+  @@map("passkey")
 }
 
 model Apikey {
@@ -227,10 +233,10 @@ model Apikey {
   referenceId String
 
   @@index([userId])
-  @@map("apikey")
   @@index([configId])
   @@index([referenceId])
   @@index([key])
+  @@map("apikey")
 }
 
 model Organization {
@@ -283,8 +289,8 @@ model Invitation {
 
   @@index([inviterId])
   @@index([organizationId])
-  @@map("invitation")
   @@index([email])
+  @@map("invitation")
 }
 
 model Subscription {
@@ -333,6 +339,7 @@ model CustomerInvite {
   @@index([userId])
   @@index([storeId])
   @@index([expiresAt])
+  @@index([invitedBy])
   @@map("CustomerInvite")
 }
 
@@ -385,22 +392,24 @@ model PlatformSettings {
 }
 
 model Country {
-  name          String
-  unCode        String    @unique @db.VarChar(3)
+  name          String //display name for locals, e.g. 台灣, 日本国, USA
+  alpha2        String?   @unique
+  alpha3        String    @id @unique
+  unCode        String
   allowBilling  Boolean   @default(false)
   allowShipping Boolean   @default(false)
   allowInStore  Boolean   @default(false)
-  alpha3        String    @id @unique @db.VarChar(3)
   Address       Address[]
 
   @@index([name])
+  @@index([alpha2])
   @@index([alpha3])
 }
 
 model Currency {
   id             String           @id @unique
   name           String
-  symbol         String?
+  symbol         String           //use it to display to customer
   ISOdigits      Int?
   ISOnum         Int?
   decimals       Int?
@@ -414,6 +423,7 @@ model Currency {
   ShippingMethod ShippingMethod[]
 
   @@index([name])
+  @@index([symbol])
   @@index([demonym])
 }
 
@@ -423,7 +433,7 @@ model Locale {
   lng               String //2 digit language code
   defaultCurrencyId String
 
-  SystemMessage            SystemMessage[]
+  SystemMessageLocale      SystemMessageLocale[]
   MessageTemplateLocalized MessageTemplateLocalized[]
 
   @@index([lng])
@@ -473,6 +483,8 @@ model PaymentMethod {
   isDefault         Boolean @default(false)
   canDelete         Boolean @default(false) //store owner cannot delete this method
   visibleToCustomer Boolean @default(false)
+  /// When false, sysAdmin has disabled this processor platform-wide (no new checkouts).
+  platformEnabled   Boolean @default(true)
 
   createdAt                 BigInt
   updatedAt                 BigInt
@@ -612,6 +624,10 @@ model SubscriptionPayment {
   paidAt             BigInt?
   createdAt          BigInt
   note               String?
+  /// Target StoreLevel (Pro=2, Multi=3) after successful payment; from Stripe Price metadata.store_tier
+  targetStoreLevel   Int?
+  /// Stripe Price id used for checkout and recurring subscription item
+  stripePriceId      String?
 
   @@index([userId])
   @@index([storeId])
@@ -735,48 +751,54 @@ model Store {
   bankAccount     String?
   bankAccountName String?
 
-  level             Int     @default(0) //store's subscription level
-  customDomain      String? @unique
-  LINE_PAY_ID       String?
-  LINE_PAY_SECRET   String?
-  STRIPE_SECRET_KEY String?
+  level        Int     @default(0) //store's subscription level
+  customDomain String? @unique
 
-  logo                             String?
-  logoPublicId                     String?
-  createdAt                        BigInt
-  updatedAt                        BigInt
-  Owner                            User                              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  Organization                     Organization                      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  Products                         Product[]                         @relation("StoreToProduct")
-  Categories                       Category[]
-  StoreOrders                      StoreOrder[]                      @relation("StoreToOrder")
-  FaqCategories                    FaqCategory[]
-  StoreAnnouncement                StoreAnnouncement[]
-  SupportTicket                    SupportTicket[]
-  MessageQueue                     MessageQueue[]
-  StoreShippingMethods             StoreShipMethodMapping[]
-  NotificationPreferences          NotificationPreferences[]
-  NotificationChannelConfigs       NotificationChannelConfig[]
-  MessageTemplates                 MessageTemplate[]
-  EmailQueues                      EmailQueue[]
-  StorePaymentMethods              StorePaymentMethodMapping[]
-  StoreFacilities                  StoreFacility[]
-  ServiceStaffs                    ServiceStaff[]
-  StoreProductOptionTemplate       StoreProductOptionTemplate[]
-  Rsvp                             Rsvp[]
-  StoreSettings                    StoreSettings?
-  rsvpSettings                     RsvpSettings?
-  rsvpBlacklists                   RsvpBlacklist[]
-  rsvpTags                         RsvpTag[]
-  rsvpReminderSents                RsvpReminderSent[]
-  waitLists                        WaitList[]
-  CreditBonusRules                 CreditBonusRule[]
-  CustomerCreditLogs               CustomerCreditLedger[]
-  CustomerFiatLedgers              CustomerFiatLedger[]
-  FacilityPricingRules             FacilityPricingRule[]
-  customerInvites                  CustomerInvite[]
-  facilityServiceStaffPricingRules FacilityServiceStaffPricingRule[]
-  serviceStaffFacilitySchedules    ServiceStaffFacilitySchedule[]
+  paymentCredentials Json?
+
+  logo                               String?
+  logoPublicId                       String?
+  createdAt                          BigInt
+  updatedAt                          BigInt
+  Owner                              User                                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  Organization                       Organization                        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  Products                           Product[]                           @relation("StoreToProduct")
+  Categories                         Category[]
+  StoreOrders                        StoreOrder[]                        @relation("StoreToOrder")
+  FaqCategories                      FaqCategory[]
+  StoreAnnouncement                  StoreAnnouncement[]
+  SupportTicket                      SupportTicket[]
+  MessageQueue                       MessageQueue[]
+  StoreShippingMethods               StoreShipMethodMapping[]
+  NotificationPreferences            NotificationPreferences[]
+  NotificationChannelConfigs         NotificationChannelConfig[]
+  MessageTemplates                   MessageTemplate[]
+  EmailQueues                        EmailQueue[]
+  StorePaymentMethods                StorePaymentMethodMapping[]
+  StoreFacilities                    StoreFacility[]
+  ServiceStaffs                      ServiceStaff[]
+  StoreProductOptionTemplate         StoreProductOptionTemplate[]
+  Rsvp                               Rsvp[]
+  RsvpConversations                  RsvpConversation[]
+  RsvpMessages                       RsvpConversationMessage[]
+  StoreSettings                      StoreSettings?
+  rsvpSettings                       RsvpSettings?
+  rsvpBlacklists                     RsvpBlacklist[]
+  rsvpTags                           RsvpTag[]
+  rsvpReminderSents                  RsvpReminderSent[]
+  rsvpCustomerConfirmSents           RsvpCustomerConfirmSent[]
+  waitLists                          WaitList[]
+  waitListSettings                   WaitListSettings?
+  CreditBonusRules                   CreditBonusRule[]
+  CustomerCreditLogs                 CustomerCreditLedger[]
+  CustomerFiatLedgers                CustomerFiatLedger[]
+  FacilityPricingRules               FacilityPricingRule[]
+  customerInvites                    CustomerInvite[]
+  facilityServiceStaffPricingRules   FacilityServiceStaffPricingRule[]
+  serviceStaffFacilitySchedules      ServiceStaffFacilitySchedule[]
+  storeUserGoogleCalendarConnections StoreUserGoogleCalendarConnection[]
+  reserveWithGoogleFeedRuns          ReserveWithGoogleFeedRun[]
+  reserveWithGoogleConversionEvents  ReserveWithGoogleConversionEvent[]
 
   // Composite indexes for common query patterns
   // For owner store listings
@@ -790,6 +812,29 @@ model Store {
   @@index([createdAt])
   @@index([updatedAt])
   @@index([ownerId, isDeleted])
+}
+
+/// Per-(storeId, userId) Google Calendar OAuth tokens and selected calendar for RSVP sync.
+model StoreUserGoogleCalendarConnection {
+  id                   String  @id @default(cuid())
+  storeId              String
+  userId               String
+  googleCalendarId     String  @default("primary")
+  refreshTokenEnc      String  @db.Text
+  accessToken          String? @db.Text
+  accessTokenExpiresAt BigInt?
+  isInvalid            Boolean @default(false)
+  /// When true, do not copy tokens from Better Auth `Account` (user disconnected calendar sync).
+  calendarSyncOptOut   Boolean @default(false)
+  createdAt            BigInt
+  updatedAt            BigInt
+
+  Store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  User  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, userId])
+  @@index([storeId])
+  @@index([userId])
 }
 
 model StoreSettings {
@@ -825,6 +870,20 @@ model StoreSettings {
 
   businessHours String?
 
+  /// Subtotal (order lines, major currency units) at or above this → $0 shipping at checkout. Null = no free-shipping rule.
+  storefrontFreeShippingMinimum Decimal?
+  /// Customer-facing ETA / shipping policy (cart + confirmation).
+  storefrontShippingEtaCopy     String?
+  /// JSON array of pickup locations: `[{ "id", "name", "line1", "city", "country"?, "hours"? }]`.
+  storefrontPickupLocationsJson String   @default("[]")
+
+  /// Markdown content for order shipping / delivery policy page.
+  storefrontShippingPolicy String?
+  /// Markdown content for return and exchange policy page.
+  storefrontReturnPolicy   String?
+  /// Markdown content for gifting information page.
+  storefrontGiftingContent String?
+
   createdAt BigInt
   updatedAt BigInt
   Store     Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
@@ -839,27 +898,50 @@ model RsvpSettings {
   acceptReservation Boolean @default(true) // turn on/off the reservation system
   singleServiceMode Boolean @default(false) // for personal shop: only ONE reservation per time slot
 
-  minPrepaidPercentage Int     @default(0) //最低預付百分比；0 表示不需預付，100 表示全額預付
-  noNeedToConfirm      Boolean @default(false) //若已付清預約金額，不需要店家再確認預約。
+  /// Minimum share of reservation total to prepay online at booking; 0 = no checkout from this rule; 100 = pay full total online first.
+  minPrepaidPercentage Int @default(0)
+  /// Minimum prepaid floor in store currency (**internal minor**: major × 100; same as checkout). 0 = no minimum by fixed amount.
+  minPrepaidAmount     Int @default(0)
 
-  canCancel   Boolean @default(true) //可否取消預約?
-  cancelHours Int     @default(24) //最慢免費取消預約時間：幾小時前可免費取消?
+  /// Legacy toggle; prepaid checkout already moves RSVP Pending → Ready when the order is paid (`process-rsvp-after-payment`). Reserved for future use.
+  noNeedToConfirm Boolean @default(false)
 
-  canReserveBefore Int @default(2) //從現在起，可預約幾小時後的時間。 e.g. 現在7PM，只能預約9PM後的時間。
+  canCancel Boolean @default(true) //可否取消預約?
+
+  /// Hours before reservation **start**: cancel **at least** this far ahead → prepaid refundable; closer → typically no refund. 0 = no advance-hour cutoff for refunds.
+  cancelHours Int @default(24)
+
+  canReserveBefore Int @default(120) //從現在起，可預約幾分鍾後的時間。 e.g. 現在7PM，只能預約9PM後的時間。
   canReserveAfter  Int @default(2190) //從現在起，最多可預約未來幾小時。 e.g. ㄧ年後=8760小時; 一個月後=730. 預設值：3個月後。
 
   defaultDuration    Int     @default(60) //預約時間：60分鐘
   requireSignature   Boolean @default(false) //需要簽名
+  requireSignIn      Boolean @default(false) // 建立預約需登入
+  requireName        Boolean @default(false) // 建立預約需填姓名
+  requirePhone       Boolean @default(false) // 建立預約需有電話
   showCostToCustomer Boolean @default(false) //顯示預約金額
+
+  /// 預約說明：顯示於顧客預約表單頂部（選填；支援多行）
+  reservationInstructions String? @db.Text
 
   mustSelectFacility   Boolean @default(false) //必須要選擇設施
   mustHaveServiceStaff Boolean @default(false) //必須要選擇服務人員(e.g. 美容師, 按摩師, 髮型師, 等等)
 
+  /// 0 = facility-first (default), 1 = staff-first, 2 = restaurant / no facility+staff
+  rsvpMode    Int @default(0)
+  /// Restaurant mode: max party headcount per overlapping time slot (0 = unlimited)
+  maxCapacity Int @default(0)
+
+  /// true = use StoreSettings.businessHours; false = use rsvpHours.
   useBusinessHours Boolean @default(true)
-  rsvpHours        String? //營業時間：M-F 09:00-18:00
+  rsvpHours        String? // RSVP-specific hours when useBusinessHours=false
 
   //預約提醒與通知（channel selection 使用 store 的 NotificationChannelConfig）
-  reminderHours Int @default(3) //預約提醒時間：??小時前發送確認通知
+  /// Hours **before** `rsvpTime` to send the appointment reminder (not the customer-confirm email).
+  reminderHours Int @default(3)
+
+  /// Hours **after** RSVP `createdAt` to send the “please confirm” request for `ReadyToConfirm` RSVPs (cron window).
+  confirmHours Int @default(24)
 
   syncWithGoogle Boolean @default(false) //同步Google月曆
   syncWithApple  Boolean @default(false) //同步Apple日曆
@@ -875,10 +957,6 @@ model RsvpSettings {
   reserveWithGoogleSyncStatus   String? // "connected", "error", "disconnected"
   reserveWithGoogleError        String? // Last error message
 
-  waitlistEnabled       Boolean @default(false)
-  waitlistRequireSignIn Boolean @default(false)
-  waitlistRequireName   Boolean @default(false)
-
   createdAt BigInt
   updatedAt BigInt
   Store     Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
@@ -886,6 +964,33 @@ model RsvpSettings {
   @@index([storeId])
   @@index([createdAt])
   @@index([updatedAt])
+}
+
+/// Per-store waitlist feature toggles (moved from RsvpSettings).
+model WaitListSettings {
+  id      String @id @default(cuid())
+  storeId String @unique
+
+  enabled       Boolean @default(false)
+  requireSignIn Boolean @default(false)
+  requireName   Boolean @default(false)
+  requirePhone  Boolean @default(false)
+
+  // Relative to each business-hours interval start (store TZ): join opens at nominal start − canGetNumBefore minutes
+  // (see BusinessHours.getWaitlistJoinSessionBlockOrNull). Positive = queue before opening; negative = only after opening; 0 = at opening.
+  // Example: interval starts 12:00 → +10 ⇒ from 11:50; −10 ⇒ from 12:10; 0 ⇒ from 12:00.
+  // 相對於該「營業時段開始」的分鐘偏移（非必為「開店」）：可取號視窗起始 = 時段開始 −
+  // 此值。正＝提前取號；負＝延後取號；0＝開始時刻起。
+  canGetNumBefore Int @default(0)
+
+  /// When true, customer must have Better Auth LINE social account linked.
+  requireLineOnly Boolean @default(false)
+
+  createdAt BigInt
+  updatedAt BigInt
+  Store     Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
 }
 
 model RsvpBlacklist {
@@ -935,10 +1040,12 @@ model Rsvp {
   referenceId String? //reference to the StoreOrder id or CustomerCreditLedger id
   paidAt      BigInt? //the time when the reservation was paid
 
-  message String?
   // Contact information for anonymous reservations (when customerId is null)
-  name    String? // Name (required if not logged in)
-  phone   String? // Phone number (required for anonymous reservations)
+  name               String? // Name (required if not logged in)
+  phone              String? // Phone number (required for anonymous reservations)
+  source             String? // reservation source, e.g. reserve_with_google
+  externalSource     String? // upstream source system, e.g. google_actions_center
+  externalTrackingId String? // external correlation/conversion id
 
   confirmedByStore    Boolean @default(false) //店家已確認預約
   confirmedByCustomer Boolean @default(false) //客戶已確認預約
@@ -954,19 +1061,24 @@ model Rsvp {
   serviceStaffCredit Decimal? //optional: if the service staff is selected, the credit that was charged
 
   // 8-digit numeric check-in code for staff (unique per store); generated on create
-  checkInCode         String?
-  createdAt           BigInt
-  updatedAt           BigInt
-  createdBy           String? // userId who created this reservation
-  Store               Store                @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  Customer            User?                @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  CreatedBy           User?                @relation("RsvpCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
-  Order               StoreOrder?          @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  Facility            StoreFacility?       @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  ServiceStaff        ServiceStaff?        @relation(fields: [serviceStaffId], references: [id], onDelete: SetNull)
-  FacilityPricingRule FacilityPricingRule? @relation(fields: [pricingRuleId], references: [id], onDelete: Cascade)
-  RsvpReminderSent    RsvpReminderSent?
+  checkInCode                       String?
+  createdAt                         BigInt
+  updatedAt                         BigInt
+  createdBy                         String? // userId who created this reservation
+  Store                             Store                              @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  Customer                          User?                              @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  CreatedBy                         User?                              @relation("RsvpCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  Order                             StoreOrder?                        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  Facility                          StoreFacility?                     @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  ServiceStaff                      ServiceStaff?                      @relation(fields: [serviceStaffId], references: [id], onDelete: SetNull)
+  FacilityPricingRule               FacilityPricingRule?               @relation(fields: [pricingRuleId], references: [id], onDelete: Cascade)
+  RsvpReminderSent                  RsvpReminderSent?
+  RsvpCustomerConfirmSent           RsvpCustomerConfirmSent?
+  ReserveWithGoogleConversionEvents ReserveWithGoogleConversionEvent[]
+  RsvpConversation                  RsvpConversation?
+  RsvpConversationMessages          RsvpConversationMessage[]
 
+  @@unique([storeId, checkInCode])
   // Composite indexes for common query patterns
   // For date range queries with status
   // For staff check-in by code (nulls allowed for legacy rows)
@@ -982,34 +1094,146 @@ model Rsvp {
   @@index([createdAt])
   @@index([updatedAt])
   @@index([storeId, rsvpTime, status])
-  @@unique([storeId, checkInCode])
+  @@index([source])
+  @@index([externalSource])
+  @@index([externalTrackingId])
+  @@index([storeId, source])
+  @@index([storeId, externalTrackingId])
+}
+
+model ReserveWithGoogleFeedRun {
+  id           String  @id @default(cuid())
+  storeId      String
+  environment  String // sandbox | production
+  status       String // pending | validated | submitted | error
+  feedType     String // full | incremental | entity | action | services
+  generatedAt  BigInt
+  submittedAt  BigInt?
+  error        String?
+  artifactPath String?
+  createdAt    BigInt
+  updatedAt    BigInt
+
+  Store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+  @@index([environment])
+  @@index([status])
+  @@index([feedType])
+  @@index([generatedAt])
+  @@index([submittedAt])
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+model ReserveWithGoogleConversionEvent {
+  id                 String  @id @default(cuid())
+  storeId            String
+  rsvpId             String
+  eventType          String // created | confirmed
+  source             String?
+  externalTrackingId String?
+  idempotencyKey     String  @unique
+  sentAt             BigInt?
+  payload            Json?
+  createdAt          BigInt
+  updatedAt          BigInt
+
+  Store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  Rsvp  Rsvp  @relation(fields: [rsvpId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+  @@index([rsvpId])
+  @@index([eventType])
+  @@index([externalTrackingId])
+  @@index([sentAt])
+  @@index([createdAt])
+  @@index([updatedAt])
+}
+
+/// Single conversation thread for a reservation between customer and store.
+model RsvpConversation {
+  id         String  @id @default(uuid())
+  rsvpId     String  @unique
+  storeId    String
+  customerId String?
+
+  /// Optional preview/ordering helpers
+  lastMessageAt BigInt?
+
+  createdAt BigInt
+  updatedAt BigInt
+
+  Rsvp     Rsvp                      @relation(fields: [rsvpId], references: [id], onDelete: Cascade)
+  Store    Store                     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  Customer User?                     @relation("RsvpConversationCustomer", fields: [customerId], references: [id], onDelete: SetNull)
+  Messages RsvpConversationMessage[]
+
+  @@index([storeId])
+  @@index([customerId])
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@index([lastMessageAt])
+}
+
+model RsvpConversationMessage {
+  id             String  @id @default(uuid())
+  conversationId String
+  rsvpId         String
+  storeId        String
+  senderUserId   String?
+
+  /// customer | store | system (store can be owner/storeAdmin/staff)
+  senderType String
+  message    String
+
+  readByCustomerAt BigInt?
+  readByStoreAt    BigInt?
+  editedAt         BigInt?
+  deletedAt        BigInt?
+
+  createdAt BigInt
+  updatedAt BigInt
+
+  Conversation RsvpConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  Rsvp         Rsvp             @relation(fields: [rsvpId], references: [id], onDelete: Cascade)
+  Store        Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  Sender       User?            @relation("RsvpConversationMessageSender", fields: [senderUserId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId])
+  @@index([rsvpId])
+  @@index([storeId])
+  @@index([senderUserId])
+  @@index([createdAt])
+  @@index([deletedAt])
+  @@index([conversationId, createdAt])
 }
 
 model WaitList {
-  id               String         @id @default(uuid())
+  id               String               @id @default(uuid())
   storeId          String
   queueNumber      Int
   sessionBlock     WaitlistSessionBlock @default(morning)
-  verificationCode String         @unique
-  numOfAdult       Int            @default(1)
-  numOfChild       Int            @default(0)
+  verificationCode String               @unique
+  numOfAdult       Int                  @default(1)
+  numOfChild       Int                  @default(0)
   customerId       String?
   name             String?
   lastName         String?
   phone            String?
   message          String?
-  status           WaitListStatus @default(waiting)
+  status           WaitListStatus       @default(waiting)
   /// Milliseconds from createdAt until status became called (set once when calling)
   waitTimeMs       BigInt?
   createdBy        String?
   createdAt        BigInt
   updatedAt        BigInt
   notifiedAt       BigInt?
-  orderId          String?        @unique
+  orderId          String?              @unique
 
-  Store    Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  Customer User?          @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  Order    StoreOrder?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  Store    Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  Customer User?       @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  Order    StoreOrder? @relation(fields: [orderId], references: [id], onDelete: SetNull)
 
   @@index([storeId])
   @@index([storeId, status])
@@ -1053,19 +1277,50 @@ model RsvpReminderSent {
   @@index([storeId, status, reminderScheduledAt])
 }
 
+/// Idempotency: one customer-confirm notification per RSVP (scheduled from createdAt + confirmHours).
+model RsvpCustomerConfirmSent {
+  id         String  @id @default(uuid())
+  rsvpId     String  @unique
+  storeId    String
+  customerId String?
+
+  /// Audit: createdAt + confirmHours (epoch ms) when the send was targeted
+  scheduledAt BigInt
+  sentAt      BigInt
+
+  notificationId String?
+  status         Int     @default(0) // RsvpReminderStatus
+  errorMessage   String?
+
+  createdAt BigInt
+  updatedAt BigInt
+
+  Rsvp  Rsvp  @relation(fields: [rsvpId], references: [id], onDelete: Cascade)
+  Store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  User  User? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@index([storeId])
+  @@index([customerId])
+  @@index([scheduledAt])
+  @@index([status])
+  @@index([createdAt])
+}
+
 // ============================================================================
 // Products & Catalog
 // ============================================================================
 
 model StoreFacility {
-  id              String  @id @default(uuid())
-  storeId         String
-  facilityName    String
-  capacity        Int     @default(4) //how many people can use the facility at the same time
-  defaultCost     Decimal @default(0) // default cost for using the facility
-  defaultCredit   Decimal @default(0) // default credit for using the facility
-  defaultDuration Int     @default(60) // default duration for using the facility in minutes
-  businessHours   String? //when the facility is available for use
+  id                  String  @id @default(uuid())
+  storeId             String
+  facilityName        String
+  capacity            Int     @default(4) //how many people can use the facility at the same time
+  defaultCost         Decimal @default(0) // default cost for using the facility
+  defaultCredit       Decimal @default(0) // default credit for using the facility
+  defaultDuration     Int     @default(60) // default duration for using the facility in minutes
+  /// When true, `businessHours` defines this facility’s schedule; when false, use RSVP/store default hours.
+  useOwnBusinessHours Boolean @default(false)
+  businessHours       String? // JSON hours when useOwnBusinessHours is true
 
   description String? // description of the facility
   location    String? // location of the facility
@@ -1220,22 +1475,41 @@ model ProductImages {
   productId   String
   url         String  @unique
   imgPublicId String  @unique
+  /// Gallery order (lower first). Backfill: 0 for legacy rows.
+  sortOrder   Int     @default(0)
+  /// Accessibility / SEO; falls back to product name in UI when empty.
+  altText     String?
+  /// `image` | `video` | other — non-image URLs can be listed for rich PDPs.
+  mediaType   String  @default("image")
   Product     Product @relation(fields: [productId], references: [id])
 
   @@index([url])
   @@index([imgPublicId])
   @@index([productId])
+  @@index([productId, sortOrder])
 }
 
 model Product {
   id                String              @id @default(uuid())
   storeId           String
   name              String
+  /// URL segment per store for SEO (`/shop/p/{slug}`). Null = id-only links.
+  slug              String?
   description       String?
+  /// Product care and maintenance instructions (HTML or plain text).
+  careContent       String?
+  /// Optional PDP/meta title (falls back to `name`).
+  seoTitle          String?
+  /// Optional meta description / OG description (falls back to stripped `description`).
+  seoDescription    String?
   isFeatured        Boolean             @default(false)
   status            Int                 @default(1) //ProductStatus, 1 = Published, 0 = Draft
   currency          String              @default("twd")
   price             Decimal             @default(0)
+  /// Optional strike-through / list price for luxury-style PDPs.
+  compareAtPrice    Decimal?
+  /// Arbitrary key-value specs (material, care, country, etc.) as JSON object.
+  specsJson         Json?
   useOption         Boolean             @default(true) // when true, price is calculated based on product option
   canDelete         Boolean             @default(true)
   createdAt         BigInt
@@ -1249,9 +1523,15 @@ model Product {
   OrderItemViews   orderitemview[]   @relation("itemViewToProduct")
   ProductOptions   ProductOption[]
 
+  relatedOutgoing ProductRelatedProduct[] @relation("ProductRelatedSource")
+  relatedIncoming ProductRelatedProduct[] @relation("ProductRelatedTarget")
+
+  SavedProductCustomizations SavedProductCustomization[]
+
   // Composite indexes for common query patterns
   // For filtered product listings
   // For pagination
+  @@unique([storeId, slug])
   @@index([name])
   @@index([storeId])
   @@index([isFeatured])
@@ -1260,6 +1540,41 @@ model Product {
   @@index([updatedAt])
   @@index([storeId, status, isFeatured])
   @@index([storeId, updatedAt])
+}
+
+/// User-saved bag customizer state (one row per user per product).
+model SavedProductCustomization {
+  id            String @id @default(uuid())
+  userId        String
+  productId     String
+  /// Denormalized for listing without joining Product.
+  productName   String
+  /// Validated `BagCustomization` JSON (schemaVersion 1).
+  customization Json
+  createdAt     BigInt
+  updatedAt     BigInt
+
+  User    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  Product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId, updatedAt])
+  @@index([productId])
+  @@map("saved_product_customization")
+}
+
+/// Manual “related products” for PDP (outgoing edges from source product).
+model ProductRelatedProduct {
+  id              String  @id @default(uuid())
+  sourceProductId String
+  targetProductId String
+  sortOrder       Int     @default(0)
+  SourceProduct   Product @relation("ProductRelatedSource", fields: [sourceProductId], references: [id], onDelete: Cascade)
+  TargetProduct   Product @relation("ProductRelatedTarget", fields: [targetProductId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceProductId, targetProductId])
+  @@index([sourceProductId])
+  @@index([targetProductId])
 }
 
 //產品選項規格 across this store. it's used as template so that we don't need to re-enter option for each product.
@@ -1338,6 +1653,8 @@ model ProductOptionSelections {
   name      String // 大,小 | 半糖,少糖,無糖 | 冰,少冰,多冰
   price     Decimal @default(0)
   isDefault Boolean @default(false)
+  /// Swatch or variant image URL (luxury color/material pickers).
+  imageUrl  String?
   //quantity Int     @default(1)
 
   ProductOption ProductOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
@@ -1411,9 +1728,12 @@ model ProductAttribute {
   orderMaxQuantity         Int     @default(0)
   disableBuyButton         Boolean @default(false)
   weight                   Decimal @default(0)
+  /// Depth/length in cm (first dimension in L×H×W style listings).
+  length                   Decimal @default(0)
+  /// Height in cm (second dimension in L×H×W).
   height                   Decimal @default(0)
+  /// Width in cm (third dimension in L×H×W).
   width                    Decimal @default(0)
-  availableStartDate       BigInt?
   availableEndDate         BigInt?
   mfgPartNumber            String?
 
@@ -1474,6 +1794,12 @@ model StoreOrder {
   shippingAddress  String  @default("")
   shippingCost     Decimal @default(0)
   shippingStatus   Int     @default(10)
+
+  /// D2C: `ship` | `pickup`
+  shopFulfillmentType  String  @default("ship")
+  shopPickupLocationId String?
+  /// Staff marks pickup ready (epoch ms).
+  shopPickupReadyAt    BigInt?
 
   orderStatus Int @default(10)
 
@@ -1541,6 +1867,9 @@ model OrderItem {
   unitDiscount Decimal @default(0)
   unitPrice    Decimal
 
+  // Personalization/Customization data (for customizable products like bags)
+  customizationData String? // JSON string storing customization details (color, initials, pattern, etc.)
+
   Order   StoreOrder @relation("itemToStoreOrder", fields: [orderId], references: [id], onDelete: Cascade)
   Product Product    @relation("itemToProduct", fields: [productId], references: [id])
 
@@ -1567,38 +1896,64 @@ model OrderNote {
 // ============================================================================
 
 model FaqCategory {
-  id        String @id @default(uuid())
-  localeId  String
+  id        String  @id @default(uuid())
   storeId   String
-  name      String
   sortOrder Int
-  FAQ       Faq[]
+  published Boolean @default(false)
+  createdOn BigInt
+  updatedOn BigInt
 
-  Store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  Store   Store               @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  locales FaqCategoryLocale[]
+  FAQ     Faq[]
 
   @@index([storeId])
   @@index([sortOrder])
-  @@index([name])
+  @@index([storeId, sortOrder])
+}
+
+model FaqCategoryLocale {
+  id         String @id @default(uuid())
+  categoryId String
+  localeId   String
+  name       String
+
+  FaqCategory FaqCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, localeId])
+  @@index([categoryId])
   @@index([localeId])
-  @@index([storeId, localeId, sortOrder])
 }
 
 model Faq {
   id         String  @id @default(uuid())
   categoryId String
-  question   String
-  answer     String
   sortOrder  Int
   published  Boolean @default(false)
+  createdOn  BigInt
+  updatedOn  BigInt
 
   FaqCategory FaqCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  locales     FaqLocale[]
 
-  // Composite indexes for common query patterns
-  // For filtered and sorted FAQ listings
   @@index([categoryId])
   @@index([sortOrder])
   @@index([published])
   @@index([categoryId, published, sortOrder])
+}
+
+model FaqLocale {
+  id       String @id @default(uuid())
+  faqId    String
+  localeId String
+  question String
+  answer   String
+
+  Faq Faq @relation(fields: [faqId], references: [id], onDelete: Cascade)
+
+  @@unique([faqId, localeId])
+  @@index([faqId])
+  @@index([localeId])
 }
 
 // ============================================================================
@@ -1606,16 +1961,28 @@ model Faq {
 // ============================================================================
 
 model SystemMessage {
-  id        String  @id @default(uuid())
-  localeId  String  @unique
-  published Boolean @default(false)
-  message   String
+  id        String                @id @default(uuid())
+  name      String?
+  published Boolean               @default(false)
   createdOn BigInt
-  Locale    Locale  @relation(fields: [localeId], references: [id])
+  updatedOn BigInt
+  locales   SystemMessageLocale[]
 
-  @@index([localeId])
   @@index([createdOn])
   @@index([published])
+}
+
+model SystemMessageLocale {
+  id            String        @id @default(uuid())
+  messageId     String
+  localeId      String
+  message       String
+  systemMessage SystemMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  locale        Locale        @relation(fields: [localeId], references: [id])
+
+  @@unique([messageId, localeId])
+  @@index([messageId])
+  @@index([localeId])
 }
 
 model MessageQueue {
@@ -1690,6 +2057,9 @@ model MessageTemplateLocalized {
   subject           String // Subject/title for the notification
   body              String // Template body with variable placeholders
   isActive          Boolean         @default(true)
+  translationStatus String          @default("draft") // draft, reviewed, approved
+  sourceLocaleId    String? // Source locale when copied from another locale
+  lastTranslatedAt  BigInt? // Epoch milliseconds of last localization edit
   Locale            Locale          @relation(fields: [localeId], references: [id], onDelete: Cascade)
   MessageTemplate   MessageTemplate @relation(fields: [messageTemplateId], references: [id], onDelete: Cascade)
 
@@ -1697,6 +2067,7 @@ model MessageTemplateLocalized {
   @@index([localeId])
   @@index([messageTemplateId])
   @@index([isActive])
+  @@index([messageTemplateId, isActive])
 }
 
 model EmailQueue {

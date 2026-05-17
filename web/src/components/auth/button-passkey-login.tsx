@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { analytics } from "@/lib/analytics";
 import { authClient } from "@/lib/auth-client";
 import { clientLogger } from "@/lib/client-logger";
+import { getPostSignInRedirect } from "@/lib/liff-return-path";
 import { useI18n } from "@/providers/i18n-provider";
 import { toastError } from "../toaster";
 import { Button } from "../ui/button";
@@ -35,8 +36,7 @@ const PasskeyLoginButton = ({
 					description,
 				});
 			} else {
-				router.push(callbackUrl);
-				//onSuccess()
+				router.push(getPostSignInRedirect(callbackUrl));
 			}
 		} catch (error) {
 			clientLogger.error(error as Error, {

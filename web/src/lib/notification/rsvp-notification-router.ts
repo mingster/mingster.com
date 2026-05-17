@@ -5,16 +5,31 @@
  * to customers or stores according to business logic.
  */
 
+import {
+	getNotificationT,
+	type NotificationT,
+} from "@/lib/notification/notification-i18n";
 import { sqlClient } from "@/lib/prismadb";
 import { NotificationService } from "./notification-service";
+import { PreferenceManager } from "./preference-manager";
 import logger from "@/lib/logger";
-import { RsvpStatus } from "@/types/enum";
+import type { NotificationChannel, NotificationPriority } from "./types";
+import { MemberRole, RsvpStatus } from "@/types/enum";
 import {
 	epochToDate,
 	getDateInTz,
-	getTimezoneOffsetForDate,
+	getOffsetHours,
 } from "@/utils/datetime-utils";
 import { format } from "date-fns";
+import QRCode from "qrcode";
+import type {
+	LineReminderCardData,
+	LineReservationCardData,
+} from "@/lib/notification/channels/line-channel";
+import { getRsvpConversationMessage } from "@/lib/reservation/conversation-utils";
+import { TemplateEngine } from "./template-engine";
+import { buildLifecycleTemplateKey } from "./template-registry";
+import { buildReservationLifecyclePayload } from "./payload-mappers/reservation-lifecycle-payload";
 
 export type RsvpEventType =
 	| "created"
@@ -25,10 +40,14 @@ export type RsvpEventType =
 	| "confirmed_by_customer"
 	| "status_changed"
 	| "payment_received"
+	| "ready_to_confirm"
 	| "ready"
+	| "checked_in"
 	| "completed"
 	| "no_show"
-	| "unpaid_order_created";
+	| "unpaid_order_created"
+	| "reminder"
+	| "customer_confirm_required";
 
 export interface RsvpNotificationContext {
 	rsvpId: string;
@@ -51,14 +70,546 @@ export interface RsvpNotificationContext {
 	message?: string | null;
 	refundAmount?: number | null;
 	refundCurrency?: string | null;
+	/** Payment amount for created reservation (e.g. total cost). */
+	paymentAmount?: number | null;
+	/** Currency code for payment amount (e.g. "twd", "TWD"). */
+	paymentCurrency?: string | null;
 	actionUrl?: string | null;
+	/** Order ID for unpaid-order-created; payment URL will be /checkout/{orderId}. */
+	orderId?: string | null;
+	/** Locale for notification subject/message (en, tw, jp). Defaults to "en". */
+	locale?: "en" | "tw" | "jp";
+	/** 8-digit check-in code for staff (shown to customer in ready/reminder). */
+	checkInCode?: string | null;
+	/** When true, `handleCreated` skips staff notification (e.g. combined with customer-only branch). */
+	skipStoreStaffOnCreated?: boolean;
+	/** When true, send `reservation.created` lifecycle notification to the customer (store-admin booking with payment due). */
+	notifyCustomerReservationCreated?: boolean;
+}
+
+/** Supported notification locales; used so each recipient gets message in their locale. */
+export type NotificationLocale = "en" | "tw" | "jp";
+
+/** Store staff roles that receive RSVP notifications (subset of MemberRole) */
+const STORE_STAFF_ROLES: readonly (typeof MemberRole)[keyof typeof MemberRole][] =
+	[MemberRole.owner, MemberRole.storeAdmin, MemberRole.staff];
+
+/** Icon prefix for all staff notification subjects (reservation/clipboard) */
+const STAFF_NOTIFICATION_SUBJECT_ICON = "📋 ";
+
+type FlexEventRecipient = "staff" | "customer";
+
+interface ReservationFlexKeys {
+	tagKey: string;
+	buttonKey: string;
+	altKey: string;
+}
+
+/** Per-event LINE Flex keys (tag, button, alt). Returns null to use defaults
+ * (no tag, default button). */
+function getReservationFlexKeys(
+	eventType: RsvpEventType,
+	recipient: FlexEventRecipient,
+	status?: number,
+): ReservationFlexKeys | null {
+	if (eventType === "status_changed") {
+		if (status === RsvpStatus.ReadyToConfirm) {
+			return recipient === "staff"
+				? {
+						tagKey: "line_flex_tag_payment_received",
+						buttonKey: "line_flex_btn_confirm_reservation",
+						altKey: "line_flex_alt_payment_received",
+					}
+				: {
+						tagKey: "line_flex_tag_awaiting_confirmation",
+						buttonKey: "line_flex_btn_view_reservation",
+						altKey: "line_flex_alt_awaiting_confirmation",
+					};
+		}
+
+		if (status === RsvpStatus.Ready) {
+			return {
+				tagKey: "line_flex_tag_ready",
+				buttonKey: "line_flex_btn_check_in",
+				altKey: "line_flex_alt_reservation_ready",
+			};
+		}
+
+		if (status === RsvpStatus.CheckedIn) {
+			return recipient === "staff"
+				? {
+						tagKey: "line_flex_tag_checked_in",
+						buttonKey: "line_flex_btn_view_reservation",
+						altKey: "line_flex_alt_customer_checked_in",
+					}
+				: {
+						tagKey: "line_flex_tag_checked_in",
+						buttonKey: "line_flex_btn_view_reservation",
+						altKey: "line_flex_alt_you_checked_in",
+					};
+		}
+
+		return null;
+	}
+
+	const both = (
+		tag: string,
+		btn: string,
+		alt: string,
+	): ReservationFlexKeys => ({
+		tagKey: tag,
+		buttonKey: btn,
+		altKey: alt,
+	});
+
+	const map: Partial<
+		Record<
+			RsvpEventType,
+			Partial<Record<FlexEventRecipient, ReservationFlexKeys>> & {
+				both?: ReservationFlexKeys;
+			}
+		>
+	> = {
+		created: {
+			staff: both(
+				"line_flex_tag_updated",
+				"line_flex_btn_view_reservation",
+				"line_flex_alt_reservation_updated",
+			),
+		},
+		updated: {
+			both: both(
+				"line_flex_tag_updated",
+				"line_flex_btn_view_reservation",
+				"line_flex_alt_reservation_updated",
+			),
+		},
+		cancelled: {
+			both: both(
+				"line_flex_tag_cancelled",
+				"line_flex_btn_view_history",
+				"line_flex_alt_reservation_cancelled",
+			),
+		},
+		deleted: {
+			staff: both(
+				"line_flex_tag_deleted",
+				"line_flex_btn_view_history",
+				"line_flex_alt_reservation_deleted",
+			),
+		},
+		confirmed_by_store: {
+			customer: both(
+				"line_flex_tag_confirmed",
+				"line_flex_btn_view_reservation",
+				"line_flex_alt_reservation_confirmed",
+			),
+		},
+		confirmed_by_customer: {
+			staff: both(
+				"line_flex_tag_customer_confirmed",
+				"line_flex_btn_view_reservation",
+				"line_flex_alt_customer_confirmed",
+			),
+		},
+		payment_received: {
+			staff: both(
+				"line_flex_tag_payment_received",
+				"line_flex_btn_view_reservation",
+				"line_flex_alt_payment_received",
+			),
+		},
+		ready: {
+			customer: both(
+				"line_flex_tag_ready",
+				"line_flex_btn_check_in",
+				"line_flex_alt_reservation_ready",
+			),
+		},
+		completed: {
+			customer: both(
+				"line_flex_tag_completed",
+				"line_flex_btn_view_history",
+				"line_flex_alt_reservation_completed",
+			),
+		},
+		no_show: {
+			staff: both(
+				"line_flex_tag_no_show",
+				"line_flex_btn_view_history",
+				"line_flex_alt_no_show",
+			),
+		},
+		unpaid_order_created: {
+			customer: both(
+				"line_flex_tag_payment_required",
+				"line_flex_btn_complete_payment",
+				"line_flex_alt_payment_required",
+			),
+		},
+		reminder: {
+			staff: both(
+				"line_flex_tag_reminder",
+				"line_flex_btn_view_reservation",
+				"line_flex_alt_reminder_staff",
+			),
+		},
+		customer_confirm_required: {
+			customer: both(
+				"line_flex_tag_customer_confirm_required",
+				"line_flex_btn_confirm_reservation",
+				"line_flex_alt_customer_confirm_required",
+			),
+		},
+	};
+	const entry = map[eventType];
+	if (!entry) return null;
+	const keys = entry[recipient] ?? entry.both ?? null;
+	return keys;
 }
 
 export class RsvpNotificationRouter {
 	private notificationService: NotificationService;
+	private preferenceManager: PreferenceManager;
+	private templateEngine: TemplateEngine;
 
 	constructor() {
 		this.notificationService = new NotificationService();
+		this.preferenceManager = new PreferenceManager();
+		this.templateEngine = new TemplateEngine();
+	}
+
+	/**
+	 * Get user IDs of store staff (owner, storeAdmin, staff) for the store's organization
+	 * who should receive store notifications. Excludes service staff with receiveStoreNotifications false.
+	 * Store owner is always included. Returns empty array if store or organization not found.
+	 */
+	private async getStoreStaffUserIds(storeId: string): Promise<string[]> {
+		const store = await sqlClient.store.findUnique({
+			where: { id: storeId },
+			select: { organizationId: true, ownerId: true },
+		});
+		if (!store?.organizationId) {
+			return store?.ownerId ? [store.ownerId] : [];
+		}
+		const members = await sqlClient.member.findMany({
+			where: {
+				organizationId: store.organizationId,
+				role: { in: [...STORE_STAFF_ROLES] },
+			},
+			select: { userId: true },
+		});
+		let userIds = [...new Set(members.map((m) => m.userId))];
+		if (userIds.length === 0 && store.ownerId) {
+			userIds.push(store.ownerId);
+		}
+		const optedOut = await sqlClient.serviceStaff.findMany({
+			where: {
+				storeId,
+				receiveStoreNotifications: false,
+				isDeleted: false,
+			},
+			select: { userId: true },
+		});
+		const optedOutSet = new Set(optedOut.map((s) => s.userId));
+		return userIds.filter((id) => id === store.ownerId || !optedOutSet.has(id));
+	}
+
+	/** Normalize User.locale to supported notification locale; default "en". */
+	private static normalizeLocale(
+		locale: string | null | undefined,
+	): NotificationLocale {
+		if (locale === "tw" || locale === "jp") return locale;
+		return "en";
+	}
+
+	/**
+	 * Get store staff user IDs with each recipient's locale for per-recipient localized messages.
+	 */
+	private async getStoreStaffWithLocales(
+		storeId: string,
+	): Promise<Array<{ userId: string; locale: NotificationLocale }>> {
+		const userIds = await this.getStoreStaffUserIds(storeId);
+		if (userIds.length === 0) return [];
+		const users = await sqlClient.user.findMany({
+			where: { id: { in: userIds } },
+			select: { id: true, locale: true },
+		});
+		const localeByUserId = new Map(
+			users.map((u) => [
+				u.id,
+				RsvpNotificationRouter.normalizeLocale(u.locale),
+			]),
+		);
+		return userIds.map((userId) => ({
+			userId,
+			locale: localeByUserId.get(userId) ?? "en",
+		}));
+	}
+
+	/**
+	 * Get a user's preferred locale for notifications; default "en".
+	 */
+	private async getUserLocale(userId: string): Promise<NotificationLocale> {
+		const user = await sqlClient.user.findUnique({
+			where: { id: userId },
+			select: { locale: true },
+		});
+		return RsvpNotificationRouter.normalizeLocale(user?.locale ?? null);
+	}
+
+	private async getStoreName(storeId: string): Promise<string> {
+		const store = await sqlClient.store.findUnique({
+			where: { id: storeId },
+			select: { name: true },
+		});
+		return store?.name ?? "";
+	}
+
+	private async renderLifecycleTemplateMessage(input: {
+		context: RsvpNotificationContext;
+		locale: NotificationLocale;
+		event:
+			| "created"
+			| "updated"
+			| "cancelled"
+			| "deleted"
+			| "confirmed_by_store"
+			| "confirmed_by_customer"
+			| "payment_received"
+			| "ready_to_confirm"
+			| "ready"
+			| "checked_in"
+			| "completed"
+			| "no_show"
+			| "unpaid_order_created"
+			| "reminder"
+			| "customer_confirm_required";
+		recipient: "customer" | "staff";
+		fallbackSubject: string;
+		fallbackMessage: string;
+	}): Promise<{ subject: string; message: string }> {
+		const templateName = buildLifecycleTemplateKey({
+			domain: "reservation",
+			event: input.event,
+			recipient: input.recipient,
+			channel: "email",
+		});
+
+		const template = await sqlClient.messageTemplate.findFirst({
+			where: {
+				name: templateName,
+			},
+			select: { id: true },
+		});
+		if (!template) {
+			return {
+				subject: input.fallbackSubject,
+				message: input.fallbackMessage,
+			};
+		}
+
+		let orderData:
+			| import("./payload-mappers/reservation-lifecycle-payload").ReservationLifecycleOrderData
+			| null = null;
+		if (input.context.orderId) {
+			const order = await sqlClient.storeOrder.findUnique({
+				where: { id: input.context.orderId },
+				select: {
+					orderNum: true,
+					createdAt: true,
+					updatedAt: true,
+					orderTotal: true,
+					currency: true,
+				},
+			});
+			if (order) {
+				orderData = {
+					orderNumber: order.orderNum,
+					createdOn: order.createdAt,
+					updatedAt: order.updatedAt,
+					total: `${order.orderTotal} ${order.currency.toUpperCase()}`,
+				};
+			}
+		}
+
+		const payload = buildReservationLifecyclePayload({
+			context: input.context,
+			locale: input.locale,
+			storeName: await this.getStoreName(input.context.storeId),
+			order: orderData,
+		});
+
+		const rendered = await this.templateEngine.render(
+			template.id,
+			input.locale,
+			payload,
+			{ storeId: input.context.storeId, channel: "email" },
+		);
+
+		return {
+			subject: rendered.subject || input.fallbackSubject,
+			message: rendered.body || input.fallbackMessage,
+		};
+	}
+
+	/**
+	 * Send notification to all store staff; each recipient receives subject/message and LINE Flex in their locale.
+	 * When lineFlexPayloadOrBuilder is provided, LINE channel uses payload type "reservation" (reservation Flex).
+	 * Pass a function to build LINE Flex per staff so each receives the message in his/her locale.
+	 */
+	private async notifyStoreStaff(
+		context: RsvpNotificationContext,
+		buildMessage: (
+			locale: NotificationLocale,
+		) => Promise<{ subject: string; message: string }>,
+		actionUrl: string,
+		priority: NotificationPriority,
+		lineFlexPayloadOrBuilder?:
+			| string
+			| null
+			| ((
+					locale: NotificationLocale,
+					subjectForTag: string,
+			  ) => Promise<string | null>),
+	): Promise<void> {
+		const staffWithLocales = await this.getStoreStaffWithLocales(
+			context.storeId,
+		);
+		for (const { userId: recipientId, locale } of staffWithLocales) {
+			try {
+				const { subject, message } = await buildMessage(locale);
+				const emailSubject = `${STAFF_NOTIFICATION_SUBJECT_ICON}${subject}`;
+
+				const lineFlexPayload =
+					typeof lineFlexPayloadOrBuilder === "function"
+						? await lineFlexPayloadOrBuilder(locale, emailSubject)
+						: lineFlexPayloadOrBuilder;
+
+				const channels = await this.getRsvpNotificationChannels(
+					context.storeId,
+					recipientId,
+				);
+
+				await this.notificationService.createNotification({
+					senderId: context.customerId || context.storeOwnerId || recipientId,
+					recipientId,
+					storeId: context.storeId,
+					subject: `${STAFF_NOTIFICATION_SUBJECT_ICON}${subject}`,
+					message,
+					notificationType: "reservation",
+					actionUrl,
+					priority,
+					channels,
+					...(lineFlexPayload != null && lineFlexPayload !== ""
+						? { lineFlexPayload }
+						: {}),
+				});
+			} catch (err: unknown) {
+				logger.warn("Failed to send RSVP notification to store staff", {
+					metadata: {
+						storeId: context.storeId,
+						recipientId,
+						rsvpId: context.rsvpId,
+						error: err instanceof Error ? err.message : String(err),
+					},
+					tags: ["rsvp", "notification", "store-staff", "warning"],
+				});
+			}
+		}
+	}
+
+	/**
+	 * Get notification channels from store's and recipient's notification preferences.
+	 * - Onsite: always included.
+	 * - Email: included only if store default preferences (NotificationPreferences userId=null) have emailEnabled !== false, then filtered by user preferences.
+	 * - Plugin channels: included if store has NotificationChannelConfig with enabled: true, then filtered by user preferences.
+	 */
+	private async getRsvpNotificationChannels(
+		storeId: string,
+		recipientId: string | null | undefined,
+	): Promise<NotificationChannel[]> {
+		const pluginChannels: NotificationChannel[] = [
+			"line",
+			"push",
+			"sms",
+			"telegram",
+			"whatsapp",
+			"wechat",
+		];
+
+		const [storeConfigs, storeDefaultPrefs, systemSettings] = await Promise.all(
+			[
+				sqlClient.notificationChannelConfig.findMany({
+					where: {
+						storeId,
+						channel: { in: pluginChannels },
+					},
+					select: { channel: true, enabled: true },
+				}),
+				sqlClient.notificationPreferences.findFirst({
+					where: { storeId, userId: null },
+					select: { emailEnabled: true },
+				}),
+				sqlClient.systemNotificationSettings.findFirst({
+					select: { emailEnabled: true },
+				}),
+			],
+		);
+
+		// Onsite always; email only when system allows and store default preferences allow (no record or emailEnabled !== false)
+		const channels: NotificationChannel[] = ["onsite"];
+		const systemEmailAllowed = systemSettings?.emailEnabled !== false;
+		const storeDefaultEmailAllowed = storeDefaultPrefs?.emailEnabled !== false;
+		if (systemEmailAllowed && storeDefaultEmailAllowed) {
+			channels.push("email");
+		}
+
+		for (const ch of pluginChannels) {
+			const config = storeConfigs.find((c) => c.channel === ch);
+			if (config?.enabled) {
+				channels.push(ch);
+			}
+		}
+
+		let result = channels;
+		if (recipientId) {
+			result = await this.filterChannelsByRecipientPreferences(
+				channels,
+				recipientId,
+				storeId,
+			);
+		}
+
+		return result;
+	}
+
+	/**
+	 * Filter channels based on recipient's notification preferences
+	 */
+	private async filterChannelsByRecipientPreferences(
+		channels: NotificationChannel[],
+		recipientId: string,
+		storeId: string,
+	): Promise<NotificationChannel[]> {
+		const userPreferences = await this.preferenceManager.getUserPreferences(
+			recipientId,
+			storeId,
+		);
+
+		// Filter channels based on user preferences
+		// "onsite" is always allowed
+		const allowedChannels = channels.filter((channel) => {
+			if (channel === "onsite") {
+				return true; // Onsite is always allowed
+			}
+
+			// Map channel to preference key
+			const preferenceKey = `${channel}Enabled` as keyof typeof userPreferences;
+			return userPreferences[preferenceKey] !== false;
+		});
+
+		return allowedChannels;
 	}
 
 	/**
@@ -67,6 +618,7 @@ export class RsvpNotificationRouter {
 	 */
 	async routeNotification(context: RsvpNotificationContext): Promise<void> {
 		try {
+			/*
 			logger.info("Routing RSVP notification", {
 				metadata: {
 					rsvpId: context.rsvpId,
@@ -76,6 +628,7 @@ export class RsvpNotificationRouter {
 				},
 				tags: ["rsvp", "notification", "router"],
 			});
+			*/
 
 			// Get store information if not provided
 			if (!context.storeName || !context.storeOwnerId) {
@@ -91,6 +644,12 @@ export class RsvpNotificationRouter {
 					context.storeName = store.name;
 					context.storeOwnerId = store.ownerId;
 				}
+			}
+
+			// Ensure RSVP message is available for notification templates.
+			// When callers do not pass message directly, resolve from conversation.
+			if (!context.message) {
+				context.message = await this.resolveConversationMessage(context.rsvpId);
 			}
 
 			// Route based on event type
@@ -131,6 +690,12 @@ export class RsvpNotificationRouter {
 				case "unpaid_order_created":
 					await this.handleUnpaidOrderCreated(context);
 					break;
+				case "reminder":
+					await this.handleReminder(context);
+					break;
+				case "customer_confirm_required":
+					await this.handleCustomerConfirmRequired(context);
+					break;
 				default:
 					logger.warn("Unknown RSVP event type", {
 						metadata: {
@@ -154,68 +719,213 @@ export class RsvpNotificationRouter {
 		}
 	}
 
+	private async resolveConversationMessage(
+		rsvpId: string,
+	): Promise<string | null> {
+		const conversationMessage =
+			await sqlClient.rsvpConversationMessage.findFirst({
+				where: {
+					rsvpId,
+					deletedAt: null,
+				},
+				select: {
+					message: true,
+				},
+				orderBy: {
+					createdAt: "asc",
+				},
+			});
+
+		const message = conversationMessage?.message?.trim();
+		return message || null;
+	}
+
 	/**
+	 * Notify store staff about the new reservation
 	 * Handle reservation created event
-	 * Notify: Store (new reservation request)
+	 * Notify: Store staff (new reservation request)
 	 */
 	private async handleCreated(context: RsvpNotificationContext) {
-		if (!context.storeOwnerId) {
-			return;
+		if (!context.skipStoreStaffOnCreated) {
+			await this.notifyStoreStaff(
+				context,
+				async (locale) => {
+					const t = getNotificationT(locale);
+					const rsvpTimeFormatted = await this.formatRsvpTime(
+						context.rsvpTime,
+						context.storeId,
+						t,
+					);
+
+					const customerName =
+						context.customerName ||
+						context.customerEmail ||
+						t("notif_anonymous");
+
+					const subject = t("notif_subject_new_reservation_request", {
+						customerName,
+					});
+
+					const message = this.buildCreatedMessage(
+						context,
+						rsvpTimeFormatted,
+						t,
+					);
+					return this.renderLifecycleTemplateMessage({
+						context,
+						locale,
+						event: "created",
+						recipient: "staff",
+						fallbackSubject: subject,
+						fallbackMessage: message,
+					});
+				},
+				context.actionUrl || `/storeAdmin/${context.storeId}/rsvp/history`,
+				1,
+				(locale, subjectForTag) =>
+					this.buildReservationLineFlexPayload(context, locale, {
+						eventType: "created",
+						recipient: "staff",
+						subjectForTag,
+					}),
+			);
 		}
 
-		const rsvpTimeFormatted = await this.formatRsvpTime(
-			context.rsvpTime,
-			context.storeId,
-		);
-		const customerName =
-			context.customerName || context.customerEmail || "Anonymous";
-
-		const subject = `New Reservation Request: ${customerName}`;
-		const message = this.buildCreatedMessage(context, rsvpTimeFormatted);
-
-		await this.notificationService.createNotification({
-			senderId: context.customerId || context.storeOwnerId, // Use customer if available, otherwise store owner
-			recipientId: context.storeOwnerId,
-			storeId: context.storeId,
-			subject,
-			message,
-			notificationType: "reservation",
-			actionUrl: context.actionUrl || `/storeAdmin/${context.storeId}/rsvp`,
-			priority: 1, // High priority for new reservations
-			channels: ["onsite", "email"],
-		});
+		if (context.notifyCustomerReservationCreated && context.customerId) {
+			const locale =
+				context.locale ?? (await this.getUserLocale(context.customerId));
+			const t = getNotificationT(locale);
+			const rsvpTimeFormatted = await this.formatRsvpTime(
+				context.rsvpTime,
+				context.storeId,
+				t,
+			);
+			const fallbackSubject = t("reservation_created");
+			const fallbackMessage = this.buildCreatedMessage(
+				context,
+				rsvpTimeFormatted,
+				t,
+			);
+			const rendered = await this.renderLifecycleTemplateMessage({
+				context,
+				locale,
+				event: "created",
+				recipient: "customer",
+				fallbackSubject,
+				fallbackMessage,
+			});
+			const channels = await this.getRsvpNotificationChannels(
+				context.storeId,
+				context.customerId,
+			);
+			const customerLineFlexPayload =
+				await this.buildReservationLineFlexPayload(context, locale, {
+					eventType: "created",
+					recipient: "customer",
+					subjectForTag: rendered.subject,
+				});
+			await this.notificationService.createNotification({
+				senderId: context.storeOwnerId ?? context.customerId,
+				recipientId: context.customerId,
+				storeId: context.storeId,
+				subject: rendered.subject,
+				message: rendered.message,
+				notificationType: "reservation",
+				actionUrl: `/s/${context.storeId}/reservation/history`,
+				lineFlexPayload: customerLineFlexPayload,
+				priority: 1,
+				channels,
+			});
+		}
 	}
 
 	/**
 	 * Handle reservation updated event
-	 * Notify: Store (reservation modified)
+	 * Notify: Store staff (reservation modified)
+	 * Notify: Customer (if logged in)
 	 */
 	private async handleUpdated(context: RsvpNotificationContext) {
-		if (!context.storeOwnerId) {
-			return;
-		}
-
-		const rsvpTimeFormatted = await this.formatRsvpTime(
-			context.rsvpTime,
-			context.storeId,
+		await this.notifyStoreStaff(
+			context,
+			async (locale) => {
+				const t = getNotificationT(locale);
+				const rsvpTimeFormatted = await this.formatRsvpTime(
+					context.rsvpTime,
+					context.storeId,
+					t,
+				);
+				const customerName =
+					context.customerName || context.customerEmail || t("notif_anonymous");
+				const subject = t("notif_subject_reservation_updated", {
+					customerName,
+				});
+				const message = this.buildUpdatedMessage(context, rsvpTimeFormatted, t);
+				return this.renderLifecycleTemplateMessage({
+					context,
+					locale,
+					event: "updated",
+					recipient: "staff",
+					fallbackSubject: subject,
+					fallbackMessage: message,
+				});
+			},
+			context.actionUrl || `/storeAdmin/${context.storeId}/rsvp`,
+			1,
+			(locale, subjectForTag) =>
+				this.buildReservationLineFlexPayload(context, locale, {
+					eventType: "updated",
+					recipient: "staff",
+					subjectForTag,
+				}),
 		);
-		const customerName =
-			context.customerName || context.customerEmail || "Anonymous";
 
-		const subject = `Reservation Updated: ${customerName}`;
-		const message = this.buildUpdatedMessage(context, rsvpTimeFormatted);
-
-		await this.notificationService.createNotification({
-			senderId: context.customerId || context.storeOwnerId,
-			recipientId: context.storeOwnerId,
-			storeId: context.storeId,
-			subject,
-			message,
-			notificationType: "reservation",
-			actionUrl: context.actionUrl || `/storeAdmin/${context.storeId}/rsvp`,
-			priority: 1,
-			channels: ["onsite", "email"],
-		});
+		// Notify customer (if logged in) in their locale
+		if (context.customerId) {
+			const locale =
+				context.locale ?? (await this.getUserLocale(context.customerId));
+			const t = getNotificationT(locale);
+			const rsvpTimeFormatted = await this.formatRsvpTime(
+				context.rsvpTime,
+				context.storeId,
+				t,
+			);
+			const customerSubject = t("notif_subject_your_reservation_updated");
+			const customerMessage = this.buildUpdatedMessage(
+				context,
+				rsvpTimeFormatted,
+				t,
+			);
+			const rendered = await this.renderLifecycleTemplateMessage({
+				context,
+				locale,
+				event: "updated",
+				recipient: "customer",
+				fallbackSubject: customerSubject,
+				fallbackMessage: customerMessage,
+			});
+			const channels = await this.getRsvpNotificationChannels(
+				context.storeId,
+				context.customerId,
+			);
+			const customerLineFlexPayload =
+				await this.buildReservationLineFlexPayload(context, locale, {
+					eventType: "updated",
+					recipient: "customer",
+					subjectForTag: customerSubject,
+				});
+			await this.notificationService.createNotification({
+				senderId: context.storeOwnerId || context.customerId,
+				recipientId: context.customerId,
+				storeId: context.storeId,
+				subject: rendered.subject,
+				message: rendered.message,
+				notificationType: "reservation",
+				actionUrl: `/s/${context.storeId}/reservation/history`,
+				lineFlexPayload: customerLineFlexPayload,
+				priority: 1,
+				channels,
+			});
+		}
 	}
 
 	/**
@@ -224,85 +934,133 @@ export class RsvpNotificationRouter {
 	 * Notify: Customer (if logged in or has contact info)
 	 */
 	private async handleCancelled(context: RsvpNotificationContext) {
+		const locale =
+			context.locale ??
+			(context.customerId
+				? await this.getUserLocale(context.customerId)
+				: "en");
+		const t = getNotificationT(locale);
 		const rsvpTimeFormatted = await this.formatRsvpTime(
 			context.rsvpTime,
 			context.storeId,
+			t,
 		);
 		const customerName =
-			context.customerName || context.customerEmail || "Anonymous";
+			context.customerName || context.customerEmail || t("notif_anonymous");
 
-		// Notify store
-		if (context.storeOwnerId) {
-			const storeSubject = `Reservation Cancelled: ${customerName}`;
-			const storeMessage = this.buildCancelledMessage(
-				context,
-				rsvpTimeFormatted,
-				true, // isStore
-			);
+		// Notify store staff (each in their own locale)
+		await this.notifyStoreStaff(
+			context,
+			async (staffLocale) => {
+				const staffT = getNotificationT(staffLocale);
+				const staffRsvpTimeFormatted = await this.formatRsvpTime(
+					context.rsvpTime,
+					context.storeId,
+					staffT,
+				);
 
-			await this.notificationService.createNotification({
-				senderId: context.customerId || context.storeOwnerId,
-				recipientId: context.storeOwnerId,
-				storeId: context.storeId,
-				subject: storeSubject,
-				message: storeMessage,
-				notificationType: "reservation",
-				actionUrl: context.actionUrl || `/storeAdmin/${context.storeId}/rsvp`,
-				priority: 0,
-				channels: ["onsite", "email"],
-			});
-		}
+				const subject = staffT("notif_subject_reservation_cancelled");
+				const message = this.buildCancelledMessage(
+					context,
+					staffRsvpTimeFormatted,
+					true,
+					staffT,
+				);
+				return this.renderLifecycleTemplateMessage({
+					context,
+					locale: staffLocale,
+					event: "cancelled",
+					recipient: "staff",
+					fallbackSubject: subject,
+					fallbackMessage: message,
+				});
+			},
+			context.actionUrl || `/storeAdmin/${context.storeId}/rsvp`,
+			0,
+			(locale, subjectForTag) =>
+				this.buildReservationLineFlexPayload(context, locale, {
+					eventType: "cancelled",
+					recipient: "staff",
+					subjectForTag,
+				}),
+		);
 
 		// Notify customer (if logged in)
 		if (context.customerId) {
-			const customerSubject = "Your Reservation Has Been Cancelled";
+			const customerSubject = t("notif_subject_your_reservation_cancelled");
 			const customerMessage = this.buildCancelledMessage(
 				context,
 				rsvpTimeFormatted,
 				false, // isStore
+				t,
 			);
+			const rendered = await this.renderLifecycleTemplateMessage({
+				context,
+				locale,
+				event: "cancelled",
+				recipient: "customer",
+				fallbackSubject: customerSubject,
+				fallbackMessage: customerMessage,
+			});
 
+			const channels = await this.getRsvpNotificationChannels(
+				context.storeId,
+				context.customerId,
+			);
+			const customerLineFlexPayload =
+				await this.buildReservationLineFlexPayload(context, locale, {
+					eventType: "cancelled",
+					recipient: "customer",
+					subjectForTag: customerSubject,
+				});
 			await this.notificationService.createNotification({
 				senderId: context.storeOwnerId || context.customerId,
 				recipientId: context.customerId,
 				storeId: context.storeId,
-				subject: customerSubject,
-				message: customerMessage,
+				subject: rendered.subject,
+				message: rendered.message,
 				notificationType: "reservation",
-				actionUrl:
-					context.actionUrl || `/s/${context.storeId}/reservation/history`,
+				actionUrl: `/s/${context.storeId}/reservation/history`,
+				lineFlexPayload: customerLineFlexPayload,
 				priority: 0,
-				channels: ["onsite", "email"],
+				channels,
 			});
 		}
 	}
 
 	/**
 	 * Handle reservation deleted event
-	 * Notify: Store (reservation deleted)
+	 * Notify: Store staff (reservation deleted)
 	 */
 	private async handleDeleted(context: RsvpNotificationContext) {
-		if (!context.storeOwnerId) {
-			return;
-		}
-
-		const customerName =
-			context.customerName || context.customerEmail || "Anonymous";
-
-		const subject = `Reservation Deleted: ${customerName}`;
-		const message = this.buildDeletedMessage(context);
-
-		await this.notificationService.createNotification({
-			senderId: context.customerId || context.storeOwnerId,
-			recipientId: context.storeOwnerId,
-			storeId: context.storeId,
-			subject,
-			message,
-			notificationType: "reservation",
-			actionUrl: context.actionUrl || `/storeAdmin/${context.storeId}/rsvp`,
-			priority: 0,
-			channels: ["onsite"],
-		});
+		await this.notifyStoreStaff(
+			context,
+			async (locale) => {
+				const t = getNotificationT(locale);
+				const customerName =
+					context.customerName || context.customerEmail || t("notif_anonymous");
+				const subject = t("notif_subject_reservation_deleted", {
+					customerName,
+				});
+				const message = this.buildDeletedMessage(context, t);
+				return this.renderLifecycleTemplateMessage({
+					context,
+					locale,
+					event: "deleted",
+					recipient: "staff",
+					fallbackSubject: subject,
+					fallbackMessage: message,
+				});
+			},
+			context.actionUrl || `/storeAdmin/${context.storeId}/rsvp`,
+			0,
+			(locale, subjectForTag) =>
+				this.buildReservationLineFlexPayload(context, locale, {
+					eventType: "deleted",
+					recipient: "staff",
+					subjectForTag,
+				}),
+		);
 	}
 
 	/**
@@ -314,125 +1072,297 @@ export class RsvpNotificationRouter {
 			return; // Can't notify anonymous customers
 		}
 
+		const locale =
+			context.locale ?? (await this.getUserLocale(context.customerId));
+		const t = getNotificationT(locale);
 		const rsvpTimeFormatted = await this.formatRsvpTime(
 			context.rsvpTime,
 			context.storeId,
+			t,
 		);
 
-		const subject = "Your Reservation Has Been Confirmed";
+		const subject = t("notif_subject_your_reservation_confirmed");
 		const message = this.buildConfirmedMessage(
 			context,
 			rsvpTimeFormatted,
 			true, // confirmedByStore
+			t,
 		);
+		const rendered = await this.renderLifecycleTemplateMessage({
+			context,
+			locale,
+			event: "confirmed_by_store",
+			recipient: "customer",
+			fallbackSubject: subject,
+			fallbackMessage: message,
+		});
 
+		const channels = await this.getRsvpNotificationChannels(
+			context.storeId,
+			context.customerId,
+		);
+		const lineFlexPayload = await this.buildReservationLineFlexPayload(
+			context,
+			locale,
+			{
+				eventType: "confirmed_by_store",
+				recipient: "customer",
+				subjectForTag: subject,
+			},
+		);
 		await this.notificationService.createNotification({
 			senderId: context.storeOwnerId || context.customerId,
 			recipientId: context.customerId,
 			storeId: context.storeId,
-			subject,
-			message,
+			subject: rendered.subject,
+			message: rendered.message,
 			notificationType: "reservation",
-			actionUrl:
-				context.actionUrl || `/s/${context.storeId}/reservation/history`,
+			actionUrl: `/s/${context.storeId}/reservation/history`,
+			lineFlexPayload,
 			priority: 1,
-			channels: ["onsite", "email"],
+			channels,
 		});
 	}
 
 	/**
 	 * Handle customer confirmation event
-	 * Notify: Store (customer confirmed reservation)
+	 * Notify: Store staff (customer confirmed reservation)
 	 */
 	private async handleConfirmedByCustomer(context: RsvpNotificationContext) {
-		if (!context.storeOwnerId) {
-			return;
-		}
-
-		const customerName =
-			context.customerName || context.customerEmail || "Anonymous";
-
-		const rsvpTimeFormatted = await this.formatRsvpTime(
-			context.rsvpTime,
-			context.storeId,
-		);
-
-		const subject = `Customer Confirmed Reservation: ${customerName}`;
-		const message = this.buildConfirmedMessage(
+		await this.notifyStoreStaff(
 			context,
-			rsvpTimeFormatted,
-			false, // confirmedByStore
+			async (locale) => {
+				const t = getNotificationT(locale);
+				const customerName =
+					context.customerName || context.customerEmail || t("notif_anonymous");
+				const rsvpTimeFormatted = await this.formatRsvpTime(
+					context.rsvpTime,
+					context.storeId,
+					t,
+				);
+				const subject = t("notif_subject_customer_confirmed_reservation", {
+					customerName,
+				});
+				const message = this.buildConfirmedMessage(
+					context,
+					rsvpTimeFormatted,
+					false,
+					t,
+				);
+				return this.renderLifecycleTemplateMessage({
+					context,
+					locale,
+					event: "confirmed_by_customer",
+					recipient: "staff",
+					fallbackSubject: subject,
+					fallbackMessage: message,
+				});
+			},
+			context.actionUrl || `/storeAdmin/${context.storeId}/rsvp`,
+			0,
+			(locale, subjectForTag) =>
+				this.buildReservationLineFlexPayload(context, locale, {
+					eventType: "confirmed_by_customer",
+					recipient: "staff",
+					subjectForTag,
+				}),
 		);
-
-		await this.notificationService.createNotification({
-			senderId: context.customerId || context.storeOwnerId,
-			recipientId: context.storeOwnerId,
-			storeId: context.storeId,
-			subject,
-			message,
-			notificationType: "reservation",
-			actionUrl: context.actionUrl || `/storeAdmin/${context.storeId}/rsvp`,
-			priority: 0,
-			channels: ["onsite", "email"],
-		});
 	}
 
 	/**
 	 * Handle status changed event
-	 * Notify based on status transition
+	 * Notify based on status transition (store staff and/or customer)
 	 */
 	private async handleStatusChanged(context: RsvpNotificationContext) {
 		if (!context.status || context.previousStatus === undefined) {
 			return;
 		}
 
-		// Handle specific status transitions
-		if (context.status === RsvpStatus.ReadyToConfirm) {
-			// Notify store when reservation is ready to confirm
-			if (context.storeOwnerId) {
-				const customerName =
-					context.customerName || context.customerEmail || "Anonymous";
+		const previousStatus = context.previousStatus;
+		const status = context.status;
 
-				const subject = `Reservation Ready to Confirm: ${customerName}`;
-				const message = await this.buildStatusChangedMessage(
+		const customerLocale =
+			context.locale ??
+			(context.customerId
+				? await this.getUserLocale(context.customerId)
+				: "en");
+		const t = getNotificationT(customerLocale);
+
+		if (status === RsvpStatus.ReadyToConfirm) {
+			// Notify store staff when reservation is ready to confirm (each in their locale)
+			await this.notifyStoreStaff(
+				context,
+				async (locale) => {
+					const staffT = getNotificationT(locale);
+					const customerName =
+						context.customerName ||
+						context.customerEmail ||
+						staffT("notif_anonymous");
+					const subject = staffT("notif_subject_reservation_ready_to_confirm", {
+						customerName,
+					});
+					const message = await this.buildStatusChangedMessage(
+						context,
+						previousStatus,
+						status,
+						staffT,
+					);
+					return this.renderLifecycleTemplateMessage({
+						context,
+						locale,
+						event: "ready_to_confirm",
+						recipient: "staff",
+						fallbackSubject: subject,
+						fallbackMessage: message,
+					});
+				},
+				context.actionUrl || `/storeAdmin/${context.storeId}/rsvp`,
+				1,
+				(locale, subjectForTag) =>
+					this.buildReservationLineFlexPayload(context, locale, {
+						eventType: "status_changed",
+						recipient: "staff",
+						status: RsvpStatus.ReadyToConfirm,
+						subjectForTag,
+					}),
+			);
+			// ReadyToConfirm: staff only (no customer notification)
+		} else if (status === RsvpStatus.Ready) {
+			// Notify customer when reservation is ready (in customer's locale)
+			if (context.customerId) {
+				const fallbackSubject = t("notif_subject_your_reservation_ready");
+				const fallbackMessage = await this.buildStatusChangedMessage(
 					context,
-					context.previousStatus,
-					context.status,
+					previousStatus,
+					status,
+					t,
+				);
+				const rendered = await this.renderLifecycleTemplateMessage({
+					context,
+					locale: customerLocale,
+					event: "ready",
+					recipient: "customer",
+					fallbackSubject,
+					fallbackMessage,
+				});
+
+				const channels = await this.getRsvpNotificationChannels(
+					context.storeId,
+					context.customerId,
 				);
 
-				await this.notificationService.createNotification({
-					senderId: context.customerId || context.storeOwnerId,
-					recipientId: context.storeOwnerId,
-					storeId: context.storeId,
-					subject,
-					message,
-					notificationType: "reservation",
-					actionUrl: context.actionUrl || `/storeAdmin/${context.storeId}/rsvp`,
-					priority: 1,
-					channels: ["onsite", "email"],
-				});
-			}
-		} else if (context.status === RsvpStatus.Ready) {
-			// Notify customer when reservation is ready
-			if (context.customerId) {
-				const subject = "Your Reservation is Ready";
-				const message = await this.buildStatusChangedMessage(
+				const htmlBodyFooter = await this.buildCheckInHtmlFooter(
+					context.checkInCode,
+					t,
+				);
+
+				const lineFlexPayload = await this.buildReservationLineFlexPayload(
 					context,
-					context.previousStatus,
-					context.status,
+					context.locale ?? customerLocale,
+					{
+						eventType: "status_changed",
+						recipient: "customer",
+						status: RsvpStatus.Ready,
+						subjectForTag: rendered.subject,
+					},
 				);
 
 				await this.notificationService.createNotification({
 					senderId: context.storeOwnerId || context.customerId,
 					recipientId: context.customerId,
 					storeId: context.storeId,
-					subject,
-					message,
+					subject: rendered.subject,
+					message: rendered.message,
 					notificationType: "reservation",
-					actionUrl:
-						context.actionUrl || `/s/${context.storeId}/reservation/history`,
+					actionUrl: `/s/${context.storeId}/reservation/history`,
+					htmlBodyFooter,
+					lineFlexPayload,
 					priority: 1,
-					channels: ["onsite", "email"],
+					channels,
+				});
+			}
+		} else if (status === RsvpStatus.CheckedIn) {
+			// Notify store staff: customer has arrived (each in their locale)
+			await this.notifyStoreStaff(
+				context,
+				async (locale) => {
+					const staffT = getNotificationT(locale);
+					const customerName =
+						context.customerName ||
+						context.customerEmail ||
+						staffT("notif_anonymous");
+					const subject = staffT("notif_subject_customer_checked_in", {
+						customerName,
+					});
+					const message = await this.buildStatusChangedMessage(
+						context,
+						previousStatus,
+						status,
+						staffT,
+					);
+					return this.renderLifecycleTemplateMessage({
+						context,
+						locale,
+						event: "checked_in",
+						recipient: "staff",
+						fallbackSubject: subject,
+						fallbackMessage: message,
+					});
+				},
+				context.actionUrl || `/storeAdmin/${context.storeId}/rsvp`,
+				1,
+				(locale, subjectForTag) =>
+					this.buildReservationLineFlexPayload(context, locale, {
+						eventType: "status_changed",
+						recipient: "staff",
+						status: RsvpStatus.CheckedIn,
+						subjectForTag,
+					}),
+			);
+
+			// Notify customer: you're checked in (in customer's locale)
+			if (context.customerId) {
+				const fallbackSubject = t("notif_subject_your_reservation_checked_in");
+				const fallbackMessage = await this.buildStatusChangedMessage(
+					context,
+					previousStatus,
+					status,
+					t,
+				);
+				const rendered = await this.renderLifecycleTemplateMessage({
+					context,
+					locale: customerLocale,
+					event: "checked_in",
+					recipient: "customer",
+					fallbackSubject,
+					fallbackMessage,
+				});
+				const channels = await this.getRsvpNotificationChannels(
+					context.storeId,
+					context.customerId,
+				);
+				const customerLineFlexPayload =
+					await this.buildReservationLineFlexPayload(
+						context,
+						context.locale ?? customerLocale,
+						{
+							eventType: "status_changed",
+							recipient: "customer",
+							status: RsvpStatus.CheckedIn,
+							subjectForTag: rendered.subject,
+						},
+					);
+				await this.notificationService.createNotification({
+					senderId: context.storeOwnerId || context.customerId,
+					recipientId: context.customerId,
+					storeId: context.storeId,
+					subject: rendered.subject,
+					message: rendered.message,
+					notificationType: "reservation",
+					actionUrl: `/s/${context.storeId}/reservation/history`,
+					lineFlexPayload: customerLineFlexPayload,
+					priority: 1,
+					channels,
 				});
 			}
 		}
@@ -440,30 +1370,37 @@ export class RsvpNotificationRouter {
 
 	/**
 	 * Handle payment received event
-	 * Notify: Store (payment received for reservation)
+	 * Notify: Store staff (payment received for reservation)
 	 */
 	private async handlePaymentReceived(context: RsvpNotificationContext) {
-		if (!context.storeOwnerId) {
-			return;
-		}
-
-		const customerName =
-			context.customerName || context.customerEmail || "Anonymous";
-
-		const subject = `Payment Received for Reservation: ${customerName}`;
-		const message = await this.buildPaymentReceivedMessage(context);
-
-		await this.notificationService.createNotification({
-			senderId: context.customerId || context.storeOwnerId,
-			recipientId: context.storeOwnerId,
-			storeId: context.storeId,
-			subject,
-			message,
-			notificationType: "reservation",
-			actionUrl: context.actionUrl || `/storeAdmin/${context.storeId}/rsvp`,
-			priority: 1,
-			channels: ["onsite", "email"],
-		});
+		await this.notifyStoreStaff(
+			context,
+			async (locale) => {
+				const t = getNotificationT(locale);
+				const customerName =
+					context.customerName || context.customerEmail || t("notif_anonymous");
+				const subject = t("notif_subject_payment_received_for_reservation", {
+					customerName,
+				});
+				const message = await this.buildPaymentReceivedMessage(context, t);
+				return this.renderLifecycleTemplateMessage({
+					context,
+					locale,
+					event: "payment_received",
+					recipient: "staff",
+					fallbackSubject: subject,
+					fallbackMessage: message,
+				});
+			},
+			context.actionUrl || `/storeAdmin/${context.storeId}/rsvp/history`,
+			1,
+			(locale, subjectForTag) =>
+				this.buildReservationLineFlexPayload(context, locale, {
+					eventType: "payment_received",
+					recipient: "staff",
+					subjectForTag,
+				}),
+		);
 	}
 
 	/**
@@ -475,20 +1412,53 @@ export class RsvpNotificationRouter {
 			return;
 		}
 
-		const subject = "Your Reservation is Ready";
-		const message = await this.buildReadyMessage(context);
+		const locale =
+			context.locale ?? (await this.getUserLocale(context.customerId));
+		const t = getNotificationT(locale);
+		const subject = t("notif_subject_your_reservation_ready");
+		let message = await this.buildReadyMessage(context, t);
+		const rendered = await this.renderLifecycleTemplateMessage({
+			context,
+			locale,
+			event: "ready",
+			recipient: "customer",
+			fallbackSubject: subject,
+			fallbackMessage: message,
+		});
+		//message += `\n\n${this.buildCheckInMessageFooter(context.storeId, context.rsvpId, t)}`;
+
+		const channels = await this.getRsvpNotificationChannels(
+			context.storeId,
+			context.customerId,
+		);
+
+		const htmlBodyFooter = await this.buildCheckInHtmlFooter(
+			context.checkInCode,
+			t,
+		);
+
+		const lineFlexPayload = await this.buildReservationLineFlexPayload(
+			context,
+			locale,
+			{
+				eventType: "ready",
+				recipient: "customer",
+				subjectForTag: subject,
+			},
+		);
 
 		await this.notificationService.createNotification({
 			senderId: context.storeOwnerId || context.customerId,
 			recipientId: context.customerId,
 			storeId: context.storeId,
-			subject,
-			message,
+			subject: rendered.subject,
+			message: rendered.message,
 			notificationType: "reservation",
-			actionUrl:
-				context.actionUrl || `/s/${context.storeId}/reservation/history`,
+			actionUrl: `/s/${context.storeId}/reservation/history`,
+			htmlBodyFooter,
+			lineFlexPayload,
 			priority: 1,
-			channels: ["onsite", "email"],
+			channels,
 		});
 	}
 
@@ -501,139 +1471,358 @@ export class RsvpNotificationRouter {
 			return;
 		}
 
-		const subject = "Your Reservation Has Been Completed";
-		const message = await this.buildCompletedMessage(context);
+		const locale =
+			context.locale ?? (await this.getUserLocale(context.customerId));
+		const t = getNotificationT(locale);
+		const subject = t("notif_subject_your_reservation_completed");
+		const message = await this.buildCompletedMessage(context, t);
+		const rendered = await this.renderLifecycleTemplateMessage({
+			context,
+			locale,
+			event: "completed",
+			recipient: "customer",
+			fallbackSubject: subject,
+			fallbackMessage: message,
+		});
 
+		const channels = await this.getRsvpNotificationChannels(
+			context.storeId,
+			context.customerId,
+		);
+		const lineFlexPayload = await this.buildReservationLineFlexPayload(
+			context,
+			locale,
+			{
+				eventType: "completed",
+				recipient: "customer",
+				subjectForTag: subject,
+			},
+		);
 		await this.notificationService.createNotification({
 			senderId: context.storeOwnerId || context.customerId,
 			recipientId: context.customerId,
 			storeId: context.storeId,
-			subject,
-			message,
+			subject: rendered.subject,
+			message: rendered.message,
 			notificationType: "reservation",
-			actionUrl:
-				context.actionUrl || `/s/${context.storeId}/reservation/history`,
+			actionUrl: `/s/${context.storeId}/reservation/history`,
+			lineFlexPayload,
 			priority: 0,
-			channels: ["onsite", "email"],
+			channels,
 		});
 	}
 
 	/**
 	 * Handle no-show event
-	 * Notify: Store (customer no-show)
+	 * Notify: Store staff (customer no-show)
 	 */
 	private async handleNoShow(context: RsvpNotificationContext) {
-		if (!context.storeOwnerId) {
-			return;
+		await this.notifyStoreStaff(
+			context,
+			async (locale) => {
+				const t = getNotificationT(locale);
+				const customerName =
+					context.customerName || context.customerEmail || t("notif_anonymous");
+				const subject = t("notif_subject_no_show", { customerName });
+				const message = await this.buildNoShowMessage(context, t);
+				return this.renderLifecycleTemplateMessage({
+					context,
+					locale,
+					event: "no_show",
+					recipient: "staff",
+					fallbackSubject: subject,
+					fallbackMessage: message,
+				});
+			},
+			context.actionUrl || `/storeAdmin/${context.storeId}/rsvp`,
+			0,
+			(locale, subjectForTag) =>
+				this.buildReservationLineFlexPayload(context, locale, {
+					eventType: "no_show",
+					recipient: "staff",
+					subjectForTag,
+				}),
+		);
+	}
+
+	/**
+	 * Footer line for customer notifications: "Your check-in code: XXXXXXXX" (staff enter this at store admin).
+	 * When checkInCode is missing (legacy), returns empty string.
+	 */
+	private buildCheckInMessageFooter(
+		checkInCode: string | null | undefined,
+		t: NotificationT,
+	): string {
+		if (!checkInCode?.trim()) return "";
+		const label = t("notif_msg_checkin_code");
+		return `${label}: ${checkInCode.trim()}`;
+	}
+
+	/**
+	 * HTML footer for email: check-in code and optional QR (encoding the code for staff to scan).
+	 * Used in ready notifications so the customer can show the code or QR to staff.
+	 */
+	private async buildCheckInHtmlFooter(
+		checkInCode: string | null | undefined,
+		t: NotificationT,
+	): Promise<string> {
+		if (!checkInCode?.trim()) return "";
+		const code = checkInCode.trim();
+		const labelRaw = t("notif_msg_checkin_code");
+		const labelEsc = labelRaw
+			.replace(/&/g, "&amp;")
+			.replace(/</g, "&lt;")
+			.replace(/>/g, "&gt;")
+			.replace(/"/g, "&quot;");
+		let dataUrl: string;
+		try {
+			dataUrl = await QRCode.toDataURL(code, {
+				width: 200,
+				margin: 2,
+				color: { dark: "#000000", light: "#ffffff" },
+			});
+		} catch (err) {
+			logger.warn("Failed to generate check-in code QR", {
+				metadata: {
+					error: err instanceof Error ? err.message : String(err),
+				},
+				tags: ["notification", "qr", "ready"],
+			});
+			return `<div style="margin-top:24px;">
+  <p style="font-size:14px;color:#374151;margin-bottom:8px;">${labelEsc}: <strong>${code}</strong></p>
+</div>`;
 		}
-
-		const customerName =
-			context.customerName || context.customerEmail || "Anonymous";
-
-		const subject = `No-Show: ${customerName}`;
-		const message = await this.buildNoShowMessage(context);
-
-		await this.notificationService.createNotification({
-			senderId: context.storeOwnerId,
-			recipientId: context.storeOwnerId,
-			storeId: context.storeId,
-			subject,
-			message,
-			notificationType: "reservation",
-			actionUrl: context.actionUrl || `/storeAdmin/${context.storeId}/rsvp`,
-			priority: 0,
-			channels: ["onsite", "email"],
-		});
+		return `<div style="margin-top:24px;">
+  <p style="font-size:14px;color:#374151;margin-bottom:8px;">${labelEsc}: <strong>${code}</strong></p>
+  <img src="${dataUrl}" alt="${labelEsc}" width="200" height="200" style="display:inline-block;" />
+</div>`;
 	}
 
 	// Message builders
+
+	// this create a message to store staff about the newly paid and ready reservation
 	private buildCreatedMessage(
 		context: RsvpNotificationContext,
 		rsvpTimeFormatted: string,
+		t: NotificationT,
 	): string {
 		const parts: string[] = [];
-		parts.push(`New reservation request received:`);
-		parts.push(``);
+		//parts.push(t("notif_msg_new_reservation_intro")); //收到新的預約請求：
 		parts.push(
-			`Customer: ${context.customerName || context.customerEmail || "Anonymous"}`,
+			`${t("notif_label_customer")}: ${context.customerName || context.customerEmail || t("notif_anonymous")}`,
 		);
 		if (context.facilityName) {
-			parts.push(`Facility: ${context.facilityName}`);
+			parts.push(`${t("notif_label_facility")}: ${context.facilityName}`);
 		}
 		if (context.serviceStaffName) {
-			parts.push(`Service Staff: ${context.serviceStaffName}`);
+			parts.push(
+				`${t("notif_label_service_staff")}: ${context.serviceStaffName}`,
+			);
 		}
-		parts.push(`Date/Time: ${rsvpTimeFormatted}`);
+		parts.push(`${t("notif_label_date_time")}: ${rsvpTimeFormatted}`);
 		parts.push(
-			`Party Size: ${context.numOfAdult || 1} adult(s), ${context.numOfChild || 0} child(ren)`,
+			t("notif_party_size", {
+				adults: context.numOfAdult || 1,
+				children: context.numOfChild || 0,
+			}),
 		);
+		if (context.paymentAmount != null && context.paymentAmount > 0) {
+			const currency = (context.paymentCurrency ?? "TWD").toUpperCase();
+			parts.push(
+				`${t("notif_label_payment_amount")}: ${context.paymentAmount} ${currency}`,
+			);
+		}
 		if (context.message) {
-			parts.push(`Message: ${context.message}`);
+			parts.push(`${t("notif_label_message")}: ${context.message}`);
 		}
 		return parts.join("\n");
 	}
 
+	/**
+	 * Build LINE reservation Flex card data from RSVP context (for payload type "reservation").
+	 * When options provided, sets tagLabel and bookAgainLabel from per-event i18n keys.
+	 */
+	private async buildLineReservationCardData(
+		context: RsvpNotificationContext,
+		t: NotificationT,
+		options?: {
+			eventType: RsvpEventType;
+			recipient: FlexEventRecipient;
+			status?: number;
+			/** When set, used as card tagLabel so LINE tag matches email subject. */
+			subjectForTag?: string;
+		},
+	): Promise<LineReservationCardData> {
+		const { dateStr, timeStr } = await this.formatRsvpDateAndTime(
+			context.rsvpTime ?? null,
+			context.storeId,
+			t,
+		);
+
+		const partySizeStr = t("rsvp_num_of_guest_val", {
+			adult: context.numOfAdult ?? 0,
+			child: context.numOfChild ?? 0,
+		});
+
+		const flexKeys = options
+			? getReservationFlexKeys(
+					options.eventType,
+					options.recipient,
+					options.status ?? context.status ?? undefined,
+				)
+			: null;
+
+		const recipient = options?.recipient ?? "customer";
+
+		// Use email subject as tag when provided so LINE card tag matches email subject
+		const tagLabel =
+			options?.subjectForTag ??
+			(flexKeys ? t(flexKeys.tagKey) : undefined) ??
+			(recipient === "staff" ? t("line_flex_tag_updated") : undefined);
+
+		// Payment/refund amount value for LINE card (label from i18n in channel)
+		const paymentAmountValue =
+			context.paymentAmount != null && context.paymentAmount > 0
+				? `${context.paymentAmount} ${(context.paymentCurrency ?? "TWD").toUpperCase()}`
+				: undefined;
+		const refundAmountValue =
+			context.refundAmount != null && context.refundAmount > 0
+				? `${context.refundAmount} ${(context.refundCurrency ?? "TWD").toUpperCase()}`
+				: undefined;
+
+		return {
+			storeName: context.storeName ?? t("notif_store"),
+			storeAddress: undefined,
+			heroImageUrl: undefined,
+			tagLabel,
+			reservationName:
+				context.customerName ?? context.customerEmail ?? t("notif_anonymous"),
+			diningDate: dateStr,
+			diningTime: timeStr,
+			partySize: partySizeStr,
+			facilityName: context.facilityName ?? undefined,
+			paymentAmountValue,
+			refundAmountValue,
+			bookAgainLabel: flexKeys ? t(flexKeys.buttonKey) : undefined,
+			// Staff do not get the footer "book again" / action button
+			showFooterButton: recipient !== "staff",
+		};
+	}
+
+	/**
+	 * Build LINE Flex payload JSON string for reservation card (type "reservation").
+	 * Uses the given locale for card labels. When options provided, includes per-event altText.
+	 */
+	private async buildReservationLineFlexPayload(
+		context: RsvpNotificationContext,
+		locale: string,
+		options?: {
+			eventType: RsvpEventType;
+			recipient: FlexEventRecipient;
+			status?: number;
+			/** When set, used as card tagLabel so LINE tag matches email subject. */
+			subjectForTag?: string;
+		},
+	): Promise<string> {
+		const t = getNotificationT(locale as NotificationLocale);
+		const card = await this.buildLineReservationCardData(context, t, options);
+		const flexKeys = options
+			? getReservationFlexKeys(
+					options.eventType,
+					options.recipient,
+					options.status ?? context.status ?? undefined,
+				)
+			: null;
+		const altText = flexKeys ? t(flexKeys.altKey) : undefined;
+
+		const isCustomerReady =
+			options?.recipient === "customer" &&
+			(options?.eventType === "ready" ||
+				(options?.eventType === "status_changed" &&
+					(options?.status === RsvpStatus.Ready ||
+						context.status === RsvpStatus.Ready)));
+
+		const checkInCode = isCustomerReady
+			? (context.checkInCode ?? undefined)
+			: undefined;
+
+		return JSON.stringify({
+			type: "reservation",
+			data: card,
+			...(altText != null && altText !== "" ? { altText } : {}),
+			...(checkInCode != null && checkInCode !== "" ? { checkInCode } : {}),
+		});
+	}
+
+	// this create a message to store staff about the reservation updated
 	private buildUpdatedMessage(
 		context: RsvpNotificationContext,
 		rsvpTimeFormatted: string,
+		t: NotificationT,
 	): string {
 		const parts: string[] = [];
-		parts.push(`Reservation has been updated:`);
-		parts.push(``);
+		//parts.push(t("notif_msg_reservation_updated_intro"));
 		parts.push(
-			`Customer: ${context.customerName || context.customerEmail || "Anonymous"}`,
+			`${t("notif_label_customer")}: ${context.customerName || context.customerEmail || t("notif_anonymous")}`,
 		);
 		if (context.facilityName) {
-			parts.push(`Facility: ${context.facilityName}`);
+			parts.push(`${t("notif_label_facility")}: ${context.facilityName}`);
 		}
-		parts.push(`Date/Time: ${rsvpTimeFormatted}`);
+		parts.push(`${t("notif_label_date_time")}: ${rsvpTimeFormatted}`);
 		parts.push(
-			`Party Size: ${context.numOfAdult || 1} adult(s), ${context.numOfChild || 0} child(ren)`,
+			t("notif_party_size", {
+				adults: context.numOfAdult || 1,
+				children: context.numOfChild || 0,
+			}),
 		);
 		if (context.message) {
-			parts.push(`Message: ${context.message}`);
+			parts.push(`${t("notif_label_message")}: ${context.message}`);
 		}
 		return parts.join("\n");
 	}
 
+	// this create a message to store staff about the reservation cancelled
 	private buildCancelledMessage(
 		context: RsvpNotificationContext,
 		rsvpTimeFormatted: string,
 		isStore: boolean,
+		t: NotificationT,
 	): string {
 		const parts: string[] = [];
 		if (isStore) {
-			parts.push(`Reservation has been cancelled:`);
-			parts.push(``);
+			//parts.push(t("notif_msg_reservation_cancelled_intro"));	//預約已取消：
 			parts.push(
-				`Customer: ${context.customerName || context.customerEmail || "Anonymous"}`,
+				`${t("notif_label_customer")}: ${context.customerName || context.customerEmail || t("notif_anonymous")}`,
 			);
 		} else {
-			parts.push(`Your reservation has been cancelled:`);
-			parts.push(``);
-			parts.push(`Store: ${context.storeName || "Store"}`);
+			parts.push(t("notif_msg_your_reservation_cancelled_intro"));
+			parts.push(
+				`${t("notif_label_store")}: ${context.storeName || t("notif_store")}`,
+			);
 		}
 		if (context.facilityName) {
-			parts.push(`Facility: ${context.facilityName}`);
+			parts.push(`${t("notif_label_facility")}: ${context.facilityName}`);
 		}
-		parts.push(`Date/Time: ${rsvpTimeFormatted}`);
+		parts.push(`${t("notif_label_date_time")}: ${rsvpTimeFormatted}`);
 		if (context.refundAmount && context.refundAmount > 0) {
 			parts.push(
-				`Refund Amount: ${context.refundAmount} ${context.refundCurrency || ""}`,
+				`${t("notif_label_refund_amount")}: ${context.refundAmount} ${context.refundCurrency || ""}`,
 			);
 		}
 		return parts.join("\n");
 	}
 
-	private buildDeletedMessage(context: RsvpNotificationContext): string {
+	private buildDeletedMessage(
+		context: RsvpNotificationContext,
+		t: NotificationT,
+	): string {
 		const parts: string[] = [];
-		parts.push(`Reservation has been deleted:`);
-		parts.push(``);
+		//parts.push(t("notif_msg_reservation_deleted_intro"));	//預約已刪除：
 		parts.push(
-			`Customer: ${context.customerName || context.customerEmail || "Anonymous"}`,
+			`${t("notif_label_customer")}: ${context.customerName || context.customerEmail || t("notif_anonymous")}`,
 		);
 		if (context.facilityName) {
-			parts.push(`Facility: ${context.facilityName}`);
+			parts.push(`${t("notif_label_facility")}: ${context.facilityName}`);
 		}
 		return parts.join("\n");
 	}
@@ -642,150 +1831,179 @@ export class RsvpNotificationRouter {
 		context: RsvpNotificationContext,
 		rsvpTimeFormatted: string,
 		confirmedByStore: boolean,
+		t: NotificationT,
 	): string {
 		const parts: string[] = [];
 		if (confirmedByStore) {
-			parts.push(`Your reservation has been confirmed by the store:`);
-			parts.push(``);
-			parts.push(`Store: ${context.storeName || "Store"}`);
-		} else {
-			parts.push(`Customer has confirmed the reservation:`);
-			parts.push(``);
+			//parts.push(t("notif_msg_your_reservation_confirmed_by_store_intro"));	//店家已確認您的預約：
 			parts.push(
-				`Customer: ${context.customerName || context.customerEmail || "Anonymous"}`,
+				`${t("notif_label_store")}: ${context.storeName || t("notif_store")}`,
+			);
+		} else {
+			//parts.push(t("notif_msg_customer_confirmed_intro"));	//客戶已確認預約：
+			parts.push(
+				`${t("notif_label_customer")}: ${context.customerName || context.customerEmail || t("notif_anonymous")}`,
 			);
 		}
 		if (context.facilityName) {
-			parts.push(`Facility: ${context.facilityName}`);
+			parts.push(`${t("notif_label_facility")}: ${context.facilityName}`);
 		}
-		parts.push(`Date/Time: ${rsvpTimeFormatted}`);
+		parts.push(`${t("notif_label_date_time")}: ${rsvpTimeFormatted}`);
 		parts.push(
-			`Party Size: ${context.numOfAdult || 1} adult(s), ${context.numOfChild || 0} child(ren)`,
+			t("notif_party_size", {
+				adults: context.numOfAdult || 1,
+				children: context.numOfChild || 0,
+			}),
 		);
 		return parts.join("\n");
 	}
+
+	private static readonly STATUS_KEYS: Record<number, string> = {
+		[RsvpStatus.Pending]: "notif_status_pending",
+		[RsvpStatus.ReadyToConfirm]: "notif_status_ready_to_confirm",
+		[RsvpStatus.Ready]: "notif_status_ready",
+		[RsvpStatus.ConfirmedByCustomer]: "notif_status_confirmed_by_customer",
+		[RsvpStatus.CheckedIn]: "notif_status_checked_in",
+		[RsvpStatus.Completed]: "notif_status_completed",
+		[RsvpStatus.Cancelled]: "notif_status_cancelled",
+		[RsvpStatus.NoShow]: "notif_status_no_show",
+	};
 
 	private async buildStatusChangedMessage(
 		context: RsvpNotificationContext,
 		previousStatus: number,
 		newStatus: number,
+		t: NotificationT,
 	): Promise<string> {
-		const statusNames: Record<number, string> = {
-			[RsvpStatus.Pending]: "Pending",
-			[RsvpStatus.ReadyToConfirm]: "Ready to Confirm",
-			[RsvpStatus.Ready]: "Ready",
-			[RsvpStatus.Completed]: "Completed",
-			[RsvpStatus.Cancelled]: "Cancelled",
-			[RsvpStatus.NoShow]: "No Show",
-		};
-
 		const rsvpTimeFormatted = await this.formatRsvpTime(
 			context.rsvpTime,
 			context.storeId,
+			t,
 		);
 
 		const parts: string[] = [];
-		parts.push(`Reservation status has changed:`);
-		parts.push(``);
-		parts.push(`From: ${statusNames[previousStatus] || previousStatus}`);
-		parts.push(`To: ${statusNames[newStatus] || newStatus}`);
+		//parts.push(t("notif_msg_reservation_status_changed_intro")); //預約狀態已變更：
+		parts.push(
+			`${t("notif_label_from")}: ${t(RsvpNotificationRouter.STATUS_KEYS[previousStatus] ?? "notif_na")}`,
+		);
+		parts.push(
+			`${t("notif_label_to")}: ${t(RsvpNotificationRouter.STATUS_KEYS[newStatus] ?? "notif_na")}`,
+		);
 		if (context.facilityName) {
-			parts.push(`Facility: ${context.facilityName}`);
+			parts.push(`${t("notif_label_facility")}: ${context.facilityName}`);
 		}
-		parts.push(`Date/Time: ${rsvpTimeFormatted}`);
+		parts.push(`${t("notif_label_date_time")}: ${rsvpTimeFormatted}`);
 		return parts.join("\n");
 	}
 
 	private async buildPaymentReceivedMessage(
 		context: RsvpNotificationContext,
+		t: NotificationT,
 	): Promise<string> {
 		const rsvpTimeFormatted = await this.formatRsvpTime(
 			context.rsvpTime,
 			context.storeId,
+			t,
 		);
 
 		const parts: string[] = [];
-		parts.push(`Payment has been received for reservation:`);
-		parts.push(``);
+		//parts.push(t("notif_msg_payment_received_intro")); //已收到預約付款：
 		parts.push(
-			`Customer: ${context.customerName || context.customerEmail || "Anonymous"}`,
+			`${t("notif_label_customer")}: ${context.customerName || context.customerEmail || t("notif_anonymous")}`,
 		);
 		if (context.facilityName) {
-			parts.push(`Facility: ${context.facilityName}`);
+			parts.push(`${t("notif_label_facility")}: ${context.facilityName}`);
 		}
-		parts.push(`Date/Time: ${rsvpTimeFormatted}`);
+		parts.push(`${t("notif_label_date_time")}: ${rsvpTimeFormatted}`);
+		if (context.paymentAmount != null && context.paymentAmount > 0) {
+			const currency = (context.paymentCurrency ?? "TWD").toUpperCase();
+			parts.push(
+				`${t("notif_label_payment_amount")}: ${context.paymentAmount} ${currency}`,
+			);
+		}
+
 		return parts.join("\n");
 	}
 
 	private async buildReadyMessage(
 		context: RsvpNotificationContext,
+		t: NotificationT,
 	): Promise<string> {
 		const rsvpTimeFormatted = await this.formatRsvpTime(
 			context.rsvpTime,
 			context.storeId,
+			t,
 		);
 		const arriveTimeFormatted = context.arriveTime
-			? await this.formatRsvpTime(context.arriveTime, context.storeId)
+			? await this.formatRsvpTime(context.arriveTime, context.storeId, t)
 			: null;
 
 		const parts: string[] = [];
-		parts.push(`Your reservation is ready:`);
-		parts.push(``);
-		parts.push(`Store: ${context.storeName || "Store"}`);
+		//parts.push(t("notif_msg_your_reservation_ready_intro")); //您的預約已就緒：
+		parts.push(
+			`${t("notif_label_store")}: ${context.storeName || t("notif_store")}`,
+		);
 		if (context.facilityName) {
-			parts.push(`Facility: ${context.facilityName}`);
+			parts.push(`${t("notif_label_facility")}: ${context.facilityName}`);
 		}
-		parts.push(`Date/Time: ${rsvpTimeFormatted}`);
+		parts.push(`${t("notif_label_date_time")}: ${rsvpTimeFormatted}`);
 		if (arriveTimeFormatted) {
-			parts.push(`Arrival Time: ${arriveTimeFormatted}`);
+			parts.push(`${t("notif_label_arrival_time")}: ${arriveTimeFormatted}`);
 		}
 		return parts.join("\n");
 	}
 
 	private async buildCompletedMessage(
 		context: RsvpNotificationContext,
+		t: NotificationT,
 	): Promise<string> {
 		const rsvpTimeFormatted = await this.formatRsvpTime(
 			context.rsvpTime,
 			context.storeId,
+			t,
 		);
 
 		const parts: string[] = [];
-		parts.push(`Your reservation has been completed:`);
-		parts.push(``);
-		parts.push(`Store: ${context.storeName || "Store"}`);
+		//parts.push(t("notif_msg_your_reservation_completed_intro")); //您的預約已完成：
+		parts.push(
+			`${t("notif_label_store")}: ${context.storeName || t("notif_store")}`,
+		);
 		if (context.facilityName) {
-			parts.push(`Facility: ${context.facilityName}`);
+			parts.push(`${t("notif_label_facility")}: ${context.facilityName}`);
 		}
-		parts.push(`Date/Time: ${rsvpTimeFormatted}`);
+		parts.push(`${t("notif_label_date_time")}: ${rsvpTimeFormatted}`);
 		return parts.join("\n");
 	}
 
 	private async buildNoShowMessage(
 		context: RsvpNotificationContext,
+		t: NotificationT,
 	): Promise<string> {
 		const rsvpTimeFormatted = await this.formatRsvpTime(
 			context.rsvpTime,
 			context.storeId,
+			t,
 		);
 
 		const parts: string[] = [];
-		parts.push(`Customer did not show up for reservation:`);
-		parts.push(``);
+		//parts.push(t("notif_msg_customer_no_show_intro")); //預約未到：
 		parts.push(
-			`Customer: ${context.customerName || context.customerEmail || "Anonymous"}`,
+			`${t("notif_label_customer")}: ${context.customerName || context.customerEmail || t("notif_anonymous")}`,
 		);
 		if (context.facilityName) {
-			parts.push(`Facility: ${context.facilityName}`);
+			parts.push(`${t("notif_label_facility")}: ${context.facilityName}`);
 		}
-		parts.push(`Date/Time: ${rsvpTimeFormatted}`);
+		parts.push(`${t("notif_label_date_time")}: ${rsvpTimeFormatted}`);
 		return parts.join("\n");
 	}
 
 	/**
 	 * Handle unpaid order created event
 	 * Notify: Customer (unpaid order created for reservation)
-	 * Can notify logged-in customers (via onsite and email) or anonymous customers with name and phone (via onsite and SMS)
+	 * Can notify logged-in customers (via onsite and email) or anonymous customers with name and
+	 * phone (via onsite and SMS)
+	 *
+	 * triggered when store staff creates a reservation for cutsomer
 	 */
 	private async handleUnpaidOrderCreated(context: RsvpNotificationContext) {
 		// Check if we can notify: need customerId OR (name AND phone)
@@ -795,8 +2013,8 @@ export class RsvpNotificationRouter {
 		const hasNameAndPhone = Boolean(customerName && customerPhone);
 
 		if (!hasCustomerId && !hasNameAndPhone) {
-			// Can't notify without customerId or name+phone
-			logger.info(
+			// Can't notify without customerId or name+phone. this should not happen.
+			logger.warn(
 				"Skipping unpaid order notification: no customerId or name+phone",
 				{
 					metadata: {
@@ -811,40 +2029,73 @@ export class RsvpNotificationRouter {
 			return;
 		}
 
+		// Use customer's locale when we have customerId; otherwise context.locale or "en"
+		const locale =
+			hasCustomerId && context.customerId
+				? (context.locale ?? (await this.getUserLocale(context.customerId)))
+				: context.locale || "en";
+		const t = getNotificationT(locale);
 		const rsvpTimeFormatted = await this.formatRsvpTime(
 			context.rsvpTime,
 			context.storeId,
+			t,
 		);
 
-		const subject = "Payment Required for Your Reservation";
+		const subject = t("notif_subject_payment_required");
 
-		// Build payment URL - use actionUrl if provided, otherwise default to reservation history
+		// Build payment URL - /checkout/{orderId} when orderId present, else actionUrl or reservation history
 		// For anonymous users, include payment URL in the message for SMS
-		const paymentUrl = context.actionUrl
-			? context.actionUrl
-			: hasCustomerId
-				? `/s/${context.storeId}/reservation/history`
-				: null; // For anonymous users, payment URL will be included in SMS message
+		const paymentUrl =
+			context.orderId != null && context.orderId !== ""
+				? `/checkout/${context.orderId}`
+				: context.actionUrl
+					? context.actionUrl
+					: hasCustomerId
+						? `/s/${context.storeId}/reservation/history`
+						: null; // For anonymous users, payment URL will be included in SMS message
 
 		const message = await this.buildUnpaidOrderCreatedMessage(
 			context,
 			rsvpTimeFormatted,
 			// Include payment URL in message only for anonymous users (SMS)
 			hasCustomerId ? null : paymentUrl,
+			t,
 		);
 
-		// For logged-in customers, use standard notification flow (onsite and email)
+		// For logged-in customers, use standard notification flow (onsite and email) in their locale
 		if (hasCustomerId && context.customerId) {
+			const rendered = await this.renderLifecycleTemplateMessage({
+				context,
+				locale,
+				event: "unpaid_order_created",
+				recipient: "customer",
+				fallbackSubject: subject,
+				fallbackMessage: message,
+			});
+			const channels = await this.getRsvpNotificationChannels(
+				context.storeId,
+				context.customerId,
+			);
+			const lineFlexPayload = await this.buildReservationLineFlexPayload(
+				context,
+				locale,
+				{
+					eventType: "unpaid_order_created",
+					recipient: "customer",
+					subjectForTag: rendered.subject,
+				},
+			);
 			await this.notificationService.createNotification({
 				senderId: context.storeOwnerId || context.customerId || "",
 				recipientId: context.customerId,
 				storeId: context.storeId,
-				subject,
-				message,
+				subject: rendered.subject,
+				message: rendered.message,
 				notificationType: "reservation",
 				actionUrl: paymentUrl,
+				lineFlexPayload,
 				priority: 1, // High priority for payment notifications
-				channels: ["onsite", "email"],
+				channels,
 			});
 			return;
 		}
@@ -864,9 +2115,49 @@ export class RsvpNotificationRouter {
 				const isTaiwanNumber = /^\+?886/.test(normalizedPhone);
 				const isUSNumber = /^\+?1/.test(normalizedPhone);
 
+				//#region Send via Twilio SMS for US/Canada numbers
+				const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
+				if (!twilioPhoneNumber) {
+					logger.error(
+						"Failed to send SMS to anonymous customer: Twilio not configured",
+						{
+							metadata: {
+								rsvpId: context.rsvpId,
+								customerName,
+								customerPhone: normalizedPhone.replace(/\d(?=\d{4})/g, "*"),
+								storeId: context.storeId,
+								error: "TWILIO_PHONE_NUMBER environment variable is required",
+							},
+							tags: ["rsvp", "notification", "sms", "anonymous", "error"],
+						},
+					);
+				} else {
+					try {
+						const { twilioClient } = await import("@/lib/otp/twilio-client");
+						await twilioClient.messages.create({
+							body: smsMessage,
+							from: twilioPhoneNumber,
+							to: normalizedPhone,
+						});
+					} catch (error) {
+						logger.error("Failed to send SMS to anonymous customer (Twilio)", {
+							metadata: {
+								rsvpId: context.rsvpId,
+								customerName,
+								customerPhone: normalizedPhone.replace(/\d(?=\d{4})/g, "*"),
+								storeId: context.storeId,
+								error: error instanceof Error ? error.message : String(error),
+							},
+							tags: ["rsvp", "notification", "sms", "anonymous", "error"],
+						});
+					}
+				}
+				//#endregion
+
+				/*
 				if (isTaiwanNumber) {
 					// Send via Mitake SMS for Taiwan numbers
-					const { SmSend } = await import("@/lib/Mitake_SMS/sm-send");
+					const { SmSend } = await import("@/lib/otp/mitake-sm-send");
 					const result = await SmSend({
 						phoneNumber: normalizedPhone,
 						message: smsMessage,
@@ -899,7 +2190,7 @@ export class RsvpNotificationRouter {
 						});
 					}
 				} else if (isUSNumber) {
-					// Send via Twilio SMS for US/Canada numbers
+					//#region Send via Twilio SMS for US/Canada numbers
 					const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
 					if (!twilioPhoneNumber) {
 						logger.error(
@@ -917,7 +2208,7 @@ export class RsvpNotificationRouter {
 						);
 					} else {
 						try {
-							const { twilioClient } = await import("@/lib/twilio/client");
+							const { twilioClient } = await import("@/lib/otp/twilio-client");
 							const message = await twilioClient.messages.create({
 								body: smsMessage,
 								from: twilioPhoneNumber,
@@ -954,6 +2245,7 @@ export class RsvpNotificationRouter {
 							);
 						}
 					}
+					//#endregion
 				} else {
 					logger.warn("Unsupported phone number format for SMS", {
 						metadata: {
@@ -963,7 +2255,7 @@ export class RsvpNotificationRouter {
 						},
 						tags: ["rsvp", "notification", "sms", "anonymous", "warning"],
 					});
-				}
+				} */
 			} catch (error) {
 				logger.error("Error sending SMS to anonymous customer", {
 					metadata: {
@@ -978,22 +2270,45 @@ export class RsvpNotificationRouter {
 			}
 		}
 
-		// For onsite notifications for anonymous users, create notification for store owner
+		/*
+		// For onsite notifications for anonymous users, create notification for store owner in their locale
 		// This allows the store to see that an unpaid order was created for an anonymous customer
-		// and they can follow up if needed
 		if (context.storeOwnerId) {
-			const storeNotificationMessage = `Unpaid order created for anonymous customer:\n\n${message}\n\nCustomer: ${customerName}\nPhone: ${customerPhone ? customerPhone.replace(/\d(?=\d{4})/g, "*") : "N/A"}`;
+			const storeOwnerLocale = await this.getUserLocale(context.storeOwnerId);
+			const storeT = getNotificationT(storeOwnerLocale);
+			const storeRsvpTimeFormatted = await this.formatRsvpTime(
+				context.rsvpTime,
+				context.storeId,
+				storeT,
+			);
+			const storeMessage = await this.buildUnpaidOrderCreatedMessage(
+				context,
+				storeRsvpTimeFormatted,
+				null,
+				storeT,
+			);
+			const storeNotificationMessage = `${storeT("notif_msg_unpaid_order_anonymous_intro")}\n\n${storeMessage}\n\n${storeT("notif_label_customer")}: ${customerName ?? ""}\n${storeT("notif_label_phone")}: ${customerPhone ? customerPhone.replace(/\d(?=\d{4})/g, "*") : storeT("notif_na")}`;
 			try {
+				const channels = await this.getRsvpNotificationChannels(
+					context.storeId,
+					context.storeOwnerId,
+				);
+
 				await this.notificationService.createNotification({
 					senderId: context.storeOwnerId,
 					recipientId: context.storeOwnerId,
 					storeId: context.storeId,
-					subject: `Unpaid Order: ${customerName || "Anonymous Customer"}`,
+					subject: `${STAFF_NOTIFICATION_SUBJECT_ICON}${storeT(
+						"notif_subject_unpaid_order",
+						{
+							customerName: customerName || storeT("notif_anonymous"),
+						},
+					)}`,
 					message: storeNotificationMessage,
 					notificationType: "reservation",
 					actionUrl: `/storeAdmin/${context.storeId}/rsvp`,
 					priority: 1, // High priority
-					channels: ["onsite"], // Only onsite for store notifications
+					channels,
 				});
 			} catch (error) {
 				logger.warn("Failed to create onsite notification for store owner", {
@@ -1007,46 +2322,608 @@ export class RsvpNotificationRouter {
 				});
 			}
 		}
+			*/
 	}
 
+	//
 	private async buildUnpaidOrderCreatedMessage(
 		context: RsvpNotificationContext,
 		rsvpTimeFormatted: string,
-		paymentUrl?: string | null,
+		paymentUrl: string | null,
+		t: NotificationT,
 	): Promise<string> {
 		const parts: string[] = [];
-		parts.push(`Payment is required for your reservation:`);
-		parts.push(``);
-		parts.push(`Store: ${context.storeName || "Store"}`);
+		//parts.push(t("notif_msg_payment_required_intro"));	//預約付款：
+
+		parts.push(
+			`${t("notif_label_store")}: ${context.storeName || t("notif_store")}`,
+		);
 		if (context.facilityName) {
-			parts.push(`Facility: ${context.facilityName}`);
+			parts.push(`${t("notif_label_facility")}: ${context.facilityName}`);
 		}
 		if (context.serviceStaffName) {
-			parts.push(`Service Staff: ${context.serviceStaffName}`);
+			parts.push(
+				`${t("notif_label_service_staff")}: ${context.serviceStaffName}`,
+			);
 		}
-		parts.push(`Date/Time: ${rsvpTimeFormatted}`);
+		parts.push(`${t("notif_label_date_time")}: ${rsvpTimeFormatted}`);
 		parts.push(
-			`Party Size: ${context.numOfAdult || 1} adult(s), ${context.numOfChild || 0} child(ren)`,
+			t("notif_party_size", {
+				adults: context.numOfAdult || 1,
+				children: context.numOfChild || 0,
+			}),
 		);
-		parts.push(``);
-		parts.push(`Please complete payment to confirm your reservation.`);
+		parts.push(t("notif_msg_please_complete_payment"));
+
 		// Include payment URL if provided (for SMS messages to anonymous users)
 		if (paymentUrl) {
-			parts.push(``);
-			parts.push(`Payment link: ${paymentUrl}`);
+			parts.push(`${t("notif_label_payment_link")}: ${paymentUrl}`);
 		}
 		return parts.join("\n");
 	}
 
 	/**
-	 * Format RSVP time for display
+	 * Format RSVP time for display using standard i18n datetime format
+	 * Format: {datetime_format} HH:mm (e.g., "yyyy/MM/dd HH:mm" for en, "yyyy年MM月dd日 HH:mm" for tw)
 	 */
+	/**
+	 * Handle reminder notification
+	 * Sends reminder to customer before reservation time
+	 */
+	async handleReminder(
+		context: RsvpNotificationContext,
+	): Promise<string | null> {
+		try {
+			// Get store information if not provided
+			if (!context.storeName || !context.storeOwnerId) {
+				const store = await sqlClient.store.findUnique({
+					where: { id: context.storeId },
+					select: {
+						name: true,
+						ownerId: true,
+					},
+				});
+
+				if (store) {
+					context.storeName = store.name;
+					context.storeOwnerId = store.ownerId;
+				}
+			}
+
+			// Get RSVP details
+			const rsvp = await sqlClient.rsvp.findUnique({
+				where: { id: context.rsvpId },
+				include: {
+					Facility: {
+						select: {
+							facilityName: true,
+						},
+					},
+					ServiceStaff: {
+						include: {
+							User: {
+								select: {
+									name: true,
+									email: true,
+								},
+							},
+						},
+					},
+				},
+			});
+
+			if (!rsvp) {
+				logger.warn("RSVP not found for reminder", {
+					metadata: { rsvpId: context.rsvpId },
+					tags: ["rsvp", "notification", "reminder"],
+				});
+				return null;
+			}
+
+			// Determine recipient
+			const recipientId = context.customerId;
+			if (!recipientId) {
+				// Anonymous reservation - skip reminder (or send to store owner)
+				return null;
+			}
+
+			// Get notification channels based on store settings and user preferences
+			const channels = await this.getRsvpNotificationChannels(
+				context.storeId,
+				recipientId,
+			);
+
+			if (channels.length === 0) {
+				return null;
+			}
+
+			// Use recipient's locale so reminder is in their language
+			const locale = context.locale ?? (await this.getUserLocale(recipientId));
+			const t = getNotificationT(locale);
+
+			// Build reminder message
+			const subject = t("notif_subject_reminder", {
+				storeName: context.storeName || t("notif_store"),
+			});
+
+			// Get service staff name from User relation
+			const serviceStaffName =
+				rsvp.ServiceStaff?.User?.name || rsvp.ServiceStaff?.User?.email || null;
+			if (serviceStaffName) {
+				context.serviceStaffName = serviceStaffName;
+			}
+			// Enrich context from rsvp for LINE Flex reservation card (staff notification)
+			context.rsvpTime = context.rsvpTime ?? rsvp.rsvpTime;
+			context.numOfAdult = context.numOfAdult ?? rsvp.numOfAdult;
+			context.numOfChild = context.numOfChild ?? rsvp.numOfChild;
+			context.facilityName =
+				context.facilityName ?? rsvp.Facility?.facilityName ?? null;
+
+			const message = await this.buildReminderMessage(
+				{
+					rsvpTime: rsvp.rsvpTime,
+					numOfAdult: rsvp.numOfAdult,
+					numOfChild: rsvp.numOfChild,
+					message: getRsvpConversationMessage(rsvp),
+					Facility: rsvp.Facility
+						? { facilityName: rsvp.Facility.facilityName }
+						: null,
+					ServiceStaff: rsvp.ServiceStaff
+						? { userId: rsvp.ServiceStaff.userId }
+						: null,
+				},
+				context,
+				t,
+			);
+
+			// Create action URL
+			const actionUrl =
+				context.actionUrl ||
+				`/s/${context.storeId}/reservation/${context.rsvpId}`;
+
+			// Build LINE reminder Flex payload (訂位將至提醒 style)
+			const { dateStr, timeStr } = await this.formatRsvpDateAndTime(
+				rsvp.rsvpTime,
+				context.storeId,
+				t,
+			);
+			const partySizeStr = t("rsvp_num_of_guest_val", {
+				adult: rsvp.numOfAdult,
+				child: rsvp.numOfChild,
+			});
+			const reminderCard: LineReminderCardData = {
+				title: t("line_flex_reminder_title"),
+				messageBody: `${t("notif_msg_reminder_intro", {
+					customerName: context.customerName || t("notif_anonymous"),
+				})}\n\n${t("notif_msg_reminder_footer")}`,
+				storeName: context.storeName || t("notif_store"),
+				reservationName: context.customerName || t("notif_anonymous"),
+				reservationDate: dateStr,
+				reservationTime: timeStr,
+				partySize: partySizeStr,
+				notes:
+					getRsvpConversationMessage(rsvp) || t("notif_msg_reminder_footer"),
+				buttonLabel: t("line_flex_btn_view_invitation"),
+			};
+			const lineFlexPayload = JSON.stringify({
+				type: "reminder",
+				data: reminderCard,
+			});
+
+			// Send notification
+			const renderedReminder = await this.renderLifecycleTemplateMessage({
+				context,
+				locale,
+				event: "reminder",
+				recipient: "customer",
+				fallbackSubject: subject,
+				fallbackMessage: message,
+			});
+			const notification = await this.notificationService.createNotification({
+				senderId: context.storeOwnerId || "system",
+				recipientId,
+				storeId: context.storeId,
+				subject: renderedReminder.subject,
+				message: renderedReminder.message,
+				notificationType: "reservation",
+				actionUrl,
+				lineFlexPayload,
+				priority: 1, // High priority for reminders
+				channels,
+			});
+
+			// Send reminder to staff: assigned staff if any, otherwise all store staff with receiveStoreNotifications
+			let staffToNotify: { userId: string }[] = [];
+			if (rsvp.ServiceStaff && rsvp.ServiceStaff.receiveStoreNotifications) {
+				staffToNotify = [{ userId: rsvp.ServiceStaff.userId }];
+			} else {
+				const storeStaff = await sqlClient.serviceStaff.findMany({
+					where: {
+						storeId: context.storeId,
+						receiveStoreNotifications: true,
+						isDeleted: false,
+					},
+					select: { userId: true },
+				});
+				staffToNotify = storeStaff;
+			}
+
+			for (const staff of staffToNotify) {
+				const staffChannels = await this.getRsvpNotificationChannels(
+					context.storeId,
+					staff.userId,
+				);
+				if (staffChannels.length > 0) {
+					const staffLocale =
+						context.locale ?? (await this.getUserLocale(staff.userId));
+					const staffT = getNotificationT(staffLocale);
+					const rsvpTimeFormatted = await this.formatRsvpTime(
+						rsvp.rsvpTime,
+						context.storeId,
+						staffT,
+					);
+					const staffSubject = staffT("notif_subject_reminder_staff", {
+						customerName: context.customerName || staffT("notif_anonymous"),
+						rsvpTime: rsvpTimeFormatted,
+					});
+					const staffMessage = await this.buildReminderMessageForStaff(
+						{
+							rsvpTime: rsvp.rsvpTime,
+							numOfAdult: rsvp.numOfAdult,
+							numOfChild: rsvp.numOfChild,
+							message: getRsvpConversationMessage(rsvp),
+							Facility: rsvp.Facility
+								? { facilityName: rsvp.Facility.facilityName }
+								: null,
+						},
+						context,
+						staffT,
+					);
+					const renderedStaffReminder =
+						await this.renderLifecycleTemplateMessage({
+							context,
+							locale: staffLocale,
+							event: "reminder",
+							recipient: "staff",
+							fallbackSubject: staffSubject,
+							fallbackMessage: staffMessage,
+						});
+					const staffLineFlexPayload =
+						await this.buildReservationLineFlexPayload(
+							context,
+							staffLocale as NotificationLocale,
+							{ eventType: "reminder", recipient: "staff" },
+						);
+					await this.notificationService.createNotification({
+						senderId: context.storeOwnerId || "system",
+						recipientId: staff.userId,
+						storeId: context.storeId,
+						subject: renderedStaffReminder.subject,
+						message: renderedStaffReminder.message,
+						notificationType: "reservation",
+						actionUrl,
+						lineFlexPayload: staffLineFlexPayload,
+						priority: 1,
+						channels: staffChannels,
+					});
+				}
+			}
+
+			return notification.id;
+		} catch (error) {
+			logger.error("Failed to send RSVP reminder", {
+				metadata: {
+					rsvpId: context.rsvpId,
+					storeId: context.storeId,
+					customerId: context.customerId,
+					error: error instanceof Error ? error.message : String(error),
+				},
+				tags: ["rsvp", "notification", "reminder", "error"],
+			});
+			throw error;
+		}
+	}
+
+	/**
+	 * Customer must confirm Ready reservation (cron at createdAt + confirmHours).
+	 * Notify: Customer only — actionUrl is the signed one-click confirm link.
+	 */
+	async handleCustomerConfirmRequired(
+		context: RsvpNotificationContext,
+	): Promise<string | null> {
+		try {
+			if (!context.actionUrl?.trim()) {
+				logger.warn("customer_confirm_required: missing actionUrl", {
+					metadata: { rsvpId: context.rsvpId },
+					tags: ["rsvp", "notification", "customer_confirm", "config"],
+				});
+				return null;
+			}
+
+			if (!context.customerId) {
+				return null;
+			}
+
+			if (!context.storeName || !context.storeOwnerId) {
+				const store = await sqlClient.store.findUnique({
+					where: { id: context.storeId },
+					select: { name: true, ownerId: true },
+				});
+				if (store) {
+					context.storeName = store.name;
+					context.storeOwnerId = store.ownerId;
+				}
+			}
+
+			const rsvp = await sqlClient.rsvp.findUnique({
+				where: { id: context.rsvpId },
+				include: {
+					Facility: { select: { facilityName: true } },
+					ServiceStaff: {
+						include: {
+							User: { select: { name: true, email: true } },
+						},
+					},
+				},
+			});
+
+			if (!rsvp) {
+				logger.warn("RSVP not found for customer_confirm_required", {
+					metadata: { rsvpId: context.rsvpId },
+					tags: ["rsvp", "notification", "customer_confirm"],
+				});
+				return null;
+			}
+
+			const channels = await this.getRsvpNotificationChannels(
+				context.storeId,
+				context.customerId,
+			);
+
+			if (channels.length === 0) {
+				return null;
+			}
+
+			const locale =
+				context.locale ?? (await this.getUserLocale(context.customerId));
+			const t = getNotificationT(locale);
+			const subject = t("notif_subject_customer_confirm_required", {
+				storeName: context.storeName || t("notif_store"),
+			});
+
+			const serviceStaffName =
+				rsvp.ServiceStaff?.User?.name || rsvp.ServiceStaff?.User?.email || null;
+			if (serviceStaffName) {
+				context.serviceStaffName = serviceStaffName;
+			}
+			context.rsvpTime = context.rsvpTime ?? rsvp.rsvpTime;
+			context.numOfAdult = context.numOfAdult ?? rsvp.numOfAdult;
+			context.numOfChild = context.numOfChild ?? rsvp.numOfChild;
+			context.facilityName =
+				context.facilityName ?? rsvp.Facility?.facilityName ?? null;
+
+			const message = await this.buildCustomerConfirmRequiredMessage(
+				{
+					rsvpTime: rsvp.rsvpTime,
+					numOfAdult: rsvp.numOfAdult,
+					numOfChild: rsvp.numOfChild,
+					message: getRsvpConversationMessage(rsvp),
+					Facility: rsvp.Facility
+						? { facilityName: rsvp.Facility.facilityName }
+						: null,
+				},
+				context,
+				t,
+			);
+
+			const renderedConfirm = await this.renderLifecycleTemplateMessage({
+				context,
+				locale,
+				event: "customer_confirm_required",
+				recipient: "customer",
+				fallbackSubject: subject,
+				fallbackMessage: message,
+			});
+
+			const lineFlexPayload = await this.buildReservationLineFlexPayload(
+				context,
+				locale,
+				{
+					eventType: "customer_confirm_required",
+					recipient: "customer",
+					subjectForTag: renderedConfirm.subject,
+				},
+			);
+
+			const notification = await this.notificationService.createNotification({
+				senderId: context.storeOwnerId || "system",
+				recipientId: context.customerId,
+				storeId: context.storeId,
+				subject: renderedConfirm.subject,
+				message: renderedConfirm.message,
+				notificationType: "reservation",
+				actionUrl: context.actionUrl,
+				lineFlexPayload,
+				priority: 1,
+				channels,
+			});
+
+			return notification.id;
+		} catch (error) {
+			logger.error("Failed to send customer_confirm_required", {
+				metadata: {
+					rsvpId: context.rsvpId,
+					storeId: context.storeId,
+					customerId: context.customerId,
+					error: error instanceof Error ? error.message : String(error),
+				},
+				tags: ["rsvp", "notification", "customer_confirm", "error"],
+			});
+			throw error;
+		}
+	}
+
+	/**
+	 * Build reminder message
+	 */
+	private async buildReminderMessage(
+		rsvp: {
+			rsvpTime: bigint;
+			numOfAdult: number;
+			numOfChild: number;
+			message: string | null;
+			Facility: { facilityName: string } | null;
+			ServiceStaff: { userId: string } | null;
+		},
+		context: RsvpNotificationContext,
+		t: NotificationT,
+	): Promise<string> {
+		const rsvpTimeFormatted = await this.formatRsvpTime(
+			rsvp.rsvpTime,
+			context.storeId,
+			t,
+		);
+
+		const parts: string[] = [];
+		parts.push(
+			t("notif_msg_reminder_intro", {
+				customerName: context.customerName || t("notif_anonymous"),
+			}),
+		);
+		parts.push(`${t("notif_label_reservation_time")}: ${rsvpTimeFormatted}`);
+
+		if (rsvp.Facility) {
+			parts.push(`${t("notif_label_facility")}: ${rsvp.Facility.facilityName}`);
+		}
+
+		if (rsvp.ServiceStaff && context.serviceStaffName) {
+			parts.push(
+				`${t("notif_label_service_staff")}: ${context.serviceStaffName}`,
+			);
+		}
+
+		parts.push(
+			`${t("notif_label_party_size")}: ${t("rsvp_num_of_guest_val", {
+				adult: rsvp.numOfAdult,
+				child: rsvp.numOfChild,
+			})}`,
+		);
+
+		if (rsvp.message) {
+			parts.push(`${t("notif_label_message")}: ${rsvp.message}`);
+		}
+
+		parts.push(t("notif_msg_reminder_footer"));
+		const checkInLine = this.buildCheckInMessageFooter(context.checkInCode, t);
+		if (checkInLine) parts.push(checkInLine);
+
+		return parts.join("\n");
+	}
+
+	private async buildCustomerConfirmRequiredMessage(
+		rsvp: {
+			rsvpTime: bigint;
+			numOfAdult: number;
+			numOfChild: number;
+			message: string | null;
+			Facility: { facilityName: string } | null;
+		},
+		context: RsvpNotificationContext,
+		t: NotificationT,
+	): Promise<string> {
+		const rsvpTimeFormatted = await this.formatRsvpTime(
+			rsvp.rsvpTime,
+			context.storeId,
+			t,
+		);
+
+		const parts: string[] = [];
+		parts.push(t("notif_msg_customer_confirm_required_intro"));
+		parts.push(
+			`${t("notif_label_store")}: ${context.storeName || t("notif_store")}`,
+		);
+		if (rsvp.Facility) {
+			parts.push(`${t("notif_label_facility")}: ${rsvp.Facility.facilityName}`);
+		}
+		if (context.serviceStaffName) {
+			parts.push(
+				`${t("notif_label_service_staff")}: ${context.serviceStaffName}`,
+			);
+		}
+		parts.push(`${t("notif_label_date_time")}: ${rsvpTimeFormatted}`);
+		parts.push(
+			t("notif_party_size", {
+				adults: rsvp.numOfAdult || 1,
+				children: rsvp.numOfChild || 0,
+			}),
+		);
+		if (rsvp.message) {
+			parts.push(`${t("notif_label_message")}: ${rsvp.message}`);
+		}
+		parts.push("");
+		parts.push(t("notif_msg_customer_confirm_required_footer"));
+		if (context.actionUrl) {
+			parts.push(`${t("notif_label_confirm_link")}: ${context.actionUrl}`);
+		}
+		return parts.join("\n");
+	}
+
+	/**
+	 * Build reminder message for service staff (assigned or store staff)
+	 * Does not include service staff line since we're sending to staff
+	 */
+	private async buildReminderMessageForStaff(
+		rsvp: {
+			rsvpTime: bigint;
+			numOfAdult: number;
+			numOfChild: number;
+			message: string | null;
+			Facility: { facilityName: string } | null;
+		},
+		context: RsvpNotificationContext,
+		t: NotificationT,
+	): Promise<string> {
+		const rsvpTimeFormatted = await this.formatRsvpTime(
+			rsvp.rsvpTime,
+			context.storeId,
+			t,
+		);
+
+		const parts: string[] = [];
+		parts.push(
+			t("notif_msg_reminder_staff_intro", {
+				customerName: context.customerName || t("notif_anonymous"),
+			}),
+		);
+		parts.push(`${t("notif_label_reservation_time")}: ${rsvpTimeFormatted}`);
+
+		if (rsvp.Facility) {
+			parts.push(`${t("notif_label_facility")}: ${rsvp.Facility.facilityName}`);
+		}
+
+		parts.push(
+			`${t("notif_label_party_size")}: ${t("rsvp_num_of_guest_val", {
+				adult: rsvp.numOfAdult,
+				child: rsvp.numOfChild,
+			})}`,
+		);
+
+		if (rsvp.message) {
+			parts.push(`${t("notif_label_message")}: ${rsvp.message}`);
+		}
+
+		parts.push(t("notif_msg_reminder_staff_footer"));
+
+		return parts.join("\n");
+	}
+
 	private async formatRsvpTime(
 		rsvpTime: bigint | null | undefined,
 		storeId: string,
+		t: NotificationT,
 	): Promise<string> {
 		if (!rsvpTime) {
-			return "N/A";
+			return t("notif_na");
 		}
 
 		try {
@@ -1059,12 +2936,14 @@ export class RsvpNotificationRouter {
 			const timezone = store?.defaultTimezone || "Asia/Taipei";
 			const date = epochToDate(rsvpTime);
 			if (!date) {
-				return "N/A";
+				return t("notif_na");
 			}
 
-			const offsetHours = getTimezoneOffsetForDate(date, timezone);
+			// Get locale-specific datetime format (e.g., "yyyy/MM/dd" for en, "yyyy年MM月dd日" for tw)
+			const datetimeFormat = t("datetime_format") || "yyyy-MM-dd";
+			const offsetHours = getOffsetHours(timezone);
 			const dateInTz = getDateInTz(date, offsetHours);
-			return format(dateInTz, "yyyy-MM-dd HH:mm");
+			return format(dateInTz, `${datetimeFormat} HH:mm`);
 		} catch (error) {
 			logger.warn("Failed to format RSVP time", {
 				metadata: {
@@ -1074,8 +2953,30 @@ export class RsvpNotificationRouter {
 				},
 				tags: ["rsvp", "notification", "format"],
 			});
-			return "N/A";
+			return t("notif_na");
 		}
+	}
+
+	/**
+	 * Format RSVP time as separate date and time strings for LINE reminder Flex (訂位日期 / 訂位時間).
+	 */
+	private async formatRsvpDateAndTime(
+		rsvpTime: bigint | null | undefined,
+		storeId: string,
+		t: NotificationT,
+	): Promise<{ dateStr: string; timeStr: string }> {
+		const full = await this.formatRsvpTime(rsvpTime, storeId, t);
+		if (full === t("notif_na")) {
+			return { dateStr: full, timeStr: full };
+		}
+		const lastSpace = full.lastIndexOf(" ");
+		if (lastSpace === -1) {
+			return { dateStr: full, timeStr: "—" };
+		}
+		return {
+			dateStr: full.slice(0, lastSpace),
+			timeStr: full.slice(lastSpace + 1),
+		};
 	}
 }
 

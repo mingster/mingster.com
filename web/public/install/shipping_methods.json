@@ -5,9 +5,10 @@
 		"description": "0-60cm",
 		"basic_price": 70,
 		"currencyId": "TWD",
-		"shipRequried": true,
+		"shipRequired": true,
 		"isDeleted": false,
-		"isDefault": false
+		"isDefault": false,
+		"canDelete": false
 	},
 	{
 		"name": "7-11超商取貨",
@@ -15,9 +16,10 @@
 		"description": "0-60cm",
 		"basic_price": 60,
 		"currencyId": "TWD",
-		"shipRequried": true,
+		"shipRequired": true,
 		"isDeleted": false,
-		"isDefault": false
+		"isDefault": false,
+		"canDelete": false
 	},
 	{
 		"name": "全家超商取貨",
@@ -25,9 +27,10 @@
 		"description": "0-60cm",
 		"basic_price": 60,
 		"currencyId": "TWD",
-		"shipRequried": true,
+		"shipRequired": true,
 		"isDeleted": false,
-		"isDefault": false
+		"isDefault": false,
+		"canDelete": false
 	},
 	{
 		"name": "黑貓宅急便",
@@ -35,9 +38,21 @@
 		"description": "0-60cm",
 		"basic_price": 90,
 		"currencyId": "TWD",
-		"shipRequried": true,
+		"shipRequired": true,
 		"isDeleted": false,
-		"isDefault": false
+		"isDefault": false,
+		"canDelete": false
+	},
+	{
+		"name": "預約",
+		"identifier": "reserve",
+		"description": "",
+		"basic_price": 0,
+		"currencyId": "TWD",
+		"shipRequired": false,
+		"isDeleted": false,
+		"isDefault": true,
+		"canDelete": false
 	},
 	{
 		"name": "自取",
@@ -45,9 +60,10 @@
 		"description": "",
 		"basic_price": 0,
 		"currencyId": "TWD",
-		"shipRequried": false,
+		"shipRequired": false,
 		"isDeleted": false,
-		"isDefault": true
+		"isDefault": true,
+		"canDelete": false
 	},
 	{
 		"name": "內用",
@@ -55,9 +71,10 @@
 		"description": "",
 		"basic_price": 0,
 		"currencyId": "TWD",
-		"shipRequried": false,
+		"shipRequired": false,
 		"isDeleted": false,
-		"isDefault": true
+		"isDefault": true,
+		"canDelete": false
 	},
 	{
 		"name": "數位",
@@ -65,8 +82,9 @@
 		"description": "",
 		"basic_price": 0,
 		"currencyId": "TWD",
-		"shipRequried": false,
+		"shipRequired": false,
 		"isDeleted": false,
-		"isDefault": false
+		"isDefault": false,
+		"canDelete": false
 	}
 ]

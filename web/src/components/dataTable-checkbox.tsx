@@ -29,6 +29,8 @@ interface props<TData, TValue> {
 	data: TData[];
 	noSearch?: boolean;
 	searchKey?: string;
+	/** Rows per page (default 10). Use a large value when selection must span all rows. */
+	pageSize?: number;
 	// pre-selected rows in RowSelectionState object. e.g. {0: true, 1: false, 2: true,}
 	initiallySelected: RowSelectionState;
 	disabled: boolean;
@@ -50,6 +52,7 @@ export function DataTableCheckbox<TData, TValue>({
 	data,
 	noSearch,
 	searchKey,
+	pageSize: pageSizeProp,
 	initiallySelected,
 	disabled,
 	onRowSelectionChange,
@@ -78,7 +81,7 @@ export function DataTableCheckbox<TData, TValue>({
 
 	const [pagination, setPagination] = useState({
 		pageIndex: 0, //initial page index
-		pageSize: 10, //default page size
+		pageSize: pageSizeProp ?? 10, //default page size
 	});
 
 	const table = useReactTable({

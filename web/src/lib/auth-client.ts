@@ -44,9 +44,6 @@ export const authClient = createAuthClient({
         */
 	],
 });
-async function _signInWithLINE() {
-	const _res = await authClient.signIn.social({ provider: "line" });
-}
 
 export const {
 	signIn,

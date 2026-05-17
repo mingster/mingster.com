@@ -1,0 +1,51 @@
+"use server";
+
+import { sqlClient } from "@/lib/prismadb";
+import type { MessageTemplate } from "@prisma/client";
+import { adminActionClient } from "@/utils/actions/safe-action";
+import { updateMessageTemplateSchema } from "./update-message-template.validation";
+import logger from "@/lib/logger";
+
+export const updateMessageTemplateAction = adminActionClient
+	.metadata({ name: "updateMessageTemplate" })
+	.schema(updateMessageTemplateSchema)
+	.action(
+		async ({ parsedInput: { id, name, templateType, isGlobal, storeId } }) => {
+			logger.info("id", {
+				tags: ["action"],
+			});
+
+			//if there's no id, this is a new object
+			//
+			if (id === undefined || id === null || id === "" || id === "new") {
+				const result = await sqlClient.messageTemplate.create({
+					data: {
+						name,
+						templateType: templateType || "email",
+						isGlobal: isGlobal ?? false,
+						storeId: storeId || null,
+					},
+				});
+				id = result.id;
+			} else {
+				await sqlClient.messageTemplate.update({
+					where: { id },
+					data: {
+						name,
+						templateType: templateType || "email",
+						isGlobal: isGlobal ?? false,
+						storeId: storeId || null,
+					},
+				});
+			}
+
+			const result = (await sqlClient.messageTemplate.findFirst({
+				where: { id },
+				include: {
+					MessageTemplateLocalized: true,
+				},
+			})) as MessageTemplate;
+
+			return result;
+		},
+	);

@@ -3,25 +3,30 @@
 
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient as sqlPrismaClient } from "@prisma/client";
+
 //import { withAccelerate } from "@prisma/extension-accelerate";
 //import { withOptimize } from "@prisma/extension-optimize";
 
 /**
  * Prisma Client Singleton (Prisma ORM 7 — driver adapter + node-pg)
  *
- * Connection pooling uses the driver’s defaults; tune via POSTGRES_URL or Prisma docs if needed.
+ * Connection pooling uses the driver’s defaults; tune via DATABASE_URL or Prisma docs if needed.
  */
 function createPrismaClient() {
-	const connectionString = process.env.POSTGRES_URL;
+	const connectionString = process.env.DATABASE_URL;
 	if (!connectionString) {
-		throw new Error("POSTGRES_URL is not set");
+		throw new Error("DATABASE_URL is not set");
 	}
 
 	const adapter = new PrismaPg({ connectionString });
 
+	// Explicit empty `omit` satisfies runtime (Prisma rejects `omit: undefined`) and narrows
+	// OmitOpts so TS does not widen to `GlobalOmitConfig | undefined`, which strips scalars
+	// (e.g. rsvp.source) from create/select types.
 	return new sqlPrismaClient({
 		adapter,
 		log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+		omit: {},
 	});
 	//return new sqlPrismaClient({ adapter }).$extends(withOptimize({ apiKey: process.env.OPTIMIZE_API_KEY as string}));
 	//return new sqlPrismaClient({ adapter }).$extends(withAccelerate());
