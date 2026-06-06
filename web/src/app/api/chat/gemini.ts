@@ -47,11 +47,13 @@ export async function getGeminiReply(
 	const model = genAI.getGenerativeModel({
 		model: "gemini-2.5-pro",
 		systemInstruction: GEMINI_SYSTEM_INSTRUCTION,
+		// thinkingConfig is valid for gemini-2.5-pro but not yet typed in @google/generative-ai@0.24.1
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		generationConfig: {
 			responseMimeType: "application/json",
 			maxOutputTokens: 8192,
 			thinkingConfig: { thinkingBudget: -1 },
-		},
+		} as any,
 	});
 
 	const chatHistory = (history ?? []).map((h) => ({
