@@ -45,12 +45,12 @@ export async function getGeminiReply(
 	const { GoogleGenerativeAI } = await import("@google/generative-ai");
 	const genAI = new GoogleGenerativeAI(apiKey);
 	const model = genAI.getGenerativeModel({
-		model: "gemini-3.1-flash-lite",
+		model: "gemini-2.5-pro",
 		systemInstruction: GEMINI_SYSTEM_INSTRUCTION,
 		generationConfig: {
 			responseMimeType: "application/json",
-			maxOutputTokens: 1024,
-			temperature: 0.8,
+			maxOutputTokens: 8192,
+			thinkingConfig: { thinkingBudget: -1 },
 		},
 	});
 
