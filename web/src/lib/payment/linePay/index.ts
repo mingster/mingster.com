@@ -248,33 +248,21 @@ export function getLinePayClient(id: string | null, secret: string | null) {
 }
 
 /**
- * Get LINE Pay client based on store configuration.
+ * Get LINE Pay client for a store.
+ * Uses the store's own credentials if configured, otherwise falls back to platform env vars.
  *
- * Logic:
- * - If store is not Pro level: use platform payment processing (null, null)
- * - If store is Pro level:
- *   - If store has LINE_PAY_ID and LINE_PAY_SECRET: use store credentials
- *   - Otherwise: fall back to platform payment processing (null, null)
- *
- * @param storeId - Store ID to check Pro level and credentials
- * @param store - Optional store object with LINE_PAY_ID and LINE_PAY_SECRET (if already fetched)
- * @returns LINE Pay client or null if not configured
+ * @param storeId - Store ID
+ * @param store - Optional store object with paymentCredentials (if already fetched)
+ * @returns LINE Pay client or null if no credentials are available
  */
 export async function getLinePayClientByStore(
 	storeId: string,
 	store?: { paymentCredentials: unknown } | null,
 ): Promise<LinePayClient | null> {
 	const { sqlClient } = await import("@/lib/prismadb");
-	const isProLevel = (await import("@/lib/store/is-pro-level")).default;
 	const { parsePaymentCredentials } = await import(
 		"@/lib/payment/payment-credentials"
 	);
-
-	const isPro = await isProLevel(storeId);
-
-	if (!isPro) {
-		return getLinePayClient(null, null);
-	}
 
 	let raw: unknown = store?.paymentCredentials;
 	if (raw === undefined) {

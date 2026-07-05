@@ -7,6 +7,7 @@
 export { AtmPlugin, atmPlugin } from "./atm-plugin";
 export { CashPlugin, cashPlugin } from "./cash-plugin";
 export { CreditPlugin, creditPlugin } from "./credit-plugin";
+export { EcpayPlugin, ecpayPlugin } from "./ecpay-plugin";
 export { LinePayPlugin, linePayPlugin } from "./linepay-plugin";
 export { NewebPayPlugin, newebPayPlugin } from "./newebpay-plugin";
 export * from "./loader";
@@ -18,6 +19,7 @@ export {
 } from "./registry";
 // Export plugin implementations
 export { StripePlugin, stripePlugin } from "./stripe-plugin";
+export { TapPayPlugin, tappayPlugin } from "./tappay-plugin";
 export { SubscriptionBillingNotSupportedError } from "./subscription-billing-error";
 export type {
 	CreateCheckoutPaymentIntentInput,
@@ -39,17 +41,21 @@ export * from "./webhook-types";
 import { atmPlugin } from "./atm-plugin";
 import { cashPlugin } from "./cash-plugin";
 import { creditPlugin } from "./credit-plugin";
+import { ecpayPlugin } from "./ecpay-plugin";
 import { linePayPlugin } from "./linepay-plugin";
 import { newebPayPlugin } from "./newebpay-plugin";
 import { payPalPlugin } from "./paypal-plugin";
 // Register all built-in plugins
 import { registerPaymentPlugin } from "./registry";
 import { stripePlugin } from "./stripe-plugin";
+import { tappayPlugin } from "./tappay-plugin";
 
 // Register plugins on module load
 registerPaymentPlugin(stripePlugin);
+registerPaymentPlugin(tappayPlugin);
 registerPaymentPlugin(linePayPlugin);
 registerPaymentPlugin(newebPayPlugin);
+registerPaymentPlugin(ecpayPlugin);
 registerPaymentPlugin(payPalPlugin);
 registerPaymentPlugin(creditPlugin);
 registerPaymentPlugin(cashPlugin);

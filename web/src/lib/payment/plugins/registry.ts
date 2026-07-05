@@ -67,13 +67,39 @@ class PaymentPluginRegistry {
 // Singleton instance
 export const paymentPluginRegistry = new PaymentPluginRegistry();
 
+/** Distinct catalog payUrl values that delegate to the ECPay AIO plugin. */
+const ECPAY_ALIAS_PAY_URLS = ["ecpay-jkopay", "ecpay-pxpay"] as const;
+
+/**
+ * Map a PaymentMethod.payUrl to the registered plugin identifier.
+ * Wallet sub-methods (街口 / 全支付) share the core `ecpay` plugin.
+ */
+export function resolvePaymentPluginIdentifier(payUrl: string): string {
+	const normalized = payUrl.trim().toLowerCase();
+	if ((ECPAY_ALIAS_PAY_URLS as readonly string[]).includes(normalized)) {
+		return "ecpay";
+	}
+	return normalized;
+}
+
+/** DB payUrl values that may be offered when a plugin is registered. */
+export function expandRegisteredPluginPayUrls(identifiers: string[]): string[] {
+	const urls = new Set(identifiers.map((id) => id.trim().toLowerCase()));
+	if (urls.has("ecpay")) {
+		for (const alias of ECPAY_ALIAS_PAY_URLS) {
+			urls.add(alias);
+		}
+	}
+	return [...urls];
+}
+
 /**
  * Get a payment method plugin by identifier
  */
 export function getPaymentPlugin(
 	identifier: string,
 ): PaymentMethodPlugin | undefined {
-	return paymentPluginRegistry.get(identifier);
+	return paymentPluginRegistry.get(resolvePaymentPluginIdentifier(identifier));
 }
 
 /**

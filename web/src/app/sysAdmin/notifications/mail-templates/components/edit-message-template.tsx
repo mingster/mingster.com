@@ -113,7 +113,10 @@ const LocaleForm = ({
 			? {
 					...existing,
 					bCCEmailAddresses: existing.bCCEmailAddresses ?? undefined,
-					translationStatus: existing.translationStatus || "draft",
+					translationStatus: (existing.translationStatus || "draft") as
+						| "draft"
+						| "reviewed"
+						| "approved",
 					sourceLocaleId: existing.sourceLocaleId || null,
 				}
 			: {

@@ -17,15 +17,19 @@ import { useI18n } from "@/providers/i18n-provider";
 import { CalendarPlus2 } from "lucide-react";
 
 import Currency from "@/components/currency";
+import { getProductDisplayNameForLng } from "@/lib/product/product-locale-display";
 
 import { ProductOptionDialog } from "./product-option-dialog";
 
 interface ProductCardProps {
-	product: Product;
+	product: Product & {
+		locales?: { localeId: string; name: string }[] | null;
+	};
 	onPurchase: () => void;
 	onValueChange?: (newValue: Item) => void; // return configured CartItem back to parent component
 	disableBuyButton: boolean;
 	className?: string;
+	storeDefaultLocale?: string;
 }
 
 export function ProductCard({
@@ -34,10 +38,17 @@ export function ProductCard({
 	onValueChange,
 	disableBuyButton,
 	className,
+	storeDefaultLocale,
 	...props
 }: ProductCardProps) {
 	const { lng } = useI18n();
 	const { t } = useTranslation(lng);
+
+	const displayName = getProductDisplayNameForLng(
+		product,
+		lng,
+		storeDefaultLocale,
+	);
 
 	const enableBuy =
 		!product.ProductAttribute?.disableBuyButton && !disableBuyButton;
@@ -49,7 +60,7 @@ export function ProductCard({
 			<CardHeader>
 				<CardTitle>
 					<div className="flex gap-1 items-center text-base sm:text-lg lg:text-xl">
-						{product.name}
+						{displayName}
 						{
 							// display recurring icon if recurring
 							product.ProductAttribute?.isRecurring && (
@@ -70,6 +81,7 @@ export function ProductCard({
 					<ProductOptionDialog
 						product={product}
 						disableBuyButton={!enableBuy}
+						storeDefaultLocale={storeDefaultLocale}
 						//onPurchase={onPurchase}
 						onValueChange={onValueChange}
 					/>

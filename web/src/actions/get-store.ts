@@ -6,9 +6,13 @@ import type {
 	StorePaymentMethodMapping,
 	StoreShipMethodMapping,
 } from "@/types";
+import {
+	paymentMethodAvailableForStore,
+	resolveStoreSupportedCountries,
+	shippingMethodAvailableForStore,
+} from "@/utils/method-country-utils";
 import { transformPrismaDataForJson } from "@/utils/utils";
 import type { PaymentMethod, ShippingMethod } from "@prisma/client";
-import { StoreLevel } from "@/types/enum";
 
 const getStoreWithCategories = async (storeId: string): Promise<Store> => {
 	if (!storeId) {
@@ -57,8 +61,7 @@ const getStoreWithCategories = async (storeId: string): Promise<Store> => {
 		defaultPaymentMethods.map((paymentMethod) => {
 			if (
 				!storePaymentMethods.find(
-					(existingMethod: { id: string }) =>
-						existingMethod.id === paymentMethod.id,
+					(existingMethod) => existingMethod.methodId === paymentMethod.id,
 				)
 			) {
 				const mapping = {
@@ -84,7 +87,7 @@ const getStoreWithCategories = async (storeId: string): Promise<Store> => {
 		defaultShippingMethods.map((method) => {
 			if (
 				!storeShippingMethods.find(
-					(existingMethod: { id: string }) => existingMethod.id === method.id,
+					(existingMethod) => existingMethod.methodId === method.id,
 				)
 			) {
 				const mapping = {
@@ -98,17 +101,18 @@ const getStoreWithCategories = async (storeId: string): Promise<Store> => {
 		});
 	}
 
-	store.StorePaymentMethods = storePaymentMethods;
-	store.StoreShippingMethods = storeShippingMethods;
-
-	// Filter out cash payment method for Free-tier stores
-	// Cash is only available for Pro (2) or Multi (3) level stores
-	if (store.level === StoreLevel.Free) {
-		store.StorePaymentMethods = storePaymentMethods.filter(
-			(mapping: { PaymentMethod: { payUrl: string } }) =>
-				mapping.PaymentMethod.payUrl !== "cash",
-		);
+	if (!store.supportedCountries?.length) {
+		store.supportedCountries = resolveStoreSupportedCountries(store);
 	}
+
+	store.StorePaymentMethods = storePaymentMethods.filter(
+		(mapping) =>
+			mapping.PaymentMethod.visibleToCustomer !== false &&
+			paymentMethodAvailableForStore(mapping.PaymentMethod, store),
+	);
+	store.StoreShippingMethods = storeShippingMethods.filter((mapping) =>
+		shippingMethodAvailableForStore(mapping.ShippingMethod, store),
+	);
 
 	transformPrismaDataForJson(store);
 
@@ -131,6 +135,7 @@ const orderEditInclude = {
 									ProductOptionSelections: true,
 								},
 							},
+							locales: true,
 						},
 					},
 				},
@@ -181,8 +186,7 @@ export async function getStoreForOrderEdit(
 		defaultPaymentMethods.map((paymentMethod) => {
 			if (
 				!storePaymentMethods.find(
-					(existingMethod: { id: string }) =>
-						existingMethod.id === paymentMethod.id,
+					(existingMethod) => existingMethod.methodId === paymentMethod.id,
 				)
 			) {
 				const mapping = {
@@ -206,7 +210,7 @@ export async function getStoreForOrderEdit(
 		defaultShippingMethods.map((method) => {
 			if (
 				!storeShippingMethods.find(
-					(existingMethod: { id: string }) => existingMethod.id === method.id,
+					(existingMethod) => existingMethod.methodId === method.id,
 				)
 			) {
 				const mapping = {
@@ -222,13 +226,6 @@ export async function getStoreForOrderEdit(
 
 	store.StorePaymentMethods = storePaymentMethods;
 	store.StoreShippingMethods = storeShippingMethods;
-
-	if (store.level === StoreLevel.Free) {
-		store.StorePaymentMethods = storePaymentMethods.filter(
-			(mapping: { PaymentMethod: { payUrl: string } }) =>
-				mapping.PaymentMethod.payUrl !== "cash",
-		);
-	}
 
 	transformPrismaDataForJson(store);
 

@@ -9,7 +9,8 @@
 		"isDefault": true,
 		"canDelete": false,
 		"visibleToCustomer": true,
-		"platformEnabled": true
+		"platformEnabled": true,
+		"availableCountries": ["US"]
 	},
 	{
 		"name": "PayPal",
@@ -21,7 +22,8 @@
 		"isDefault": false,
 		"canDelete": false,
 		"visibleToCustomer": false,
-		"platformEnabled": true
+		"platformEnabled": true,
+		"availableCountries": ["TW", "JP", "TH", "US"]
 	},
 	{
 		"name": "LINE Pay",
@@ -33,7 +35,8 @@
 		"isDefault": true,
 		"canDelete": false,
 		"visibleToCustomer": true,
-		"platformEnabled": true
+		"platformEnabled": true,
+		"availableCountries": ["TW", "JP", "TH"]
 	},
 	{
 		"name": "NewebPay",
@@ -45,7 +48,60 @@
 		"isDefault": false,
 		"canDelete": false,
 		"visibleToCustomer": true,
-		"platformEnabled": true
+		"platformEnabled": true,
+		"availableCountries": ["TW"]
+	},
+	{
+		"name": "ECPay 綠界",
+		"payUrl": "ecpay",
+		"priceDescr": "2.8%",
+		"fee": 0.028,
+		"feeAdditional": 0,
+		"clearDays": 5,
+		"isDefault": false,
+		"canDelete": false,
+		"visibleToCustomer": true,
+		"platformEnabled": true,
+		"availableCountries": ["TW"]
+	},
+	{
+		"name": "街口支付",
+		"payUrl": "ecpay-jkopay",
+		"priceDescr": "3.0%",
+		"fee": 0.03,
+		"feeAdditional": 0,
+		"clearDays": 5,
+		"isDefault": false,
+		"canDelete": false,
+		"visibleToCustomer": true,
+		"platformEnabled": true,
+		"availableCountries": ["TW"]
+	},
+	{
+		"name": "全支付",
+		"payUrl": "ecpay-pxpay",
+		"priceDescr": "3.0%",
+		"fee": 0.03,
+		"feeAdditional": 0,
+		"clearDays": 5,
+		"isDefault": false,
+		"canDelete": false,
+		"visibleToCustomer": true,
+		"platformEnabled": true,
+		"availableCountries": ["TW"]
+	},
+	{
+		"name": "TapPay",
+		"payUrl": "tappay",
+		"priceDescr": "2.75%",
+		"fee": 0.0275,
+		"feeAdditional": 0,
+		"clearDays": 5,
+		"isDefault": false,
+		"canDelete": false,
+		"visibleToCustomer": true,
+		"platformEnabled": true,
+		"availableCountries": ["TW"]
 	},
 	{
 		"name": "銀行轉帳（ATM）",
@@ -57,7 +113,8 @@
 		"isDefault": false,
 		"canDelete": false,
 		"visibleToCustomer": true,
-		"platformEnabled": true
+		"platformEnabled": true,
+		"availableCountries": ["TW", "JP"]
 	},
 	{
 		"name": "現金",
@@ -69,7 +126,8 @@
 		"isDefault": false,
 		"canDelete": false,
 		"visibleToCustomer": true,
-		"platformEnabled": true
+		"platformEnabled": true,
+		"availableCountries": ["TW", "JP", "TH", "US"]
 	},
 	{
 		"name": "帳戶餘額",
@@ -81,6 +139,20 @@
 		"isDefault": true,
 		"canDelete": false,
 		"visibleToCustomer": true,
-		"platformEnabled": true
+		"platformEnabled": true,
+		"availableCountries": ["TW", "JP", "TH", "US"]
+	},
+	{
+		"name": "TBD",
+		"payUrl": "TBD",
+		"priceDescr": "Post-pay placeholder; payment method chosen at settlement",
+		"fee": 0,
+		"feeAdditional": 0,
+		"clearDays": 0,
+		"isDefault": false,
+		"canDelete": false,
+		"visibleToCustomer": false,
+		"platformEnabled": true,
+		"availableCountries": []
 	}
 ]

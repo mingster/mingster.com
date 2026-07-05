@@ -2,6 +2,7 @@ import type { PaymentMethod, StoreOrder } from "@prisma/client";
 
 import "@/lib/payment/plugins";
 import {
+	expandRegisteredPluginPayUrls,
 	getPaymentPlugin,
 	paymentPluginRegistry,
 } from "@/lib/payment/plugins/registry";
@@ -12,7 +13,10 @@ import type {
 import { synchronizePaymentMethodCatalogFromPlugins } from "@/lib/payment/plugins/loader";
 import { sqlClient } from "@/lib/prismadb";
 import { normalizePayUrl } from "@/lib/payment/normalize-pay-url";
-import { StoreLevel } from "@/types/enum";
+import {
+	paymentMethodAvailableForStore,
+	resolveStoreSupportedCountries,
+} from "@/utils/method-country-utils";
 
 export { normalizePayUrl };
 
@@ -131,6 +135,26 @@ export async function resolveShopCheckoutPayment(
 		};
 	}
 
+	const store = await sqlClient.store.findFirst({
+		where: { id: storeId, isDeleted: false },
+		select: { supportedCountries: true, defaultCountry: true },
+	});
+	if (
+		!store ||
+		!paymentMethodAvailableForStore(paymentMethod, {
+			supportedCountries: store.supportedCountries?.length
+				? store.supportedCountries
+				: resolveStoreSupportedCountries(store),
+			defaultCountry: store.defaultCountry,
+		})
+	) {
+		return {
+			ok: false,
+			code: "STORE_NOT_ALLOWED",
+			message: "This payment method is not available in your country.",
+		};
+	}
+
 	return { ok: true, paymentMethod, plugin };
 }
 
@@ -161,25 +185,44 @@ async function paymentMethodIsConfiguredForCheckout(
 	return availability.available !== false;
 }
 
+export type ShopCheckoutPaymentMethodRow = PaymentMethod & {
+	/** True when the payment method is enabled by the store but missing required credentials. */
+	disabled: boolean;
+};
+
 /**
  * Payment methods the storefront may offer for D2C checkout (subject to env / LINE Pay config).
+ * Methods with incomplete credentials are included but marked `disabled: true`.
  */
 export async function listShopCheckoutPaymentMethodRows(
 	storeId: string,
 	context?: ListShopCheckoutPaymentMethodRowsContext,
-): Promise<PaymentMethod[]> {
+): Promise<ShopCheckoutPaymentMethodRow[]> {
 	await synchronizePaymentMethodCatalogFromPlugins();
 
 	const store = await sqlClient.store.findFirst({
 		where: { id: storeId, isDeleted: false },
-		select: { id: true, level: true },
+		select: {
+			id: true,
+			level: true,
+			supportedCountries: true,
+			defaultCountry: true,
+		},
 	});
 	if (!store) {
 		return [];
 	}
 
-	const pluginIdentifiers = paymentPluginRegistry.getIdentifiers();
-	const pluginPayUrls = pluginIdentifiers.map(normalizePayUrl);
+	const storeCountryContext = {
+		supportedCountries: store.supportedCountries?.length
+			? store.supportedCountries
+			: resolveStoreSupportedCountries(store),
+		defaultCountry: store.defaultCountry,
+	};
+
+	const pluginPayUrls = expandRegisteredPluginPayUrls(
+		paymentPluginRegistry.getIdentifiers(),
+	);
 
 	const candidates = await sqlClient.paymentMethod.findMany({
 		where: {
@@ -190,17 +233,11 @@ export async function listShopCheckoutPaymentMethodRows(
 		},
 	});
 
-	const out: PaymentMethod[] = [];
+	const out: ShopCheckoutPaymentMethodRow[] = [];
 	for (const pm of candidates) {
 		const payUrl = normalizePayUrl(pm.payUrl);
 		const plugin = getPaymentPlugin(payUrl);
 		if (!plugin) {
-			continue;
-		}
-		if (
-			store.level === StoreLevel.Free &&
-			(payUrl === "cash" || payUrl === "atm")
-		) {
 			continue;
 		}
 		const allowed = await storeAllowsPaymentMethod(
@@ -211,15 +248,15 @@ export async function listShopCheckoutPaymentMethodRows(
 		if (!allowed) {
 			continue;
 		}
+		if (!paymentMethodAvailableForStore(pm, storeCountryContext)) {
+			continue;
+		}
 		const configured = await paymentMethodIsConfiguredForCheckout(
 			plugin,
 			storeId,
 			context?.checkoutUserId,
 		);
-		if (!configured) {
-			continue;
-		}
-		out.push(pm);
+		out.push({ ...pm, disabled: !configured });
 	}
 
 	return out;

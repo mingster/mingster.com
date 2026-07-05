@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { availableCountriesSchema } from "../shared/available-countries.validation";
 
 export const createShippingMethodSchema = z.object({
 	name: z.string().min(1, "Name is required"),
@@ -10,6 +11,7 @@ export const createShippingMethodSchema = z.object({
 	isDefault: z.boolean().default(false),
 	shipRequired: z.boolean().default(true),
 	canDelete: z.boolean().default(false),
+	availableCountries: availableCountriesSchema,
 });
 
 export type CreateShippingMethodInput = z.infer<

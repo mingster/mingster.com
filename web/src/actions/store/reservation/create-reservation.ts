@@ -692,6 +692,7 @@ export const createReservationAction = baseClient
 					Customer: true,
 					CreatedBy: true,
 					Facility: true,
+					FacilityPricingRule: true,
 					Order: true,
 					ServiceStaff: {
 						include: {

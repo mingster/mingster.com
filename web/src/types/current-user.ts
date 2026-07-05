@@ -7,7 +7,15 @@ export const currentUserArgs = {
 			include: {
 				ShippingMethod: true,
 				PaymentMethod: true,
-				OrderItemView: true,
+				OrderItemView: {
+					include: {
+						Product: {
+							include: {
+								locales: true,
+							},
+						},
+					},
+				},
 				Store: {
 					select: {
 						id: true,

@@ -4,8 +4,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Resolver } from "react-hook-form";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
 import { createPaymentMethodAction } from "@/actions/sysAdmin/paymentMethod/create-payment-method";
+import {
+	createPaymentMethodSchema,
+	type CreatePaymentMethodInput,
+} from "@/actions/sysAdmin/paymentMethod/create-payment-method.validation";
 import { updatePaymentMethodAction } from "@/actions/sysAdmin/paymentMethod/update-payment-method";
 import { useTranslation } from "@/app/i18n/client";
 import { Loader } from "@/components/loader";
@@ -31,23 +34,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useI18n } from "@/providers/i18n-provider";
+import { AvailableCountriesFormField } from "@/app/sysAdmin/components/available-countries-form-field";
 import type { PaymentMethodColumn } from "../payment-method-column";
 
-const formSchema = z.object({
-	name: z.string().min(1, "Name is required"),
-	payUrl: z.string().default(""),
-	priceDescr: z.string().default(""),
-	fee: z.coerce.number().default(0.029),
-	feeAdditional: z.coerce.number().default(0),
-	clearDays: z.coerce.number().int().default(3),
-	isDeleted: z.boolean().default(false),
-	isDefault: z.boolean().default(false),
-	canDelete: z.boolean().default(false),
-	visibleToCustomer: z.boolean().default(false),
-	platformEnabled: z.boolean().default(true),
-});
-
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = CreatePaymentMethodInput;
 
 interface EditPaymentMethodDialogProps {
 	paymentMethod?: PaymentMethodColumn | null;
@@ -92,12 +82,13 @@ export function EditPaymentMethodDialog({
 			canDelete: paymentMethod?.canDelete ?? false,
 			visibleToCustomer: paymentMethod?.visibleToCustomer ?? false,
 			platformEnabled: paymentMethod?.platformEnabled ?? true,
+			availableCountries: paymentMethod?.availableCountries ?? [],
 		}),
 		[paymentMethod],
 	);
 
 	const form = useForm<FormValues>({
-		resolver: zodResolver(formSchema) as Resolver<FormValues>,
+		resolver: zodResolver(createPaymentMethodSchema) as Resolver<FormValues>,
 		defaultValues,
 		mode: "onChange",
 	});
@@ -184,7 +175,7 @@ export function EditPaymentMethodDialog({
 	return (
 		<Dialog open={open} onOpenChange={handleOpenChange}>
 			{trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
-			<DialogContent className="max-w-[calc(100%-1rem)] p-4 sm:p-6 sm:max-w-2xl max-h-[calc(100vh-2rem)] overflow-y-auto">
+			<DialogContent className="max-w-[calc(100%-1rem)] p-4 sm:p-6 sm:max-w-3xl max-h-[calc(100vh-2rem)] overflow-y-auto">
 				<DialogHeader>
 					<DialogTitle>
 						{isEditMode ? "Edit Payment Method" : "Create Payment Method"}
@@ -439,6 +430,17 @@ export function EditPaymentMethodDialog({
 										</FormItem>
 									)}
 								/>
+
+								<AvailableCountriesFormField
+									control={form.control}
+									name="availableCountries"
+									disabled={loading || form.formState.isSubmitting}
+									label={t("available_countries") || "Available countries"}
+									description={
+										t("available_countries_descr") ||
+										"Stores only see this method when at least one of their supported countries matches."
+									}
+								/>
 							</div>
 
 							<DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -476,6 +478,8 @@ export function EditPaymentMethodDialog({
 													visibleToCustomer:
 														t("Visible_To_Customer") || "Visible To Customer",
 													platformEnabled: "Platform enabled",
+													availableCountries:
+														t("available_countries") || "Available countries",
 												};
 												const fieldLabel = fieldLabels[field] || field;
 												return (

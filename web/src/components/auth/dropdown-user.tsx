@@ -9,7 +9,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useTranslation } from "@/app/i18n/client";
-import { NotMountSkeleton } from "@/components/not-mount-skeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -48,7 +48,7 @@ export default function DropdownUser({
 		setMounted(true);
 	}, []);
 
-	if (!mounted) return <NotMountSkeleton />;
+	if (!mounted) return <Skeleton className="size-8 rounded-full" />;
 
 	//logger.info("session", session);
 

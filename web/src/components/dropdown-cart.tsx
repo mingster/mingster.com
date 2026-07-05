@@ -16,7 +16,7 @@ import {
 	SheetTrigger,
 } from "@/components/ui/sheet";
 //import { Badge } from '@mui/material';
-import { useCart } from "@/hooks/use-cart";
+import { useCart, useStoreCart } from "@/hooks/use-cart";
 import { useI18n } from "@/providers/i18n-provider";
 import { useResolvedCustomerStoreBasePath } from "@/providers/customer-store-base-path";
 import Currency from "./currency";
@@ -32,14 +32,15 @@ export const DropdownCart = () => {
 	const { t } = useTranslation(lng);
 	const [isOpen, setIsOpen] = useState(false);
 
-	const cart = useCart();
-	const [numInCart, setNumInCart] = useState(cart.totalItems);
-
 	const fromParamsStoreId =
 		typeof params.storeId === "string" && params.storeId.length > 0
 			? params.storeId
 			: undefined;
-	const fromMetaStoreId = cart.metadata?.storeId as string | undefined;
+	const globalCart = useCart();
+	const fromMetaStoreId = globalCart.metadata?.storeId as string | undefined;
+	const filterStoreId = fromParamsStoreId ?? fromMetaStoreId;
+	const cart = useStoreCart(filterStoreId);
+	const [numInCart, setNumInCart] = useState(cart.totalItems);
 	const fromEnvStoreId =
 		typeof process.env.NEXT_PUBLIC_DEFAULT_STORE_ID === "string" &&
 		process.env.NEXT_PUBLIC_DEFAULT_STORE_ID.length > 0
@@ -90,7 +91,7 @@ export const DropdownCart = () => {
 	}
 
 	function removeAll() {
-		cart.emptyCart();
+		cart.clearStoreItems();
 	}
 	/*
   const [mounted, setMounted] = useState(false);

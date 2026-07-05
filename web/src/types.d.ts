@@ -219,6 +219,7 @@ const prodCategoryObj = Prisma.validator<Prisma.ProductCategoriesDefaultArgs>()(
 						},
 					},
 					ProductCategories: true,
+					locales: true,
 				},
 			},
 		},

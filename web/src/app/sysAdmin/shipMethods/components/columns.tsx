@@ -1,11 +1,13 @@
 "use client";
 
 import { DataTableColumnHeader } from "@/components/dataTable-column-header";
+import { Badge } from "@/components/ui/badge";
 import type { ColumnDef } from "@tanstack/react-table";
 import { IconCheck, IconX } from "@tabler/icons-react";
 import type { TFunction } from "i18next";
 import type { ShippingMethodColumn } from "../shipping-method-column";
 import { CellAction } from "./cell-action";
+import { ShippingMethodNameCell } from "./shipping-method-name-cell";
 
 interface CreateShippingMethodColumnsOptions {
 	onUpdated?: (shippingMethod: ShippingMethodColumn) => void;
@@ -23,6 +25,9 @@ export const createShippingMethodColumns = (
 			accessorKey: "name",
 			header: ({ column }) => (
 				<DataTableColumnHeader column={column} title="Name" />
+			),
+			cell: ({ row }) => (
+				<ShippingMethodNameCell data={row.original} onUpdated={onUpdated} />
 			),
 		},
 		{
@@ -94,6 +99,30 @@ export const createShippingMethodColumns = (
 			},
 			meta: {
 				className: "hidden sm:table-cell",
+			},
+		},
+		{
+			accessorKey: "availableCountries",
+			header: ({ column }) => (
+				<DataTableColumnHeader column={column} title="Countries" />
+			),
+			cell: ({ row }) => {
+				const countries = row.original.availableCountries ?? [];
+				if (countries.length === 0) {
+					return <span className="text-muted-foreground">—</span>;
+				}
+				return (
+					<div className="flex flex-wrap gap-1 max-w-[200px]">
+						{countries.map((code) => (
+							<Badge key={code} variant="outline" className="text-xs">
+								{code}
+							</Badge>
+						))}
+					</div>
+				);
+			},
+			meta: {
+				className: "hidden lg:table-cell",
 			},
 		},
 		{

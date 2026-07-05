@@ -252,6 +252,21 @@ class Logger {
 		analytics.trackError(errorCode || "", errorMessage || "");
 	}
 
+	/** Persist to system_logs in all environments (including development). */
+	systemLog(
+		entry: Omit<LogEntry, "timestamp"> & {
+			level: LogEntry["level"];
+			message: string;
+		},
+	): void {
+		void this.logToDatabase({
+			...entry,
+			timestamp: new Date().toISOString(),
+			service: entry.service ?? this.service,
+			environment: entry.environment ?? this.environment,
+		});
+	}
+
 	debug(message: string | any, metadata?: Partial<LogEntry>): void {
 		let logMessage: string;
 		let logMetadata: Partial<LogEntry> | undefined;

@@ -95,7 +95,9 @@ export function createSysAdminTemplateSampleVariablesResolver(
 								variants: "Size: M",
 							},
 						],
-					} as Parameters<typeof buildOrderLifecyclePayload>[0]["order"],
+					} as unknown as Parameters<
+						typeof buildOrderLifecyclePayload
+					>[0]["order"],
 					user,
 					storeName: params.sampleStoreName,
 					locale: recipientLocale,

@@ -17,6 +17,8 @@ import Currency from "./currency";
 import { DisplayOrderStatus } from "./display-order-status";
 import { DisplayPaymentStatus } from "./display-payment-status";
 import Link from "next/link";
+import type { ProductLocaleNameRow } from "@/lib/product/product-locale-display";
+import { useProductName } from "@/lib/product/use-product-name";
 
 type orderProps = {
 	order: StoreOrder | ManageProfileOrderRow | CurrentUserOrderRow;
@@ -255,14 +257,21 @@ export const DisplayOrder: React.FC<orderProps> = ({
 };
 
 type itemViewOrops = {
-	currentItem: orderitemview;
+	currentItem: orderitemview & {
+		Product?: { name: string; locales?: ProductLocaleNameRow[] | null } | null;
+	};
 };
 
 export const DisplayOrderItem: React.FC<itemViewOrops> = ({ currentItem }) => {
+	const localizeName = useProductName();
+	const displayName = currentItem.Product
+		? localizeName(currentItem.Product)
+		: currentItem.name;
+
 	return (
 		<div className="flex items-start justify-between gap-2 text-xs sm:text-sm">
 			<div className="flex-1 min-w-0">
-				<div className="font-medium truncate">{currentItem.name}</div>
+				<div className="font-medium truncate">{displayName}</div>
 
 				{currentItem.variants && currentItem.variants.length > 0 && (
 					<div className="mt-1 space-y-0.5 text-muted-foreground">

@@ -11,6 +11,11 @@ import { Role } from "@prisma/client";
 
 // TODO: take functionality from `withActionInstrumentation` and move it here (apps/web/utils/actions/middleware.ts)
 
+function sanitizeForLog(value: unknown): string {
+	const raw = value instanceof Error ? value.message : String(value ?? "");
+	return raw.replace(/[A-Za-z0-9+/]{100,}={0,2}/g, "[base64]").slice(0, 400);
+}
+
 export const baseClient = createSafeActionClient({
 	defineMetadataSchema() {
 		return z.object({ name: z.string() });
@@ -24,7 +29,7 @@ export const baseClient = createSafeActionClient({
 				userEmail: context?.userEmail,
 				emailAccountId: context?.emailAccountId,
 				bindArgsClientInputs,
-				error: error.message,
+				error: sanitizeForLog(error),
 			},
 		});
 		if (error instanceof SafeError) return error.message;

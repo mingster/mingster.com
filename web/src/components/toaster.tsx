@@ -1,10 +1,20 @@
+"use client";
+
 import {
 	IconInfoSquare,
 	IconInfoTriangle,
 	IconThumbDown,
 	IconThumbUp,
 } from "@tabler/icons-react";
+import i18n from "i18next";
 import { Toaster as SonnerToaster, toast } from "sonner";
+
+import "@/app/i18n/client";
+
+function toastT(key: string, fallback: string): string {
+	const translated = i18n.t(key);
+	return translated === key ? fallback : translated;
+}
 
 function playSuccessSound() {
 	try {
@@ -23,7 +33,7 @@ function playSuccessSound() {
 
 export function toastSuccess(options: { title?: string; description: string }) {
 	playSuccessSound();
-	return toast.success(options.title || "✅ Success", {
+	return toast.success(options.title ?? toastT("success_title", "✅ Success"), {
 		description: options.description,
 		duration: 10_000,
 		icon: <IconThumbUp className="h-5 w-5" />,
@@ -35,7 +45,7 @@ export function toastSuccess(options: { title?: string; description: string }) {
 }
 
 export function toastError(options: { title?: string; description: string }) {
-	return toast.error(options.title || "❌ Error", {
+	return toast.error(options.title ?? toastT("error_title", "❌ Error"), {
 		description: options.description,
 		duration: 10_000,
 		icon: <IconThumbDown className="h-5 w-5" />,
@@ -47,7 +57,7 @@ export function toastError(options: { title?: string; description: string }) {
 }
 
 export function toastWarning(options: { title?: string; description: string }) {
-	return toast(options.title || "⚠️ Warning!", {
+	return toast.warning(options.title ?? toastT("warning", "⚠️ Warning!"), {
 		description: options.description,
 		duration: 10_000,
 		icon: <IconInfoTriangle className="h-5 w-5" />,
@@ -59,11 +69,11 @@ export function toastWarning(options: { title?: string; description: string }) {
 }
 
 export function toastInfo(options: {
-	title: string;
+	title?: string;
 	description: string;
 	duration?: number;
 }) {
-	return toast(options.title || "ℹ️ Info", {
+	return toast(options.title ?? toastT("toast_info", "ℹ️ Info"), {
 		icon: <IconInfoSquare className="h-5 w-5" />,
 		description: options.description,
 		duration: options.duration,
@@ -74,4 +84,14 @@ export function toastInfo(options: {
 	});
 }
 
-export const Toaster = SonnerToaster;
+export function Toaster() {
+	return (
+		<SonnerToaster
+			closeButton
+			toastOptions={{
+				closeButton: true,
+				closeButtonAriaLabel: toastT("close", "Close"),
+			}}
+		/>
+	);
+}

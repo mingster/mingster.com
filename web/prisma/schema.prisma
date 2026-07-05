@@ -2,7 +2,7 @@
 // all datetime displayed should be in the user's or store's timezone
 
 generator client {
-  provider        = "prisma-client"
+  provider        = "prisma-client-js"
   previewFeatures = ["views", "relationJoins"]
   output          = "./generated/client"
 }
@@ -409,7 +409,7 @@ model Country {
 model Currency {
   id             String           @id @unique
   name           String
-  symbol         String           //use it to display to customer
+  symbol         String //use it to display to customer
   ISOdigits      Int?
   ISOnum         Int?
   decimals       Int?
@@ -435,6 +435,8 @@ model Locale {
 
   SystemMessageLocale      SystemMessageLocale[]
   MessageTemplateLocalized MessageTemplateLocalized[]
+  StoreAnnouncementLocale  StoreAnnouncementLocale[]
+  ProductLocale            ProductLocale[]
 
   @@index([lng])
   @@index([name])
@@ -472,19 +474,21 @@ model Address {
 }
 
 model PaymentMethod {
-  id                String  @id @default(uuid())
-  name              String  @unique
-  payUrl            String  @default("")
-  priceDescr        String  @default("")
-  fee               Decimal @default("0.029")
-  feeAdditional     Decimal @default("0")
-  clearDays         Int     @default(3)
-  isDeleted         Boolean @default(false)
-  isDefault         Boolean @default(false)
-  canDelete         Boolean @default(false) //store owner cannot delete this method
-  visibleToCustomer Boolean @default(false)
+  id                 String   @id @default(uuid())
+  name               String   @unique
+  payUrl             String   @default("")
+  priceDescr         String   @default("")
+  fee                Decimal  @default("0.029")
+  feeAdditional      Decimal  @default("0")
+  clearDays          Int      @default(3)
+  isDeleted          Boolean  @default(false)
+  isDefault          Boolean  @default(false)
+  canDelete          Boolean  @default(false) //store owner cannot delete this method
+  visibleToCustomer  Boolean  @default(false)
   /// When false, sysAdmin has disabled this processor platform-wide (no new checkouts).
-  platformEnabled   Boolean @default(true)
+  platformEnabled    Boolean  @default(true)
+  /// ISO alpha-2 country codes where this method may be offered. Empty = available nowhere (must be listed explicitly).
+  availableCountries String[] @default([])
 
   createdAt                 BigInt
   updatedAt                 BigInt
@@ -514,21 +518,23 @@ model StorePaymentMethodMapping {
 }
 
 model ShippingMethod {
-  id           String                   @id @default(uuid())
-  identifier   String                   @default("") //used in the code to identify default methods
-  name         String                   @unique
-  description  String?
-  basic_price  Decimal                  @default(0)
-  currencyId   String                   @default("twd")
-  isDeleted    Boolean                  @default(false)
-  isDefault    Boolean                  @default(false)
-  canDelete    Boolean                  @default(false) //store owner cannot delete this method
-  shipRequired Boolean                  @default(true)
-  createdAt    BigInt
-  updatedAt    BigInt
-  currency     Currency                 @relation(fields: [currencyId], references: [id])
-  stores       StoreShipMethodMapping[] @relation("ShipMethodStoreMapping")
-  prices       ShippingMethodPrice[]    @relation("ShipMethodPrices")
+  id                 String                   @id @default(uuid())
+  identifier         String                   @default("") //used in the code to identify default methods
+  name               String                   @unique
+  description        String?
+  basic_price        Decimal                  @default(0)
+  currencyId         String                   @default("twd")
+  isDeleted          Boolean                  @default(false)
+  isDefault          Boolean                  @default(false)
+  canDelete          Boolean                  @default(false) //store owner cannot delete this method
+  shipRequired       Boolean                  @default(true)
+  /// ISO alpha-2 country codes where this method may be offered. Empty = available nowhere (must be listed explicitly).
+  availableCountries String[]                 @default([])
+  createdAt          BigInt
+  updatedAt          BigInt
+  currency           Currency                 @relation(fields: [currencyId], references: [id])
+  stores             StoreShipMethodMapping[] @relation("ShipMethodStoreMapping")
+  prices             ShippingMethodPrice[]    @relation("ShipMethodPrices")
 
   Shipment   Shipment[]   @relation("ShipmentToShipMethod")
   StoreOrder StoreOrder[]
@@ -722,11 +728,15 @@ model Store {
   name           String
   ownerId        String
 
-  defaultCountry  String  @default("TW")
-  defaultCurrency String  @default("twd")
-  isDeleted       Boolean @default(false)
-  defaultLocale   String  @default("tw")
-  defaultTimezone String  @default("Asia/Taipei")
+  defaultCountry     String   @default("TW")
+  /// ISO alpha-2 country codes this store operates in. Drives which payment/shipping methods are offered.
+  supportedCountries String[] @default(["TW"])
+  defaultCurrency    String   @default("twd")
+  isDeleted          Boolean  @default(false)
+  defaultLocale      String   @default("tw")
+
+  supportedLocales String[] @default(["tw", "en"])
+  defaultTimezone  String   @default("Asia/Taipei")
 
   autoAcceptOrder      Boolean @default(true)
   isOpen               Boolean @default(true)
@@ -756,10 +766,11 @@ model Store {
 
   paymentCredentials Json?
 
-  logo                               String?
-  logoPublicId                       String?
-  createdAt                          BigInt
-  updatedAt                          BigInt
+  logo         String?
+  logoPublicId String?
+  createdAt    BigInt
+  updatedAt    BigInt
+
   Owner                              User                                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   Organization                       Organization                        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   Products                           Product[]                           @relation("StoreToProduct")
@@ -776,6 +787,7 @@ model Store {
   EmailQueues                        EmailQueue[]
   StorePaymentMethods                StorePaymentMethodMapping[]
   StoreFacilities                    StoreFacility[]
+  StoreFacilitySessions              StoreFacilitySession[]
   ServiceStaffs                      ServiceStaff[]
   StoreProductOptionTemplate         StoreProductOptionTemplate[]
   Rsvp                               Rsvp[]
@@ -841,6 +853,8 @@ model StoreSettings {
   id                  String  @id @default(uuid())
   storeId             String  @unique
   orderNoteToCustomer String?
+  menuInstructions    String?
+  menuNote            String?
   privacyPolicy       String?
   tos                 String?
   aboutUs             String?
@@ -848,6 +862,8 @@ model StoreSettings {
   aboutUsVideoUrl     String?
   supportEmail        String?
   supportPhoneNumber  String?
+  /// Government-issued business tax ID (e.g. Taiwan 統一編號).
+  governmentTaxId     String?
   facebookUrl         String?
   igUrl               String?
   lineId              String?
@@ -884,6 +900,17 @@ model StoreSettings {
   /// Markdown content for gifting information page.
   storefrontGiftingContent String?
 
+  /// Store setup wizard completed (epoch ms); null = not finished.
+  setupWizardCompletedAt     BigInt?
+  /// User chose "finish later" on setup wizard (epoch ms).
+  setupWizardDismissedAt     BigInt?
+  /// Hide setup wizard link/reminder on store dashboard.
+  setupWizardHideDashboard   Boolean @default(false)
+  /// Last applied store setup preset id (from public/install/store_presets).
+  setupWizardPresetId        String?
+  /// Epoch ms when setupWizardPresetId was last applied.
+  setupWizardPresetAppliedAt BigInt?
+
   createdAt BigInt
   updatedAt BigInt
   Store     Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
@@ -899,12 +926,12 @@ model RsvpSettings {
   singleServiceMode Boolean @default(false) // for personal shop: only ONE reservation per time slot
 
   /// Minimum share of reservation total to prepay online at booking; 0 = no checkout from this rule; 100 = pay full total online first.
-  minPrepaidPercentage Int @default(0)
+  minPrepaidPercentage Int @default(100)
   /// Minimum prepaid floor in store currency (**internal minor**: major × 100; same as checkout). 0 = no minimum by fixed amount.
   minPrepaidAmount     Int @default(0)
 
   /// Legacy toggle; prepaid checkout already moves RSVP Pending → Ready when the order is paid (`process-rsvp-after-payment`). Reserved for future use.
-  noNeedToConfirm Boolean @default(false)
+  noNeedToConfirm Boolean @default(true)
 
   canCancel Boolean @default(true) //可否取消預約?
 
@@ -914,12 +941,12 @@ model RsvpSettings {
   canReserveBefore Int @default(120) //從現在起，可預約幾分鍾後的時間。 e.g. 現在7PM，只能預約9PM後的時間。
   canReserveAfter  Int @default(2190) //從現在起，最多可預約未來幾小時。 e.g. ㄧ年後=8760小時; 一個月後=730. 預設值：3個月後。
 
-  defaultDuration    Int     @default(60) //預約時間：60分鐘
+  defaultDuration    Int     @default(90) //預約時間：90分鐘
   requireSignature   Boolean @default(false) //需要簽名
   requireSignIn      Boolean @default(false) // 建立預約需登入
-  requireName        Boolean @default(false) // 建立預約需填姓名
-  requirePhone       Boolean @default(false) // 建立預約需有電話
-  showCostToCustomer Boolean @default(false) //顯示預約金額
+  requireName        Boolean @default(true) // 建立預約需填姓名
+  requirePhone       Boolean @default(true) // 建立預約需有電話
+  showCostToCustomer Boolean @default(true) //顯示預約金額
 
   /// 預約說明：顯示於顧客預約表單頂部（選填；支援多行）
   reservationInstructions String? @db.Text
@@ -928,9 +955,17 @@ model RsvpSettings {
   mustHaveServiceStaff Boolean @default(false) //必須要選擇服務人員(e.g. 美容師, 按摩師, 髮型師, 等等)
 
   /// 0 = facility-first (default), 1 = staff-first, 2 = restaurant / no facility+staff
-  rsvpMode    Int @default(0)
+  rsvpMode    Int @default(2)
   /// Restaurant mode: max party headcount per overlapping time slot (0 = unlimited)
   maxCapacity Int @default(0)
+
+  /// Allow takeout menu checkout to schedule a future pickup time (linked Rsvp row).
+  allowScheduledTakeoutOrders        Boolean @default(false)
+  /// Minutes before scheduled pickup when the order enters the kitchen queue.
+  scheduledTakeoutKitchenLeadMinutes Int     @default(30)
+
+  /// 0 = public (default), 1 = members and staff only, 2 = staff only
+  reservationAccessMode Int @default(0)
 
   /// true = use StoreSettings.businessHours; false = use rsvpHours.
   useBusinessHours Boolean @default(true)
@@ -943,7 +978,7 @@ model RsvpSettings {
   /// Hours **after** RSVP `createdAt` to send the “please confirm” request for `ReadyToConfirm` RSVPs (cron window).
   confirmHours Int @default(24)
 
-  syncWithGoogle Boolean @default(false) //同步Google月曆
+  syncWithGoogle Boolean @default(true) //同步Google月曆
   syncWithApple  Boolean @default(false) //同步Apple日曆
 
   // Reserve with Google integration fields
@@ -985,6 +1020,16 @@ model WaitListSettings {
 
   /// When true, customer must have Better Auth LINE social account linked.
   requireLineOnly Boolean @default(false)
+
+  /// 過號: requeue guests who do not show after call within grace minutes.
+  missedTurnEnabled                Boolean @default(true)
+  /// Minutes after notifiedAt (call) before 過號 may apply.
+  missedTurnMinutesAfterCall       Int     @default(3)
+  /// Reinsert at position N from front of waiting queue (1 = first in line).
+  missedTurnRequeuePositionFromTop Int     @default(3)
+
+  /// Show ordered queue on public waitlist page; guest PII is masked server-side.
+  showQueueOnWaitlistPage Boolean @default(false)
 
   createdAt BigInt
   updatedAt BigInt
@@ -1229,6 +1274,8 @@ model WaitList {
   createdAt        BigInt
   updatedAt        BigInt
   notifiedAt       BigInt?
+  /// Times this ticket was 過號 and requeued after call.
+  missedTurnCount  Int                  @default(0)
   orderId          String?              @unique
 
   Store    Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
@@ -1331,10 +1378,30 @@ model StoreFacility {
   FacilityPricingRules             FacilityPricingRule[]
   FacilityServiceStaffPricingRules FacilityServiceStaffPricingRule[]
   ServiceStaffFacilitySchedules    ServiceStaffFacilitySchedule[]
+  FacilitySessions                 StoreFacilitySession[]
 
   @@unique([storeId, facilityName])
   @@index([storeId])
   @@index([facilityName])
+}
+
+/// Table / facility ordering session — created on first QR scan, shared via 4-digit PIN.
+model StoreFacilitySession {
+  id         String  @id @default(uuid())
+  storeId    String
+  facilityId String
+  pin        String // 4-digit numeric PIN
+  createdAt  BigInt // epoch ms
+  expiresAt  BigInt // epoch ms (createdAt + facility.defaultDuration * 60_000)
+  isActive   Boolean @default(true)
+  closedAt   BigInt? // epoch ms when manually closed or auto-expired
+
+  Store    Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  Facility StoreFacility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, isActive])
+  @@index([facilityId, isActive])
+  @@index([expiresAt])
 }
 
 model ServiceStaff {
@@ -1430,18 +1497,33 @@ model FacilityPricingRule {
 }
 
 model StoreAnnouncement {
-  id        String @id @default(uuid())
+  id        String  @id @default(uuid())
   storeId   String
-  message   String
+  name      String?
+  published Boolean @default(false)
   createdAt BigInt
   updatedAt BigInt
 
-  Store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  Store   Store                     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  locales StoreAnnouncementLocale[]
 
   @@index([storeId])
   @@index([createdAt])
   @@index([updatedAt])
   @@map("StoreAnnouncement")
+}
+
+model StoreAnnouncementLocale {
+  id           String            @id @default(uuid())
+  messageId    String
+  localeId     String
+  message      String
+  announcement StoreAnnouncement @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  locale       Locale            @relation(fields: [localeId], references: [id])
+
+  @@unique([messageId, localeId])
+  @@index([messageId])
+  @@index([localeId])
 }
 
 model FacilityServiceStaffPricingRule {
@@ -1510,6 +1592,8 @@ model Product {
   compareAtPrice    Decimal?
   /// Arbitrary key-value specs (material, care, country, etc.) as JSON object.
   specsJson         Json?
+  /// Display badges for storefront menu (e.g. ["new","popular","recommended"]).
+  badges            Json?
   useOption         Boolean             @default(true) // when true, price is calculated based on product option
   canDelete         Boolean             @default(true)
   createdAt         BigInt
@@ -1527,6 +1611,7 @@ model Product {
   relatedIncoming ProductRelatedProduct[] @relation("ProductRelatedTarget")
 
   SavedProductCustomizations SavedProductCustomization[]
+  locales                    ProductLocale[]
 
   // Composite indexes for common query patterns
   // For filtered product listings
@@ -1687,17 +1772,24 @@ model Category {
   id                String              @id @default(uuid())
   storeId           String
   name              String
+  /// Optional category tagline/subtitle printed under the heading (e.g. 香醇紅茶 → "全發酵 香醇濃厚"). Default-locale text only.
+  descr             String?
+  /// Null = top-level menu group (e.g. 主鍋類); child rows hold products.
+  parentId          String?
   isFeatured        Boolean             @default(false)
   sortOrder         Int
   createdAt         BigInt
   updatedAt         BigInt
   Store             Store               @relation(fields: [storeId], references: [id], onDelete: Cascade)
   ProductCategories ProductCategories[]
+  locales           CategoryLocale[]
 
   // Composite indexes for common query patterns
   // For filtered and sorted category listings
   // For pagination
   @@index([storeId])
+  @@index([parentId])
+  @@index([storeId, parentId])
   @@index([name])
   @@index([isFeatured])
   @@index([sortOrder])
@@ -1705,6 +1797,33 @@ model Category {
   @@index([updatedAt])
   @@index([storeId, isFeatured, sortOrder])
   @@index([storeId, updatedAt])
+}
+
+model CategoryLocale {
+  id         String @id @default(uuid())
+  categoryId String
+  localeId   String
+  name       String
+
+  Category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, localeId])
+  @@index([categoryId])
+  @@index([localeId])
+}
+
+model ProductLocale {
+  id        String @id @default(uuid())
+  productId String
+  localeId  String
+  name      String
+
+  Product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  Locale  Locale  @relation(fields: [localeId], references: [id])
+
+  @@unique([productId, localeId])
+  @@index([productId])
+  @@index([localeId])
 }
 
 model ProductAttribute {
@@ -1803,6 +1922,11 @@ model StoreOrder {
 
   orderStatus Int @default(10)
 
+  /// Takeout scheduled pickup time (epoch ms); null = ASAP order.
+  scheduledFulfillmentAt BigInt?
+  /// When staff accepted a scheduled order (!autoAcceptOrder flow); null = awaiting approval.
+  scheduledApprovedAt    BigInt?
+
   currency    String  @default("twd")
   discount    Decimal @default(0)
   paymentCost Decimal @default(0)
@@ -1816,6 +1940,7 @@ model StoreOrder {
   User           User?           @relation("UserOrders", fields: [userId], references: [id])
   OrderNotes     OrderNote[]     @relation("orderNoteToStoreOrder")
   OrderItems     OrderItem[]     @relation("itemToStoreOrder")
+  OrderRounds    OrderRound[]    @relation("roundToStoreOrder")
   OrderItemView  orderitemview[] @relation("itemViewToStoreOrder")
   ShippingMethod ShippingMethod  @relation(fields: [shippingMethodId], references: [id])
   Shipment       Shipment[]
@@ -1854,10 +1979,27 @@ model StoreOrder {
   @@index([storeId, orderStatus, updatedAt])
 }
 
-model OrderItem {
+model OrderRound {
   id        String @id @default(uuid())
   orderId   String
+  roundNum  Int
+  status    Int    @default(10)
+  createdAt BigInt
+  updatedAt BigInt
+
+  Order      StoreOrder  @relation("roundToStoreOrder", fields: [orderId], references: [id], onDelete: Cascade)
+  OrderItems OrderItem[] @relation("itemToOrderRound")
+
+  @@unique([orderId, roundNum])
+  @@index([orderId])
+  @@index([status])
+}
+
+model OrderItem {
+  id        String  @id @default(uuid())
+  orderId   String
   productId String
+  roundId   String?
 
   //copy over value
   productName  String
@@ -1870,11 +2012,13 @@ model OrderItem {
   // Personalization/Customization data (for customizable products like bags)
   customizationData String? // JSON string storing customization details (color, initials, pattern, etc.)
 
-  Order   StoreOrder @relation("itemToStoreOrder", fields: [orderId], references: [id], onDelete: Cascade)
-  Product Product    @relation("itemToProduct", fields: [productId], references: [id])
+  Order      StoreOrder  @relation("itemToStoreOrder", fields: [orderId], references: [id], onDelete: Cascade)
+  OrderRound OrderRound? @relation("itemToOrderRound", fields: [roundId], references: [id], onDelete: SetNull)
+  Product    Product     @relation("itemToProduct", fields: [productId], references: [id])
 
   @@index([orderId])
   @@index([productId])
+  @@index([roundId])
 }
 
 model OrderNote {
@@ -1950,6 +2094,64 @@ model FaqLocale {
   answer   String
 
   Faq Faq @relation(fields: [faqId], references: [id], onDelete: Cascade)
+
+  @@unique([faqId, localeId])
+  @@index([faqId])
+  @@index([localeId])
+}
+
+model PlatformFaqCategory {
+  id        String  @id @default(uuid())
+  sortOrder Int
+  published Boolean @default(false)
+  createdOn BigInt
+  updatedOn BigInt
+
+  locales PlatformFaqCategoryLocale[]
+  items   PlatformFaq[]
+
+  @@index([sortOrder])
+  @@index([published])
+}
+
+model PlatformFaqCategoryLocale {
+  id         String @id @default(uuid())
+  categoryId String
+  localeId   String
+  name       String
+
+  PlatformFaqCategory PlatformFaqCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, localeId])
+  @@index([categoryId])
+  @@index([localeId])
+}
+
+model PlatformFaq {
+  id         String  @id @default(uuid())
+  categoryId String
+  sortOrder  Int
+  published  Boolean @default(false)
+  createdOn  BigInt
+  updatedOn  BigInt
+
+  PlatformFaqCategory PlatformFaqCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  locales             PlatformFaqLocale[]
+
+  @@index([categoryId])
+  @@index([sortOrder])
+  @@index([published])
+  @@index([categoryId, published, sortOrder])
+}
+
+model PlatformFaqLocale {
+  id       String @id @default(uuid())
+  faqId    String
+  localeId String
+  question String
+  answer   String
+
+  PlatformFaq PlatformFaq @relation(fields: [faqId], references: [id], onDelete: Cascade)
 
   @@unique([faqId, localeId])
   @@index([faqId])
@@ -2246,6 +2448,7 @@ model SupportTicket {
   message    String
   status     Int    @default(0)
 
+  scope        String @default("store")
   creator      String
   createdAt    BigInt
   modifier     String
@@ -2269,6 +2472,15 @@ model SupportTicket {
   @@index([lastModified])
   @@index([storeId, status])
   @@index([storeId, lastModified])
+}
+
+model SupportCannedReply {
+  id           Int    @id @default(autoincrement())
+  title        String
+  message      String
+  sortOrder    Int    @default(0)
+  createdAt    BigInt
+  lastModified BigInt
 }
 
 model ContactUs {
