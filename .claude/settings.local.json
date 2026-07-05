@@ -13,7 +13,27 @@
       "Bash(bun add *)",
       "Bash(bun remove *)",
       "Bash(bun --version)",
-      "Bash(bun run *)"
+      "Bash(bun run *)",
+      "Bash(find /Users/mtsai/projects -maxdepth 2 -iname \"*riben*\" 2>/dev/null; echo \"---\"; grep -r \"riben.life\" /Users/mtsai/projects/mingster.com --include=\"*.md\" -l 2>/dev/null | head -20)",
+      "Bash(find ~/Documents/Obsidian -iname \"*mingster*\" -o -iname \"*riben*\" 2>/dev/null)",
+      "Bash(cd /Users/mtsai/projects/riben.life/web && find src/actions src/app -type f \\\\\\( -name \"*.ts\" -o -name \"*.tsx\" \\\\\\) | sort > /tmp/riben_files.txt *)",
+      "Bash(sed 's|^web/||' /tmp/riben_changed.txt)",
+      "Bash(comm -12 /tmp/riben_changed_rel.txt /tmp/mingster_all.txt)",
+      "Bash(comm -23 /tmp/riben_changed_rel.txt /tmp/mingster_all.txt)",
+      "Bash(cp /Users/mtsai/projects/riben.life/web/src/utils/method-country-utils.ts /Users/mtsai/projects/mingster.com/web/src/utils/method-country-utils.ts)",
+      "Bash(cp /Users/mtsai/projects/riben.life/web/src/actions/sysAdmin/shared/available-countries.validation.ts /Users/mtsai/projects/mingster.com/web/src/actions/sysAdmin/shared/available-countries.validation.ts)",
+      "Bash(cp /Users/mtsai/projects/riben.life/web/src/lib/payment/payment-credentials.ts /Users/mtsai/projects/mingster.com/web/src/lib/payment/payment-credentials.ts)",
+      "Bash(cp /Users/mtsai/projects/riben.life/web/src/app/sysAdmin/components/available-countries-form-field.tsx /Users/mtsai/projects/mingster.com/web/src/app/sysAdmin/components/available-countries-form-field.tsx)",
+      "Bash(cp /Users/mtsai/projects/riben.life/web/src/app/sysAdmin/paymentMethods/components/payment-method-name-cell.tsx /Users/mtsai/projects/mingster.com/web/src/app/sysAdmin/paymentMethods/components/payment-method-name-cell.tsx)",
+      "Bash(cp /Users/mtsai/projects/riben.life/web/src/app/sysAdmin/shipMethods/components/shipping-method-name-cell.tsx /Users/mtsai/projects/mingster.com/web/src/app/sysAdmin/shipMethods/components/shipping-method-name-cell.tsx)",
+      "Bash(cp /Users/mtsai/projects/riben.life/web/src/app/sysAdmin/paymentMethods/components/columns.tsx /Users/mtsai/projects/mingster.com/web/src/app/sysAdmin/paymentMethods/components/columns.tsx *)",
+      "Bash(cp /Users/mtsai/projects/riben.life/web/src/app/sysAdmin/shipMethods/components/columns.tsx /Users/mtsai/projects/mingster.com/web/src/app/sysAdmin/shipMethods/components/columns.tsx)",
+      "Bash(cp /Users/mtsai/projects/riben.life/web/public/install/shipping_methods.json /Users/mtsai/projects/mingster.com/web/public/install/shipping_methods.json)",
+      "Bash(bunx tsc --noEmit -p . 2>&1 > /tmp/tsc_full.txt; wc -l /tmp/tsc_full.txt *)",
+      "Bash(cp /Users/mtsai/projects/riben.life/web/src/lib/store/purge-store-from-database.ts /Users/mtsai/projects/mingster.com/web/src/lib/store/purge-store-from-database.ts)",
+      "Bash(cp /Users/mtsai/projects/riben.life/web/src/actions/sysAdmin/store/hard-delete-sysadmin-store.ts /Users/mtsai/projects/mingster.com/web/src/actions/sysAdmin/store/hard-delete-sysadmin-store.ts)",
+      "Bash(cp /Users/mtsai/projects/riben.life/web/src/actions/sysAdmin/store/hard-delete-sysadmin-store.validation.ts /Users/mtsai/projects/mingster.com/web/src/actions/sysAdmin/store/hard-delete-sysadmin-store.validation.ts)",
+      "Bash(cp /Users/mtsai/projects/riben.life/web/src/app/sysAdmin/stores/components/hard-delete-sysadmin-store-dialog.tsx /Users/mtsai/projects/mingster.com/web/src/app/sysAdmin/stores/components/hard-delete-sysadmin-store-dialog.tsx)"
     ]
   }
 }
