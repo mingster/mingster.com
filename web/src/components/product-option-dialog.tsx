@@ -35,14 +35,18 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import type { Item, ItemOption } from "@/hooks/use-cart";
 
 import logger from "@/lib/logger";
+import { getProductDisplayNameForLng } from "@/lib/product/product-locale-display";
 import { useI18n } from "@/providers/i18n-provider";
 import type { Product, ProductOption } from "@/types";
 
 interface props {
-	product: Product;
+	product: Product & {
+		locales?: { localeId: string; name: string }[] | null;
+	};
 	disableBuyButton: boolean;
 	//onPurchase: () => void;
 	onValueChange?: (newValue: Item) => void; // return configured CartItem back to parent component
+	storeDefaultLocale?: string;
 }
 
 // display product options for user to configure product variants.
@@ -52,12 +56,18 @@ export const ProductOptionDialog: React.FC<props> = ({
 	disableBuyButton,
 	//onPurchase,
 	onValueChange,
+	storeDefaultLocale,
 }) => {
 	const [open, setOpen] = useState(false);
 	//const cart = useCart();
 
 	const { lng } = useI18n();
 	const { t } = useTranslation(lng);
+	const displayName = getProductDisplayNameForLng(
+		product,
+		lng,
+		storeDefaultLocale,
+	);
 
 	//const params = useParams();
 	//const {storeId, facilityId} = params;
@@ -365,7 +375,7 @@ export const ProductOptionDialog: React.FC<props> = ({
 
 		const newItem = {
 			id: cartId,
-			name: product.name,
+			name: displayName,
 			price: unitPrice,
 			quantity: quantity,
 			itemOptions: itemOptions,
@@ -435,7 +445,7 @@ export const ProductOptionDialog: React.FC<props> = ({
 
 			const newItem = {
 				id: cartId,
-				name: product.name,
+				name: displayName,
 				price: unitPrice,
 				quantity: quantity,
 				itemOptions: itemOptions,
@@ -532,7 +542,7 @@ export const ProductOptionDialog: React.FC<props> = ({
 					<DialogHeader className="border-b p-4">
 						<DialogTitle>
 							<div className="flex items-center justify-between">
-								<div className="grow text-xl m-2">{product.name}</div>
+								<div className="grow text-xl m-2">{displayName}</div>
 								<div className="text-sm text-muted-foreground">
 									<Currency value={Number(product.price)} />
 								</div>

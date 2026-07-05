@@ -1,4 +1,3 @@
-import isProLevel from "@/lib/store/is-pro-level";
 import { parsePaymentCredentials } from "@/lib/payment/payment-credentials";
 import { sqlClient } from "@/lib/prismadb";
 import type { NewebPayCredentials } from "./types";
@@ -32,11 +31,6 @@ export async function getNewebPayCredentialsByStore(
 	storeId: string,
 	store?: { paymentCredentials: unknown } | null,
 ): Promise<NewebPayCredentials | null> {
-	const isPro = await isProLevel(storeId);
-	if (!isPro) {
-		return getPlatformNewebPayCredentials();
-	}
-
 	let raw: unknown = store?.paymentCredentials;
 	if (raw === undefined) {
 		const row = await sqlClient.store.findUnique({

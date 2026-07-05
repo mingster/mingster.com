@@ -1,8 +1,10 @@
 import type { StoreOrder } from "@prisma/client";
 import type Stripe from "stripe";
 import logger from "@/lib/logger";
+import { parsePaymentCredentials } from "@/lib/payment/payment-credentials";
 import { cancelPlatformStoreBillingAtStripe } from "@/lib/payment/stripe/cancel-platform-store-billing";
 import { stripe } from "@/lib/payment/stripe/config";
+import { sqlClient } from "@/lib/prismadb";
 import { handlePlatformStripeWebhookEvent } from "@/lib/payment/stripe/platform-stripe-webhooks";
 import { refundUnusedCurrentSubscriptionPeriod } from "@/lib/payment/stripe/refund-unused-subscription-period";
 import {
@@ -340,22 +342,36 @@ export class StripePlugin
 		};
 	}
 
-	checkAvailability(
-		_order: StoreOrder,
+	async checkAvailability(
+		order: StoreOrder,
 		_config: PluginConfig,
-	): AvailabilityResult {
-		// Stripe is available if API keys are configured
-		if (!process.env.STRIPE_SECRET_KEY) {
-			return {
-				available: false,
-				reason: "Stripe secret key is not configured",
-			};
+	): Promise<AvailabilityResult> {
+		let storeSecret = "";
+		const store = await sqlClient.store.findUnique({
+			where: { id: order.storeId },
+			select: { paymentCredentials: true },
+		});
+		if (store) {
+			storeSecret =
+				parsePaymentCredentials(store.paymentCredentials).stripe?.secretKey?.trim() ??
+				"";
 		}
 
-		if (!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
+		const platformSecret = process.env.STRIPE_SECRET_KEY?.trim() ?? "";
+		const publishableKey =
+			process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim() ?? "";
+
+		if (!publishableKey) {
 			return {
 				available: false,
 				reason: "Stripe publishable key is not configured",
+			};
+		}
+
+		if (!storeSecret && !platformSecret) {
+			return {
+				available: false,
+				reason: "Stripe secret key is not configured",
 			};
 		}
 

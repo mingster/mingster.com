@@ -7,6 +7,7 @@ import { Prisma } from "@prisma/client";
 import { transformPrismaDataForJson } from "@/utils/utils";
 import { getUtcNowEpoch } from "@/utils/datetime-utils";
 import { updateShippingMethodSchema } from "./update-shipping-method.validation";
+import { normalizeAvailableCountryCodes } from "../shared/available-countries.validation";
 import { mapShippingMethodToColumn } from "@/app/sysAdmin/shipMethods/shipping-method-column";
 
 export const updateShippingMethodAction = adminActionClient
@@ -24,7 +25,11 @@ export const updateShippingMethodAction = adminActionClient
 			isDefault,
 			shipRequired,
 			canDelete,
+			availableCountries,
 		} = parsedInput;
+
+		const normalizedCountries =
+			normalizeAvailableCountryCodes(availableCountries);
 
 		const existing = await sqlClient.shippingMethod.findUnique({
 			where: { id },
@@ -58,6 +63,7 @@ export const updateShippingMethodAction = adminActionClient
 					isDefault,
 					shipRequired,
 					canDelete,
+					availableCountries: normalizedCountries,
 					updatedAt: getUtcNowEpoch(),
 				},
 				include: {

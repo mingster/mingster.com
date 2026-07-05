@@ -31,6 +31,8 @@ interface props<TData, TValue> {
 	searchKey?: string;
 	/** Rows per page (default 10). Use a large value when selection must span all rows. */
 	pageSize?: number;
+	/** Stable row id for selection state (defaults to row index). */
+	getRowId?: (row: TData) => string;
 	// pre-selected rows in RowSelectionState object. e.g. {0: true, 1: false, 2: true,}
 	initiallySelected: RowSelectionState;
 	disabled: boolean;
@@ -53,6 +55,7 @@ export function DataTableCheckbox<TData, TValue>({
 	noSearch,
 	searchKey,
 	pageSize: pageSizeProp,
+	getRowId,
 	initiallySelected,
 	disabled,
 	onRowSelectionChange,
@@ -67,11 +70,12 @@ export function DataTableCheckbox<TData, TValue>({
 	const [rowSelection, setRowSelection] =
 		useState<RowSelectionState>(initiallySelected);
 
-	//console.log(rowSelection);
+	useEffect(() => {
+		setRowSelection(initiallySelected);
+	}, [initiallySelected]);
 
 	const handleRowSelectionChange: OnChangeFn<RowSelectionState> = (state) => {
 		setRowSelection(state);
-		//console.log(rowSelection);
 	};
 
 	useEffect(() => {
@@ -84,12 +88,10 @@ export function DataTableCheckbox<TData, TValue>({
 		pageSize: pageSizeProp ?? 10, //default page size
 	});
 
-	const table = useReactTable({
+	const table = useReactTable<TData>({
 		data,
 		columns,
-		//override the row.id with the databaseId
-		//getRowId: (originalRow) => originalRow.id.toString(),
-
+		getRowId: getRowId ? (row: TData) => getRowId(row) : undefined,
 		onRowSelectionChange: handleRowSelectionChange,
 		//onRowSelectionChange: setRowSelection,
 		enableRowSelection: !disabled,

@@ -89,6 +89,67 @@ export const useCart = () => {
 	return context;
 };
 
+/** Items belonging to a single storefront (`item.storeId`). */
+export function filterCartItemsByStore(
+	items: Item[],
+	storeId?: string,
+): Item[] {
+	if (!storeId) {
+		return items;
+	}
+	return items.filter((item) => item.storeId === storeId);
+}
+
+function summarizeCartItems(items: Item[]) {
+	return {
+		totalItems: calculateTotalItems(items),
+		totalUniqueItems: calculateUniqueItems(items),
+		cartTotal: calculateTotal(items),
+		isEmpty: items.length === 0,
+	};
+}
+
+/**
+ * Storefront cart view: totals and `items` scoped to one store; mutations still
+ * update the shared cart. Pass no `storeId` to use the full cart (e.g. D2C shop).
+ */
+export function useStoreCart(storeId?: string) {
+	const cart = useCart();
+	const storeItems = React.useMemo(
+		() => filterCartItemsByStore(cart.items, storeId),
+		[cart.items, storeId],
+	);
+	const summary = React.useMemo(
+		() => summarizeCartItems(storeItems),
+		[storeItems],
+	);
+
+	const clearStoreItems = React.useCallback(() => {
+		if (!storeId) {
+			if (cart.items.length === 0) {
+				return;
+			}
+			cart.emptyCart();
+			return;
+		}
+		if (!cart.items.some((item) => item.storeId === storeId)) {
+			return;
+		}
+		const remaining = cart.items.filter((item) => item.storeId !== storeId);
+		cart.setItems(remaining);
+	}, [cart.items, cart.emptyCart, cart.setItems, storeId]);
+
+	return React.useMemo(
+		() => ({
+			...cart,
+			items: storeItems,
+			...summary,
+			clearStoreItems,
+		}),
+		[cart, storeItems, summary, clearStoreItems],
+	);
+}
+
 function reducer(state: CartProviderState, action: Actions) {
 	switch (action.type) {
 		case "SET_ITEMS":
@@ -120,6 +181,9 @@ function reducer(state: CartProviderState, action: Actions) {
 		}
 
 		case "EMPTY_CART":
+			if (state.items.length === 0 && state.isEmpty) {
+				return state;
+			}
 			return initialState;
 
 		case "CLEAR_CART_META":

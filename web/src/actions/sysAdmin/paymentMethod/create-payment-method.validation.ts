@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { availableCountriesSchema } from "../shared/available-countries.validation";
 
 export const createPaymentMethodSchema = z.object({
 	name: z.string().min(1, "Name is required"),
@@ -12,6 +13,7 @@ export const createPaymentMethodSchema = z.object({
 	canDelete: z.boolean().default(false),
 	visibleToCustomer: z.boolean().default(false),
 	platformEnabled: z.boolean().default(true),
+	availableCountries: availableCountriesSchema,
 });
 
 export type CreatePaymentMethodInput = z.infer<

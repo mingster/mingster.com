@@ -8,6 +8,7 @@ import { getUtcNowEpoch } from "@/utils/datetime-utils";
 import { SafeError } from "@/utils/error";
 import { transformPrismaDataForJson } from "@/utils/utils";
 import { updatePaymentMethodSchema } from "./update-payment-method.validation";
+import { normalizeAvailableCountryCodes } from "../shared/available-countries.validation";
 
 export const updatePaymentMethodAction = adminActionClient
 	.metadata({ name: "updatePaymentMethod" })
@@ -26,7 +27,11 @@ export const updatePaymentMethodAction = adminActionClient
 			canDelete,
 			visibleToCustomer,
 			platformEnabled,
+			availableCountries,
 		} = parsedInput;
+
+		const normalizedCountries =
+			normalizeAvailableCountryCodes(availableCountries);
 
 		const existing = await sqlClient.paymentMethod.findUnique({
 			where: { id },
@@ -62,6 +67,7 @@ export const updatePaymentMethodAction = adminActionClient
 					canDelete,
 					visibleToCustomer,
 					platformEnabled,
+					availableCountries: normalizedCountries,
 					updatedAt: getUtcNowEpoch(),
 				},
 				include: {

@@ -23,7 +23,7 @@ const getOrderById = async (orderId: string): Promise<StoreOrder | null> => {
 		include: {
 			Store: true,
 			OrderNotes: true,
-			OrderItemView: true,
+			OrderItemView: { include: { Product: { include: { locales: true } } } },
 			User: true,
 			ShippingMethod: true,
 			PaymentMethod: true,

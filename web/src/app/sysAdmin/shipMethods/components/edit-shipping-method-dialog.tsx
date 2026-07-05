@@ -1,6 +1,10 @@
 "use client";
 
 import { createShippingMethodAction } from "@/actions/sysAdmin/shippingMethod/create-shipping-method";
+import {
+	createShippingMethodSchema,
+	type CreateShippingMethodInput,
+} from "@/actions/sysAdmin/shippingMethod/create-shipping-method.validation";
 import { updateShippingMethodAction } from "@/actions/sysAdmin/shippingMethod/update-shipping-method";
 import { useTranslation } from "@/app/i18n/client";
 import { Loader } from "@/components/loader";
@@ -30,22 +34,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Resolver } from "react-hook-form";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
+import { AvailableCountriesFormField } from "@/app/sysAdmin/components/available-countries-form-field";
 import type { ShippingMethodColumn } from "../shipping-method-column";
 
-const formSchema = z.object({
-	name: z.string().min(1, "Name is required"),
-	identifier: z.string().default(""),
-	description: z.string().optional().nullable(),
-	basic_price: z.coerce.number().default(0),
-	currencyId: z.string().min(1).default("twd"),
-	isDeleted: z.boolean().default(false),
-	isDefault: z.boolean().default(false),
-	shipRequired: z.boolean().default(true),
-	canDelete: z.boolean().default(false),
-});
-
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = CreateShippingMethodInput;
 
 interface EditShippingMethodDialogProps {
 	shippingMethod?: ShippingMethodColumn | null;
@@ -88,12 +80,13 @@ export function EditShippingMethodDialog({
 			isDefault: shippingMethod?.isDefault ?? false,
 			shipRequired: shippingMethod?.shipRequired ?? true,
 			canDelete: shippingMethod?.canDelete ?? false,
+			availableCountries: shippingMethod?.availableCountries ?? [],
 		}),
 		[shippingMethod],
 	);
 
 	const form = useForm<FormValues>({
-		resolver: zodResolver(formSchema) as Resolver<FormValues>,
+		resolver: zodResolver(createShippingMethodSchema) as Resolver<FormValues>,
 		defaultValues,
 		mode: "onChange",
 	});
@@ -182,7 +175,7 @@ export function EditShippingMethodDialog({
 	return (
 		<Dialog open={open} onOpenChange={handleOpenChange}>
 			{trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
-			<DialogContent className="max-w-[calc(100%-1rem)] p-4 sm:p-6 sm:max-w-2xl max-h-[calc(100vh-2rem)] overflow-y-auto">
+			<DialogContent className="max-w-[calc(100%-1rem)] p-4 sm:p-6 sm:max-w-3xl max-h-[calc(100vh-2rem)] overflow-y-auto">
 				<DialogHeader>
 					<DialogTitle>
 						{isEditMode ? "Edit Shipping Method" : "Create Shipping Method"}
@@ -386,6 +379,17 @@ export function EditShippingMethodDialog({
 										</FormItem>
 									)}
 								/>
+
+								<AvailableCountriesFormField
+									control={form.control}
+									name="availableCountries"
+									disabled={loading || form.formState.isSubmitting}
+									label={t("available_countries") || "Available countries"}
+									description={
+										t("available_countries_descr") ||
+										"Stores only see this method when at least one of their supported countries matches."
+									}
+								/>
 							</div>
 
 							{/* Validation Error Summary */}
@@ -408,6 +412,8 @@ export function EditShippingMethodDialog({
 												isDefault: t("default") || "Default",
 												shipRequired: t("Ship_Required") || "Ship Required",
 												canDelete: t("Can_Delete") || "Can Delete",
+												availableCountries:
+													t("available_countries") || "Available countries",
 											};
 											const fieldLabel = fieldLabels[field] || field;
 											return (

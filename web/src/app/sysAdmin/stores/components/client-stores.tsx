@@ -58,6 +58,10 @@ export function ClientStores({
 		);
 	}, []);
 
+	const handleDeleted = useCallback((row: SysAdminStoreRow) => {
+		setData((prev) => prev.filter((s) => s.id !== row.id));
+	}, []);
+
 	const handleCreated = useCallback((row: SysAdminStoreRow) => {
 		setData((prev) => [row, ...prev]);
 	}, []);
@@ -174,11 +178,12 @@ export function ClientStores({
 					<CellActionSysadminStore
 						item={row.original}
 						onUpdated={handleUpdated}
+						onDeleted={handleDeleted}
 					/>
 				),
 			},
 		],
-		[handleUpdated],
+		[handleUpdated, handleDeleted],
 	);
 
 	const canCreate = organizations.length > 0 && users.length > 0;

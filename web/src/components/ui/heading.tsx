@@ -14,7 +14,9 @@ export const Heading: React.FC<HeadingProps> = ({
 	className,
 }) => {
 	if (!badge) badge = 0;
-	//console.log(`badge:${badge}`);
+
+	const showDescription =
+		typeof description === "string" && description.trim().length > 0;
 
 	return (
 		<div className={clsx("", className)}>
@@ -28,7 +30,9 @@ export const Heading: React.FC<HeadingProps> = ({
 					{title}
 				</h1>
 			</strong>
-			<div className="text-muted-foreground text-sm p-0">{description}</div>
+			{showDescription ? (
+				<div className="text-muted-foreground text-sm p-0">{description}</div>
+			) : null}
 		</div>
 	);
 };

@@ -85,9 +85,9 @@ export const PayoutSchedule: GeneralNVType[] = [
 ];
 
 export const PageAction = {
-	create: "Create",
-	modify: "Modify",
-	delete: "Delete",
+	create: "create",
+	modify: "modify",
+	delete: "delete",
 } as const;
 
 export type SubscriptionForUI = {
@@ -219,6 +219,16 @@ export const RsvpMode = {
 } as const;
 
 export type RsvpModeValue = (typeof RsvpMode)[keyof typeof RsvpMode];
+
+/** Matches `RsvpSettings.reservationAccessMode` (Prisma). Who is allowed to make a reservation. */
+export const RsvpAccessMode = {
+	PUBLIC: 0, // open to everyone (default)
+	MEMBER_AND_STAFF: 1, // store members and staff only
+	STAFF_ONLY: 2, // store staff only
+} as const;
+
+export type RsvpAccessModeValue =
+	(typeof RsvpAccessMode)[keyof typeof RsvpAccessMode];
 
 export const MemberRole = {
 	customer: "customer",

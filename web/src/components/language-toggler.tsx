@@ -5,8 +5,8 @@ import { useEffect, useState } from "react";
 
 import { useTranslation } from "@/app/i18n/client";
 import { cookieName, languages } from "@/app/i18n/settings";
-import { NotMountSkeleton } from "@/components/not-mount-skeleton";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -39,7 +39,7 @@ export const LanguageToggler = () => {
 	}, []);
 
 	if (!mounted) {
-		return <NotMountSkeleton />;
+		return <Skeleton className="ml-1 size-8 rounded-full" />;
 	}
 
 	return (

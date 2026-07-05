@@ -4,7 +4,7 @@ import { IconSun } from "@tabler/icons-react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import useColorMode from "@/hooks/useColorMode";
-import { NotMountSkeleton } from "@/components/not-mount-skeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export const ThemeToggler = () => {
 	const [mounted, setMounted] = useState(false);
@@ -25,7 +25,7 @@ export const ThemeToggler = () => {
 	}, []);
 
 	if (!mounted) {
-		return <NotMountSkeleton />;
+		return <Skeleton className="h-7.5 w-14 rounded-full" />;
 	}
 
 	return (

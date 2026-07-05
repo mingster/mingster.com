@@ -19,6 +19,7 @@ export interface ShippingMethodColumn {
 	StoreOrder: number;
 	Shipment: number;
 	canDelete: boolean;
+	availableCountries: string[];
 }
 
 export const mapShippingMethodToColumn = (
@@ -55,4 +56,5 @@ export const mapShippingMethodToColumn = (
 	StoreOrder: shippingMethod._count?.StoreOrder ?? 0,
 	Shipment: shippingMethod._count?.Shipment ?? 0,
 	canDelete: shippingMethod.canDelete ?? false,
+	availableCountries: shippingMethod.availableCountries ?? [],
 });

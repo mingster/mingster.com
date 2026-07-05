@@ -139,7 +139,7 @@ export function buildOrderLifecyclePayload(
 			orderNumber: input.order?.id ?? "",
 			createdOn: createdOn ? formatDateTime(createdOn) : "",
 			updatedAt: updatedAt ? formatDateTime(updatedAt) : "",
-			total: input.order?.total ?? null,
+			total: input.order?.orderTotal ?? null,
 			itemsSummary: formatOrderItemsSummary(
 				input.order?.OrderItemView,
 				input.order?.currency,

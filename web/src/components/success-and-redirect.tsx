@@ -1,7 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { Suspense, useEffect, useMemo, useRef } from "react";
-import { useTimer } from "react-timer-hook";
+import { Suspense, useEffect, useRef } from "react";
 import { useTranslation } from "@/app/i18n/client";
 import { authClient } from "@/lib/auth-client";
 import { useI18n } from "@/providers/i18n-provider";
@@ -11,7 +10,10 @@ import {
 	type SerializedRsvpForStorage,
 	transformReservationForStorage,
 } from "@/lib/reservation/utils";
+import { useStoreCart } from "@/hooks/use-cart";
 import { Loader } from "./loader";
+
+const REDIRECT_DELAY_MS = 3000;
 
 type paymentProps = {
 	order?: StoreOrder;
@@ -30,13 +32,6 @@ export const SuccessAndRedirect: React.FC<paymentProps> = ({
 	rsvp,
 	postPaymentSignInToken,
 }) => {
-	// Fixed once per mount so session/auth re-renders do not reset react-timer-hook.
-	const REDIRECT_DELAY_SECONDS = 3;
-	const expiryTimestamp = useMemo(
-		() => new Date(Date.now() + REDIRECT_DELAY_SECONDS * 1000),
-		[],
-	);
-
 	// Use order.id if order is provided, otherwise fall back to orderId
 	const finalOrderId = order?.id || orderId;
 
@@ -46,7 +41,6 @@ export const SuccessAndRedirect: React.FC<paymentProps> = ({
 
 	return (
 		<MyTimer
-			expiryTimestamp={expiryTimestamp}
 			order={order}
 			orderId={finalOrderId}
 			returnUrl={returnUrl}
@@ -57,14 +51,12 @@ export const SuccessAndRedirect: React.FC<paymentProps> = ({
 };
 
 function MyTimer({
-	expiryTimestamp,
 	order,
 	orderId,
 	returnUrl,
 	rsvp,
 	postPaymentSignInToken,
 }: {
-	expiryTimestamp: Date;
 	order?: StoreOrder;
 	orderId: string;
 	returnUrl?: string;
@@ -73,9 +65,17 @@ function MyTimer({
 }) {
 	const router = useRouter();
 	const didNavigateRef = useRef(false);
+	const didClearCartRef = useRef(false);
 	const { data: session } = authClient.useSession();
 	const { lng } = useI18n();
 	const { t } = useTranslation(lng);
+	const { clearStoreItems } = useStoreCart(order?.storeId);
+
+	useEffect(() => {
+		if (didClearCartRef.current) return;
+		didClearCartRef.current = true;
+		clearStoreItems();
+	}, [clearStoreItems]);
 
 	// Anonymous user with phone-matched existing account: sign in after paid (no OTP)
 	const customerId = rsvp?.customerId ?? null;
@@ -136,21 +136,11 @@ function MyTimer({
 		}
 	}, [rsvp, order?.storeId]);
 
-	const {
-		seconds,
-		minutes,
-		hours,
-		days,
-		isRunning,
-		start,
-		pause,
-		resume,
-		restart,
-	} = useTimer({
-		expiryTimestamp,
-		onExpire: () => {
-			// Skip auto-redirect when showing OTP sign-in prompt
-			if (needsSignIn) return;
+	// Redirect to order detail (or returnUrl) after success message
+	useEffect(() => {
+		if (needsSignIn) return;
+
+		const timer = setTimeout(() => {
 			if (didNavigateRef.current) return;
 			didNavigateRef.current = true;
 			navigateAfterCheckout(router, {
@@ -158,15 +148,18 @@ function MyTimer({
 				order,
 				returnUrl,
 			});
-		},
-	});
+		}, REDIRECT_DELAY_MS);
 
-	// Pause timer when redirecting to sign-in (anonymous user with matched phone)
-	useEffect(() => {
-		if (needsSignIn) {
-			pause();
-		}
-	}, [needsSignIn, pause]);
+		return () => clearTimeout(timer);
+	}, [
+		needsSignIn,
+		orderId,
+		order?.id,
+		order?.userId,
+		order?.storeId,
+		returnUrl,
+		router,
+	]);
 
 	if (!orderId) {
 		return "no order";

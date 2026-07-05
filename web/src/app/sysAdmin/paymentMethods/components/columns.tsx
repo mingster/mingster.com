@@ -7,6 +7,7 @@ import { DataTableColumnHeader } from "@/components/dataTable-column-header";
 import { Badge } from "@/components/ui/badge";
 import type { PaymentMethodColumn } from "../payment-method-column";
 import { CellAction } from "./cell-action";
+import { PaymentMethodNameCell } from "./payment-method-name-cell";
 
 interface CreatePaymentMethodColumnsOptions {
 	onUpdated?: (paymentMethod: PaymentMethodColumn) => void;
@@ -26,6 +27,9 @@ export const createPaymentMethodColumns = (
 			accessorKey: "name",
 			header: ({ column }) => (
 				<DataTableColumnHeader column={column} title="Name" />
+			),
+			cell: ({ row }) => (
+				<PaymentMethodNameCell data={row.original} onUpdated={onUpdated} />
 			),
 		},
 		{
@@ -126,6 +130,30 @@ export const createPaymentMethodColumns = (
 			},
 			meta: {
 				className: "hidden sm:table-cell",
+			},
+		},
+		{
+			accessorKey: "availableCountries",
+			header: ({ column }) => (
+				<DataTableColumnHeader column={column} title="Countries" />
+			),
+			cell: ({ row }) => {
+				const countries = row.original.availableCountries ?? [];
+				if (countries.length === 0) {
+					return <span className="text-muted-foreground">—</span>;
+				}
+				return (
+					<div className="flex flex-wrap gap-1 max-w-[200px]">
+						{countries.map((code) => (
+							<Badge key={code} variant="outline" className="text-xs">
+								{code}
+							</Badge>
+						))}
+					</div>
+				);
+			},
+			meta: {
+				className: "hidden lg:table-cell",
 			},
 		},
 		{

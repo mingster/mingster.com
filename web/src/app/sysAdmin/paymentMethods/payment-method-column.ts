@@ -20,6 +20,7 @@ export interface PaymentMethodColumn {
 	StorePaymentMethodMapping: number;
 	StoreOrder: number;
 	canDelete: boolean;
+	availableCountries: string[];
 }
 
 export const mapPaymentMethodToColumn = (
@@ -53,4 +54,5 @@ export const mapPaymentMethodToColumn = (
 		paymentMethod._count?.StorePaymentMethodMapping ?? 0,
 	StoreOrder: paymentMethod._count?.StoreOrder ?? 0,
 	canDelete: paymentMethod.canDelete ?? false,
+	availableCountries: paymentMethod.availableCountries ?? [],
 });

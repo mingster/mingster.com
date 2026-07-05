@@ -25,7 +25,7 @@ export default async function SysAdminDashboardPage() {
 					<AlertDescription>
 						Run{" "}
 						<code className="rounded bg-muted px-1">
-							bun run install:platform
+							bun run install:data
 						</code>{" "}
 						or open the{" "}
 						<Link href="/install" className="underline">

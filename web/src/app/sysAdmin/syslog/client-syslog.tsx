@@ -101,7 +101,7 @@ export const SystemLogClient: React.FC = () => {
 				return <div className="">Data</div>;
 			},
 			cell: ({ row }) => (
-				<div className="pl-0 flex flex-col gap-1 font-mono text-xs text-gray-500 text-wrap">
+				<div className="pl-0 flex flex-col gap-1 font-mono text-xs text-gray-500 max-w-xs overflow-hidden break-all">
 					<div>{row.original.service}</div>
 					<div>{row.original.environment}</div>
 					<div>{row.original.version}</div>
@@ -109,14 +109,14 @@ export const SystemLogClient: React.FC = () => {
 					<div>{row.original.userId}</div>
 					<div>{row.original.sessionId}</div>
 					<div>{row.original.ip}</div>
-					<div className="text-wrap">{row.original.userAgent}</div>
+					<div>{row.original.userAgent}</div>
 					<div>{row.original.url}</div>
 					<div>{row.original.method}</div>
 					<div>{row.original.statusCode}</div>
 					<div>{row.original.duration}</div>
 					<div>{row.original.errorCode}</div>
 					<div>{row.original.stackTrace}</div>
-					<div className="text-wrap">{row.original.metadata}</div>
+					<div>{row.original.metadata}</div>
 					<div>{row.original.tags}</div>
 					<div>{row.original.source}</div>
 					<div>{row.original.line}</div>

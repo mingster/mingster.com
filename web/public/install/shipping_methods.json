@@ -8,7 +8,8 @@
 		"shipRequired": true,
 		"isDeleted": false,
 		"isDefault": false,
-		"canDelete": false
+		"canDelete": false,
+		"availableCountries": ["TW"]
 	},
 	{
 		"name": "7-11超商取貨",
@@ -19,7 +20,8 @@
 		"shipRequired": true,
 		"isDeleted": false,
 		"isDefault": false,
-		"canDelete": false
+		"canDelete": false,
+		"availableCountries": ["TW"]
 	},
 	{
 		"name": "全家超商取貨",
@@ -30,7 +32,8 @@
 		"shipRequired": true,
 		"isDeleted": false,
 		"isDefault": false,
-		"canDelete": false
+		"canDelete": false,
+		"availableCountries": ["TW"]
 	},
 	{
 		"name": "黑貓宅急便",
@@ -41,7 +44,8 @@
 		"shipRequired": true,
 		"isDeleted": false,
 		"isDefault": false,
-		"canDelete": false
+		"canDelete": false,
+		"availableCountries": ["TW"]
 	},
 	{
 		"name": "預約",
@@ -52,7 +56,8 @@
 		"shipRequired": false,
 		"isDeleted": false,
 		"isDefault": true,
-		"canDelete": false
+		"canDelete": false,
+		"availableCountries": ["TW", "JP", "TH"]
 	},
 	{
 		"name": "自取",
@@ -63,7 +68,8 @@
 		"shipRequired": false,
 		"isDeleted": false,
 		"isDefault": true,
-		"canDelete": false
+		"canDelete": false,
+		"availableCountries": ["TW", "JP", "TH"]
 	},
 	{
 		"name": "內用",
@@ -74,7 +80,8 @@
 		"shipRequired": false,
 		"isDeleted": false,
 		"isDefault": true,
-		"canDelete": false
+		"canDelete": false,
+		"availableCountries": ["TW", "JP", "TH"]
 	},
 	{
 		"name": "數位",
@@ -85,6 +92,7 @@
 		"shipRequired": false,
 		"isDeleted": false,
 		"isDefault": false,
-		"canDelete": false
+		"canDelete": false,
+		"availableCountries": ["TW", "JP", "TH"]
 	}
 ]
