@@ -33,7 +33,11 @@
       "Bash(cp /Users/mtsai/projects/riben.life/web/src/lib/store/purge-store-from-database.ts /Users/mtsai/projects/mingster.com/web/src/lib/store/purge-store-from-database.ts)",
       "Bash(cp /Users/mtsai/projects/riben.life/web/src/actions/sysAdmin/store/hard-delete-sysadmin-store.ts /Users/mtsai/projects/mingster.com/web/src/actions/sysAdmin/store/hard-delete-sysadmin-store.ts)",
       "Bash(cp /Users/mtsai/projects/riben.life/web/src/actions/sysAdmin/store/hard-delete-sysadmin-store.validation.ts /Users/mtsai/projects/mingster.com/web/src/actions/sysAdmin/store/hard-delete-sysadmin-store.validation.ts)",
-      "Bash(cp /Users/mtsai/projects/riben.life/web/src/app/sysAdmin/stores/components/hard-delete-sysadmin-store-dialog.tsx /Users/mtsai/projects/mingster.com/web/src/app/sysAdmin/stores/components/hard-delete-sysadmin-store-dialog.tsx)"
+      "Bash(cp /Users/mtsai/projects/riben.life/web/src/app/sysAdmin/stores/components/hard-delete-sysadmin-store-dialog.tsx /Users/mtsai/projects/mingster.com/web/src/app/sysAdmin/stores/components/hard-delete-sysadmin-store-dialog.tsx)",
+      "Bash(find . -maxdepth 2 -iname \"biome.json*\" -o -maxdepth 2 -path \"*/.vscode/settings.json\")",
+      "Bash(cat .vscode/settings.json)",
+      "Bash(cat web/.vscode/settings.json)",
+      "Bash(code --list-extensions --show-versions)"
     ]
   }
 }
