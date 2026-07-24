@@ -353,8 +353,9 @@ export class StripePlugin
 		});
 		if (store) {
 			storeSecret =
-				parsePaymentCredentials(store.paymentCredentials).stripe?.secretKey?.trim() ??
-				"";
+				parsePaymentCredentials(
+					store.paymentCredentials,
+				).stripe?.secretKey?.trim() ?? "";
 		}
 
 		const platformSecret = process.env.STRIPE_SECRET_KEY?.trim() ?? "";

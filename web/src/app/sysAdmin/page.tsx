@@ -24,9 +24,7 @@ export default async function SysAdminDashboardPage() {
 					<AlertTitle>Reference data missing</AlertTitle>
 					<AlertDescription>
 						Run{" "}
-						<code className="rounded bg-muted px-1">
-							bun run install:data
-						</code>{" "}
+						<code className="rounded bg-muted px-1">bun run install:data</code>{" "}
 						or open the{" "}
 						<Link href="/install" className="underline">
 							install page

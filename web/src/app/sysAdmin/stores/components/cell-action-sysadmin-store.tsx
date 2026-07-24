@@ -1,10 +1,6 @@
 "use client";
 
-import {
-	IconDots,
-	IconRotateClockwise,
-	IconTrash,
-} from "@tabler/icons-react";
+import { IconDots, IconRotateClockwise, IconTrash } from "@tabler/icons-react";
 import Link from "next/link";
 import { useState } from "react";
 
