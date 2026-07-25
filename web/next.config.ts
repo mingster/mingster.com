@@ -6,14 +6,10 @@ const nextConfig: NextConfig = {
 
 	allowedDevOrigins: ["192.168.2.5", "*.192.168.2.5"],
 	turbopack: {
-		rules: {
-			// MDX is compiled via webpack when using `next build` (default). When Turbopack is used
-			// (e.g. some tooling paths), register the loader so dynamic imports from `blog/api.ts` work.
-			"*.mdx": {
-				loaders: ["@mdx-js/loader"],
-				as: "*.tsx",
-			},
-		},
+		// NOTE: Do not register a manual `*.mdx` loader rule here. `createMDX` (below)
+		// configures the MDX loader for both webpack and Turbopack and wires the
+		// `mdx-components.tsx` provider. A bare `@mdx-js/loader` rule overrides that
+		// wiring and drops the provider, so blog posts render as unstyled bare HTML.
 		ignoreIssue: [
 			{
 				path: /next\.config\.(t|j)s$/,

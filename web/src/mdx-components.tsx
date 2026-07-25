@@ -133,9 +133,39 @@ const components = {
 		);
 	},
 
+	p({ children }) {
+		return (
+			<p className="my-3 text-base leading-7 text-foreground/90 first:mt-0 last:mb-0">
+				{children}
+			</p>
+		);
+	},
+
+	blockquote({ children }) {
+		return (
+			<blockquote className="my-4 border-l-4 border-primary/40 pl-4 text-foreground/80 italic">
+				{children}
+			</blockquote>
+		);
+	},
+
+	hr() {
+		return <hr className="my-8 border-border" />;
+	},
+
+	strong({ children }) {
+		return (
+			<strong className="font-semibold text-foreground">{children}</strong>
+		);
+	},
+
+	em({ children }) {
+		return <em className="italic">{children}</em>;
+	},
+
 	ol({ children }) {
 		return (
-			<ol className="list-decimal list-inside space-y-1 my-4 ml-4 [&_ol]:ml-6 [&_ol_ol]:ml-8">
+			<ol className="list-decimal list-outside my-4 ml-6 space-y-1.5 [&_ol]:ml-6 [&_ol_ol]:ml-8">
 				{children}
 			</ol>
 		);
@@ -143,7 +173,7 @@ const components = {
 
 	ul({ children }) {
 		return (
-			<ul className="list-disc list-inside space-y-1 my-4 ml-4 [&_ul]:ml-6 [&_ul_ul]:ml-8">
+			<ul className="list-disc list-outside my-4 ml-6 space-y-1.5 [&_ul]:ml-6 [&_ul_ul]:ml-8">
 				{children}
 			</ul>
 		);
@@ -151,7 +181,7 @@ const components = {
 
 	li({ children }) {
 		return (
-			<li className="text-base leading-relaxed [&>ul]:mt-2 [&>ol]:mt-2">
+			<li className="text-base leading-7 [&>p]:my-1 [&>ul]:mt-2 [&>ol]:mt-2">
 				{children}
 			</li>
 		);

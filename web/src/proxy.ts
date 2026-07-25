@@ -58,7 +58,11 @@ const badRequest = new NextResponse(null, {
  * rewrites X-Forwarded-Proto cannot cause a same-origin request to be rejected.
  */
 function isSameOrigin(req: NextRequest, origin: string): boolean {
-	const host = (req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "")
+	const host = (
+		req.headers.get("x-forwarded-host") ??
+		req.headers.get("host") ??
+		""
+	)
 		.split(",")[0]
 		.trim();
 	if (!host) return false;
@@ -83,7 +87,6 @@ function applyCorsHeaders(response: NextResponse, origin: string | null): void {
 		response.headers.set(key, value);
 	}
 }
-
 
 /**
  * Apple Sign In uses `response_mode=form_post`, meaning Apple POSTs the OAuth
@@ -122,10 +125,8 @@ async function handleAppleCallback(
 }
 
 export async function proxy(req: NextRequest) {
-
 	const appleResponse = await handleAppleCallback(req);
 	if (appleResponse) return appleResponse;
-
 
 	//#region csp - https://nextjs.org/docs/pages/guides/content-security-policy
 	/*
