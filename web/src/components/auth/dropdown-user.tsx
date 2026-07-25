@@ -1,10 +1,5 @@
 "use client";
-import {
-	IconBrandStripe,
-	IconHome,
-	IconLock,
-	IconSettings,
-} from "@tabler/icons-react";
+import { IconHome, IconSettings } from "@tabler/icons-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -23,7 +18,6 @@ import {
 import { authClient } from "@/lib/auth-client";
 import { useI18n } from "@/providers/i18n-provider";
 import type { User } from "@/types";
-import { Role } from "@/types/enum";
 import DialogSignIn from "./dialog-sign-in";
 import SignOutButton from "./sign-out-button";
 
@@ -81,15 +75,6 @@ export default function DropdownUser({
 				<DropdownMenuSeparator />
 				<DropdownMenuGroup>
 					<DropdownMenuItem className="cursor-pointer" asChild>
-						<Link
-							href="/account/order-history"
-							className="flex items-center gap-2"
-						>
-							<IconBrandStripe className="size-4 shrink-0" />
-							<span>{t("user_profile_billing")}</span>
-						</Link>
-					</DropdownMenuItem>
-					<DropdownMenuItem className="cursor-pointer" asChild>
 						<Link href="/account" className="flex items-center gap-2">
 							<IconSettings className="size-4 shrink-0" />
 							<span>{t("user_profile_my_account")}</span>
@@ -104,30 +89,6 @@ export default function DropdownUser({
 							<span>{t("home")}</span>
 						</Link>
 					</DropdownMenuItem>
-
-					{(user.role === Role.admin ||
-						user.role === Role.owner ||
-						user.role === Role.storeAdmin ||
-						user.role === Role.staff) && (
-						<DropdownMenuItem className="cursor-pointer" asChild>
-							<Link href="/storeAdmin/" className="flex items-center gap-2">
-								<IconLock className="size-4 shrink-0" />
-								<span>{t("user_profile_link_to_store_dashboard")}</span>
-							</Link>
-						</DropdownMenuItem>
-					)}
-
-					{user.role === Role.admin && (
-						<>
-							<DropdownMenuItem className="cursor-pointer" asChild>
-								<Link href="/sysAdmin" className="flex items-center gap-2">
-									<IconLock className="size-4 shrink-0" />
-									<span>{t("user_profile_link_to_admin")}</span>
-								</Link>
-							</DropdownMenuItem>
-							<DropdownMenuSeparator />
-						</>
-					)}
 				</DropdownMenuGroup>
 
 				<DropdownMenuItem className="cursor-pointer" asChild>

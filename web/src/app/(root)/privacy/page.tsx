@@ -1,15 +1,15 @@
 import { Suspense } from "react";
-import { GetContentPrivacy } from "@/actions/store/get-content-privacy";
 import { getT } from "@/app/i18n";
+import DisplayMarkDown from "@/components/display-mark-down";
 import { GlobalNavbar } from "@/components/global-navbar";
 import { Loader } from "@/components/loader";
-import DisplayMarkDown from "@/components/display-mark-down";
 import Container from "@/components/ui/container";
+import { getPrivacyPolicy } from "@/lib/legal-content";
 
 // display privacy policy
 //
 export default async function PrivacyPage() {
-	const PrivacyPolicy = await GetContentPrivacy();
+	const PrivacyPolicy = await getPrivacyPolicy();
 
 	const { t } = await getT();
 	const title = t("page_title_privacy");

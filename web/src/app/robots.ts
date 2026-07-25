@@ -8,15 +8,7 @@ export default function robots(): MetadataRoute.Robots {
 			{
 				userAgent: "*",
 				allow: "/",
-				disallow: [
-					"/api/*",
-					"/dashboard/*",
-					"/sysAdmin/*",
-					"/storeAdmin/*",
-					"/account/*",
-					"/_next/*",
-					"/private/*",
-				],
+				disallow: ["/api/*", "/account/*", "/auth/*", "/_next/*"],
 			},
 			{
 				userAgent: "GPTBot", // OpenAI's web crawler

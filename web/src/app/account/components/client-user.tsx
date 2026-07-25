@@ -54,26 +54,14 @@ export const UserClient: React.FC<iUserTabProps> = ({ user }) => {
 		<Container className="bg-transparent">
 			<Tabs
 				value={activeTab}
-				defaultValue="orders"
+				defaultValue="user"
 				onValueChange={handleTabChange}
 				className="w-full"
 			>
-				<TabsList className="grid grid-cols-4">
+				<TabsList className="grid grid-cols-2">
 					<TabsTrigger className="px-5 lg:min-w-40" value="user">
 						{t("account_tabs_account")}
 					</TabsTrigger>
-					{/*
-					<TabsTrigger className="px-5 lg:min-w-40" value="orders">
-						{t("account_tabs_subscriptionHistory")}
-					</TabsTrigger>
-					<TabsTrigger className="px-5 lg:min-w-40" value="changePassword">
-						{t("account_tabs_password")}
-					</TabsTrigger>
-
-                    				<TabsTrigger className="px-5 lg:min-w-40" value="api">
-						{t("account_tabs_api_keys")}
-					</TabsTrigger>
-*/}
 
 					<TabsTrigger className="px-5 lg:min-w-40" value="providers">
 						{t("account_tabs_providers")}
@@ -129,57 +117,7 @@ export const UserClient: React.FC<iUserTabProps> = ({ user }) => {
 						}}
 					/>
 				</TabsContent>
-				{/*
-				<TabsContent value="changePassword">
-					<ChangePasswordCard
-						classNames={{
-							base: "",
-							header: "",
-							title: "",
-							description: "text-muted-foreground",
-							content: "bg-transparent",
-							footer: "",
-							input: "",
-							button: "",
-						}}
-					/>
-				</TabsContent>
-				*/}
 
-				{/*
-
-				<TabsContent value="api">
-					<ApiKeysCard
-						classNames={{
-							content: "bg-transparent",
-							base: "bg-transparent",
-							button: "",
-							cell: "",
-						}}
-					/>
-				</TabsContent>
-        <TabsContent value="password">
-          <Card>
-            <CardHeader>
-              <CardTitle> </CardTitle>
-              <CardDescription> </CardDescription>
-            </CardHeader>
-
-            <CardContent className="space-y-2">
-              <div className="space-y-1">
-                <Label htmlFor="current">Current password</Label>
-                <Input id="current" type="password" />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="new">New password</Label>
-                <Input id="new" type="password" />
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button>Save password</Button>
-            </CardFooter>
-          </Card>
-        </TabsContent> */}
 			</Tabs>
 		</Container>
 	);

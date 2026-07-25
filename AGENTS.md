@@ -35,7 +35,7 @@ Add new learnings: `~/dotfiles/script/contribute-to-agents.sh <topic> "note"`
 | `bun run bio_lint` | Biome check + fix `src/` |
 | `bun run sql:generate` | Regenerate Prisma client after schema change |
 | `bun run dbpush` | Push schema changes to DB (dev only) |
-| `bun run install:data` | Seed initial data |
+| `bun run install:data` | Seed locales, platform settings, auth email templates |
 | `bun run commit` | Interactive commit via git-cz |
 
 **Package manager: Bun only.** Never use npm/yarn/pnpm. Always `bun add`, `bun install`, `bun run`.
@@ -49,14 +49,18 @@ shadcn/ui, Better Auth, Pino logging, react-hook-form + Zod, next-safe-action.
 
 | Route group | Purpose |
 |-------------|---------|
-| `(root)/` | Public pages: about, privacy, terms, signIn |
-| `account/` | User account and subscription |
-| `api/` | API routes (auth, chat, common, og) |
-| `auth/` | Auth pages `[authView]` |
-| `blog/` | Blog with MDX |
-| `dashboard/` | User dashboard (sidebar layout) |
-| `qr-generator/` | QR code tool |
-| `sysAdmin/` | System admin (requires admin role) |
+| `(root)/` | Public pages: privacy, terms, signIn |
+| `account/` | Profile, linked providers, passkeys, 2FA, sessions, sign out |
+| `api/` | `auth`, `chat` (VE), `og` (blog), `common/get-locales`, `log-write` |
+| `auth/` | Better Auth UI pages `[authView]` |
+| `blog/` | Blog with MDX (content in `web/blogData/`) |
+| `page.tsx` | Home — renders VirtualExperience |
+| `qr-generator/` | QR tool, opened by the VE `/qrcode` slash command |
+
+**Scope:** this app is deliberately limited to three features — **auth**,
+**VirtualExperience**, and **blog**. Store, storefront, shop, checkout, payment,
+reservation, notification and admin code was removed (see `doc/CLEANUP.md`).
+Do not reintroduce store/tenant concepts.
 
 **Key files:**
 
@@ -67,7 +71,9 @@ shadcn/ui, Better Auth, Pino logging, react-hook-form + Zod, next-safe-action.
 | `src/lib/prismadb.ts` | Prisma singleton (`sqlClient`) |
 | `src/utils/actions/safe-action.ts` | Action clients |
 | `src/lib/logger.ts` | Structured Pino logger |
-| `prisma/schema.prisma` | Database schema |
+| `prisma/schema.prisma` | Database schema — 18 models, auth + mail only |
+| `src/components/virtual-experience/` | VE avatar, scene, chat UI |
+| `src/lib/legal-content.ts` | Reads privacy/terms markdown from `public/defaults/` |
 
 ## Constraints
 
