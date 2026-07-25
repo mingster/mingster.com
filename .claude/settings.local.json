@@ -37,7 +37,11 @@
       "Bash(find . -maxdepth 2 -iname \"biome.json*\" -o -maxdepth 2 -path \"*/.vscode/settings.json\")",
       "Bash(cat .vscode/settings.json)",
       "Bash(cat web/.vscode/settings.json)",
-      "Bash(code --list-extensions --show-versions)"
+      "Bash(code --list-extensions --show-versions)",
+      "Bash(lsof -iTCP:3002 -sTCP:LISTEN -n)",
+      "Bash(cd /tmp *)",
+      "Bash(pkill -f \"next dev -p 3002\")",
+      "Bash(pkill -f \"next-server\")"
     ]
   }
 }

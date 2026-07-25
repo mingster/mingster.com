@@ -84,7 +84,49 @@ function applyCorsHeaders(response: NextResponse, origin: string | null): void {
 	}
 }
 
-export function proxy(req: NextRequest) {
+
+/**
+ * Apple Sign In uses `response_mode=form_post`, meaning Apple POSTs the OAuth
+ * result back to our callback URL from appleid.apple.com.
+ *
+ * Next.js rejects cross-origin POSTs at the framework level (Origin ≠ Host)
+ * before the route handler ever runs — so Better Auth's `disableOriginCheck`
+ * config cannot help. This proxy intercepts that POST in the Edge runtime
+ * (which does NOT apply the same CSRF check), converts it to a GET redirect,
+ * and lets Better Auth process it normally via the GET handler.
+ */
+async function handleAppleCallback(
+	req: NextRequest,
+): Promise<NextResponse | null> {
+	if (
+		req.nextUrl.pathname === "/api/auth/callback/apple" &&
+		req.method === "POST"
+	) {
+		try {
+			const body = await req.formData();
+			const params = new URLSearchParams();
+			for (const [key, value] of body.entries()) {
+				params.set(key, value.toString());
+			}
+			const redirectUrl = new URL(
+				`/api/auth/callback/apple?${params.toString()}`,
+				req.url,
+			);
+			return NextResponse.redirect(redirectUrl, 302);
+		} catch {
+			// If body parsing fails, let the request through — Better Auth will handle the error
+			return NextResponse.next();
+		}
+	}
+	return null;
+}
+
+export async function proxy(req: NextRequest) {
+
+	const appleResponse = await handleAppleCallback(req);
+	if (appleResponse) return appleResponse;
+
+
 	//#region csp - https://nextjs.org/docs/pages/guides/content-security-policy
 	/*
 	const nonce = Buffer.from(crypto.randomUUID()).toString('base64')
