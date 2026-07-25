@@ -2,32 +2,28 @@
 /**
  * Installation Script
  *
- * This script initializes the database with default data:
- * - Countries (ISO 3166)
- * - Currencies (ISO 4217)
- * - Locales
- * - Payment methods (from public/install/payment_methods.json)
- * - Shipping methods (from public/install/shipping_methods.json)
+ * Seeds the database with the data the three retained features need:
+ * - Locales (drives i18n locale selector + auth email localisation)
  * - Platform settings (+ optional Stripe product/price for subscriptions)
+ * - Auth message templates (magic link, password reset, welcome)
  *
  * Usage:
- *   bun run bin/install.ts              # Run full installation
- *   bun run bin/install.ts --wipeout    # Wipeout and reinstall
- *   bun run bin/install.ts --check      # Check installation status
- *   bun run bin/install.ts --skip-stripe  # Skip Stripe product/price setup
+ *   bun run bin/install.ts               # Run full installation
+ *   bun run bin/install.ts --check       # Check installation status
+ *   bun run bin/install.ts --wipeout     # Wipeout locales and reinstall
+ *   bun run bin/install.ts --skip-stripe # Skip Stripe product/price setup
  *
  * Stripe subscription env vars:
  *   INSTALL_SUBSCRIPTION_CURRENCY       # default "usd"
- *   INSTALL_SUBSCRIPTION_UNIT_AMOUNT    # monthly price in Stripe smallest unit (e.g. 1000 = $10.00 for USD)
+ *   INSTALL_SUBSCRIPTION_UNIT_AMOUNT    # monthly price in Stripe smallest unit
  *   INSTALL_SUBSCRIPTION_PRODUCT_NAME   # default "mingster.com subscription"
  *   INSTALL_STRIPE_PRICE_ID             # pin an existing Stripe price instead of creating
  */
 
 import { promises as fs } from "node:fs";
-import { Prisma } from "@prisma/client";
+import { importMessageTemplateBackup } from "@/lib/notification/import-message-template-backup";
 import { sqlClient } from "@/lib/prismadb";
 import { stripe } from "@/lib/stripe/config";
-import { getUtcNowEpoch } from "@/utils/datetime-utils";
 
 const args = process.argv.slice(2);
 const isWipeout = args.includes("--wipeout");
@@ -36,76 +32,6 @@ const isSkipStripe = args.includes("--skip-stripe");
 
 function isStripePriceId(value: string): boolean {
 	return /^price_[a-zA-Z0-9]+$/.test(value.trim());
-}
-
-// ---------------------------------------------------------------------------
-// Country
-// ---------------------------------------------------------------------------
-async function populateCountryData() {
-	console.log("\n📍 Populating country data...");
-
-	const filePath = `${process.cwd()}/public/install/country_iso.json`;
-	const file = await fs.readFile(filePath, "utf8");
-	const data = JSON.parse(file);
-
-	let upserted = 0;
-	for (const item of data) {
-		try {
-			await sqlClient.country.upsert({
-				where: { alpha3: item.alpha3 },
-				update: { name: item.name, unCode: item.unCode },
-				create: { alpha3: item.alpha3, name: item.name, unCode: item.unCode },
-			});
-			upserted++;
-		} catch (error) {
-			console.error(`  ⚠️  Failed to upsert country: ${item.name}`, error);
-		}
-	}
-
-	console.log(`  ✓ Upserted ${upserted} countries`);
-	return upserted;
-}
-
-// ---------------------------------------------------------------------------
-// Currency
-// ---------------------------------------------------------------------------
-async function populateCurrencyData() {
-	console.log("\n💰 Populating currency data...");
-
-	const filePath = `${process.cwd()}/public/install/currency_iso.json`;
-	const file = await fs.readFile(filePath, "utf8");
-	const data = JSON.parse(file);
-
-	let upserted = 0;
-	for (const item of data) {
-		try {
-			const fields = {
-				name: item.name,
-				demonym: item.demonym,
-				majorSingle: item.majorSingle,
-				majorPlural: item.majorPlural,
-				ISOnum: item.ISOnum,
-				symbol: item.symbol,
-				symbolNative: item.symbolNative,
-				minorSingle: item.minorSingle,
-				minorPlural: item.minorPlural,
-				ISOdigits: item.ISOdigits,
-				decimals: item.decimals,
-				numToBasic: item.numToBasic,
-			};
-			await sqlClient.currency.upsert({
-				where: { id: item.currency },
-				update: fields,
-				create: { id: item.currency, ...fields },
-			});
-			upserted++;
-		} catch (error) {
-			console.error(`  ⚠️  Failed to upsert currency: ${item.currency}`, error);
-		}
-	}
-
-	console.log(`  ✓ Upserted ${upserted} currencies`);
-	return upserted;
 }
 
 // ---------------------------------------------------------------------------
@@ -146,134 +72,7 @@ async function populateLocaleData() {
 }
 
 // ---------------------------------------------------------------------------
-// Payment Methods
-// ---------------------------------------------------------------------------
-type InstallPaymentMethodJson = {
-	name: string;
-	payUrl?: string;
-	priceDescr?: string;
-	fee?: number;
-	feeAdditional?: number;
-	clearDays?: number;
-	isDeleted?: boolean;
-	isDefault?: boolean;
-	canDelete?: boolean;
-	visibleToCustomer?: boolean;
-};
-
-async function populatePaymentMethods() {
-	console.log("\n💳 Populating payment methods...");
-
-	const filePath = `${process.cwd()}/public/install/payment_methods.json`;
-	const file = await fs.readFile(filePath, "utf8");
-	const data = JSON.parse(file) as InstallPaymentMethodJson[];
-
-	let upserted = 0;
-	for (const item of data) {
-		const now = getUtcNowEpoch();
-		const fields = {
-			payUrl: item.payUrl ?? "",
-			priceDescr: item.priceDescr ?? "",
-			fee: new Prisma.Decimal(item.fee ?? 0),
-			feeAdditional: new Prisma.Decimal(item.feeAdditional ?? 0),
-			clearDays: item.clearDays ?? 3,
-			isDeleted: item.isDeleted ?? false,
-			isDefault: item.isDefault ?? false,
-			canDelete: item.canDelete ?? false,
-			visibleToCustomer: item.visibleToCustomer ?? false,
-		};
-		try {
-			await sqlClient.paymentMethod.upsert({
-				where: { name: item.name },
-				update: { ...fields, updatedAt: now },
-				create: { name: item.name, ...fields, createdAt: now, updatedAt: now },
-			});
-			upserted++;
-		} catch (error) {
-			console.error(
-				`  ⚠️  Failed to upsert payment method: ${item.name}`,
-				error,
-			);
-		}
-	}
-
-	console.log(`  ✓ Upserted ${upserted} payment methods`);
-	return upserted;
-}
-
-// ---------------------------------------------------------------------------
-// Shipping Methods
-// ---------------------------------------------------------------------------
-type InstallShippingMethodJson = {
-	name: string;
-	identifier?: string;
-	description?: string | null;
-	basic_price?: number;
-	currencyId: string;
-	shipRequired?: boolean;
-	isDeleted?: boolean;
-	isDefault?: boolean;
-	canDelete?: boolean;
-};
-
-async function populateShippingMethods() {
-	console.log("\n📦 Populating shipping methods...");
-
-	const filePath = `${process.cwd()}/public/install/shipping_methods.json`;
-	const file = await fs.readFile(filePath, "utf8");
-	const data = JSON.parse(file) as InstallShippingMethodJson[];
-
-	let upserted = 0;
-	let skipped = 0;
-
-	for (const item of data) {
-		const currencyId = item.currencyId.toUpperCase();
-		const exists = await sqlClient.currency.findUnique({
-			where: { id: currencyId },
-		});
-		if (!exists) {
-			console.error(
-				`  ⚠️  Skipping shipping method "${item.name}": currency "${item.currencyId}" not found`,
-			);
-			skipped++;
-			continue;
-		}
-
-		const now = getUtcNowEpoch();
-		const fields = {
-			identifier: item.identifier ?? "",
-			description: item.description || null,
-			basic_price: new Prisma.Decimal(item.basic_price ?? 0),
-			currencyId,
-			shipRequired: item.shipRequired ?? true,
-			isDeleted: item.isDeleted ?? false,
-			isDefault: item.isDefault ?? false,
-			canDelete: item.canDelete ?? false,
-		};
-		try {
-			await sqlClient.shippingMethod.upsert({
-				where: { name: item.name },
-				update: { ...fields, updatedAt: now },
-				create: { name: item.name, ...fields, createdAt: now, updatedAt: now },
-			});
-			upserted++;
-		} catch (error) {
-			console.error(
-				`  ⚠️  Failed to upsert shipping method: ${item.name}`,
-				error,
-			);
-		}
-	}
-
-	console.log(
-		`  ✓ Upserted ${upserted} shipping methods` +
-			(skipped > 0 ? `, ${skipped} skipped (missing currency)` : ""),
-	);
-	return upserted;
-}
-
-// ---------------------------------------------------------------------------
-// Stripe Subscription Product/Price
+// Platform settings / Stripe
 // ---------------------------------------------------------------------------
 async function ensurePlatformStripeSubscription(): Promise<void> {
 	if (isSkipStripe) {
@@ -465,24 +264,49 @@ async function checkPlatformSettings() {
 	return settings;
 }
 
+// ---------------------------------------------------------------------------
+// Auth message templates
+// ---------------------------------------------------------------------------
+// Resolved by the importer relative to public/backup/
+const AUTH_TEMPLATE_BACKUP = "message-template-backup-auth.json";
+
+async function populateAuthMessageTemplates() {
+	console.log("\n✉️  Importing auth message templates...");
+
+	try {
+		const { templates, localizations } =
+			await importMessageTemplateBackup(AUTH_TEMPLATE_BACKUP);
+		console.log(
+			`  ✓ Imported ${templates} template(s), ${localizations} localization(s)`,
+		);
+	} catch (error) {
+		console.error(
+			"  ⚠️  Auth template import failed — magic link and password reset emails will not render.",
+		);
+		console.error(`     ${error instanceof Error ? error.message : error}`);
+	}
+}
+
+
+// ---------------------------------------------------------------------------
+// Status
+// ---------------------------------------------------------------------------
 async function checkInstallationStatus() {
 	console.log("📊 Checking installation status...\n");
 
 	try {
-		const countryCount = await sqlClient.country.count();
-		const currencyCount = await sqlClient.currency.count();
 		const localeCount = await sqlClient.locale.count();
-		const paymentMethodCount = await sqlClient.paymentMethod.count();
-		const shippingMethodCount = await sqlClient.shippingMethod.count();
+		const templateCount = await sqlClient.messageTemplate.count();
+		const localizedCount = await sqlClient.messageTemplateLocalized.count();
+		const queuedEmails = await sqlClient.emailQueue.count();
 		const platformSettings = await sqlClient.platformSettings.findFirst();
 
-		console.log(`✓ Countries:        ${countryCount} records`);
-		console.log(`✓ Currencies:       ${currencyCount} records`);
-		console.log(`✓ Locales:          ${localeCount} records`);
-		console.log(`✓ Payment methods:  ${paymentMethodCount} records`);
-		console.log(`✓ Shipping methods: ${shippingMethodCount} records`);
+		console.log(`✓ Locales:             ${localeCount} records`);
+		console.log(`✓ Message templates:   ${templateCount} records`);
+		console.log(`✓ Template locales:    ${localizedCount} records`);
+		console.log(`✓ Emails in queue:     ${queuedEmails} records`);
 		console.log(
-			`✓ Platform Settings: ${platformSettings ? "Configured" : "Not configured"}`,
+			`✓ Platform Settings:   ${platformSettings ? "Configured" : "Not configured"}`,
 		);
 
 		if (platformSettings) {
@@ -494,8 +318,14 @@ async function checkInstallationStatus() {
 			);
 		}
 
-		const isInstalled =
-			countryCount > 0 && currencyCount > 0 && localeCount > 0;
+		if (queuedEmails > 0) {
+			console.log(
+				`\n⚠️  ${queuedEmails} email(s) sitting in emailQueue. Nothing drains this table yet —` +
+					" add a sendmail cron before relying on magic link or password reset.",
+			);
+		}
+
+		const isInstalled = localeCount > 0 && localizedCount > 0;
 
 		if (isInstalled) {
 			console.log("\n✅ Installation is complete!");
@@ -522,12 +352,6 @@ async function wipeoutData() {
 		await sqlClient.locale.deleteMany();
 		console.log("  ✓ Deleted all locales");
 
-		await sqlClient.currency.deleteMany();
-		console.log("  ✓ Deleted all currencies");
-
-		await sqlClient.country.deleteMany();
-		console.log("  ✓ Deleted all countries");
-
 		console.log("\n✅ Wipeout complete");
 	} catch (error) {
 		console.error("❌ Error during wipeout:", error);
@@ -543,24 +367,14 @@ async function runInstallation() {
 	console.log("=".repeat(50));
 
 	try {
-		const countryCount = await sqlClient.country.count();
-		const currencyCount = await sqlClient.currency.count();
-		const localeCount = await sqlClient.locale.count();
-		const paymentMethodCount = await sqlClient.paymentMethod.count();
-		const shippingMethodCount = await sqlClient.shippingMethod.count();
-
 		console.log("\n📊 Current Status:");
-		console.log(`  Countries:        ${countryCount}`);
-		console.log(`  Currencies:       ${currencyCount}`);
-		console.log(`  Locales:          ${localeCount}`);
-		console.log(`  Payment methods:  ${paymentMethodCount}`);
-		console.log(`  Shipping methods: ${shippingMethodCount}`);
+		console.log(`  Locales:           ${await sqlClient.locale.count()}`);
+		console.log(
+			`  Message templates: ${await sqlClient.messageTemplate.count()}`,
+		);
 
-		await populateCountryData();
-		await populateCurrencyData();
 		await populateLocaleData();
-		await populatePaymentMethods();
-		await populateShippingMethods();
+		await populateAuthMessageTemplates();
 		await ensurePlatformStripeSubscription();
 		await checkPlatformSettings();
 
@@ -579,9 +393,7 @@ async function main() {
 		if (isCheck) {
 			await checkInstallationStatus();
 		} else if (isWipeout) {
-			console.log(
-				"⚠️  WARNING: This will delete all countries, currencies, and locales!",
-			);
+			console.log("⚠️  WARNING: This will delete all locales!");
 			console.log(
 				"Press Ctrl+C to cancel, or wait 3 seconds to continue...\n",
 			);
