@@ -53,6 +53,23 @@ const badRequest = new NextResponse(null, {
 });
 
 /**
+ * True when the request's Origin is the site's own origin. Compares hostname
+ * (ignoring scheme) against the forwarded/host header, so a reverse proxy that
+ * rewrites X-Forwarded-Proto cannot cause a same-origin request to be rejected.
+ */
+function isSameOrigin(req: NextRequest, origin: string): boolean {
+	const host = (req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "")
+		.split(",")[0]
+		.trim();
+	if (!host) return false;
+	try {
+		return new URL(origin).host === host;
+	} catch {
+		return false;
+	}
+}
+
+/**
  * Apply CORS headers to response in a single batch operation
  * More efficient than multiple append() calls
  */
@@ -67,7 +84,49 @@ function applyCorsHeaders(response: NextResponse, origin: string | null): void {
 	}
 }
 
-export function proxy(req: NextRequest) {
+
+/**
+ * Apple Sign In uses `response_mode=form_post`, meaning Apple POSTs the OAuth
+ * result back to our callback URL from appleid.apple.com.
+ *
+ * Next.js rejects cross-origin POSTs at the framework level (Origin ≠ Host)
+ * before the route handler ever runs — so Better Auth's `disableOriginCheck`
+ * config cannot help. This proxy intercepts that POST in the Edge runtime
+ * (which does NOT apply the same CSRF check), converts it to a GET redirect,
+ * and lets Better Auth process it normally via the GET handler.
+ */
+async function handleAppleCallback(
+	req: NextRequest,
+): Promise<NextResponse | null> {
+	if (
+		req.nextUrl.pathname === "/api/auth/callback/apple" &&
+		req.method === "POST"
+	) {
+		try {
+			const body = await req.formData();
+			const params = new URLSearchParams();
+			for (const [key, value] of body.entries()) {
+				params.set(key, value.toString());
+			}
+			const redirectUrl = new URL(
+				`/api/auth/callback/apple?${params.toString()}`,
+				req.url,
+			);
+			return NextResponse.redirect(redirectUrl, 302);
+		} catch {
+			// If body parsing fails, let the request through — Better Auth will handle the error
+			return NextResponse.next();
+		}
+	}
+	return null;
+}
+
+export async function proxy(req: NextRequest) {
+
+	const appleResponse = await handleAppleCallback(req);
+	if (appleResponse) return appleResponse;
+
+
 	//#region csp - https://nextjs.org/docs/pages/guides/content-security-policy
 	/*
 	const nonce = Buffer.from(crypto.randomUUID()).toString('base64')
@@ -128,6 +187,14 @@ export function proxy(req: NextRequest) {
 
 	// Only process CORS if origin is present
 	if (origin) {
+		// Always allow same-origin requests. The site's own frontend must be able
+		// to call its own API regardless of how FRONTEND_URLS is configured; CORS
+		// only matters for genuine cross-origin (third-party) callers.
+		if (isSameOrigin(req, origin)) {
+			applyCorsHeaders(response, origin);
+			return response;
+		}
+
 		const allowedOrigins = getAllowedOrigins();
 
 		// Use Set.has() for O(1) lookup instead of array.includes() O(n)
