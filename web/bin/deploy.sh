@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# deploy.sh — sync source to the server and build there (low-memory), then reload PM2.
+# deploy.sh — pull latest, sync source to the server and build there (low-memory), then reload PM2.
 #
 # The production box (mx2.mingster.com, ~4GB RAM, also runs Mail-in-a-Box) builds
 # the app itself with a capped Node heap — no swap file needed. Building on the box
@@ -9,11 +9,12 @@
 # module hashes match the box's own node_modules.
 #
 # Flow (runs from your workstation):
-#   1. rsync the app source to the box  (no node_modules / .next / .env)
-#   2. on the box: bun install → build with --max-old-space-size cap → pm2 reload
+#   1. git pull --ff-only at the repo root (before install/build mutates the tree)
+#   2. rsync the app source to the box  (no node_modules / .next / .env)
+#   3. on the box: bun install → build with --max-old-space-size cap → pm2 reload
 #
 # Usage:
-#   web/bin/deploy.sh                 # sync, build on box, reload PM2
+#   web/bin/deploy.sh                 # pull, sync, build on box, reload PM2
 #   MAX_OLD_SPACE=3072 web/bin/deploy.sh   # raise/lower the Node heap cap (MB)
 #   DB_PUSH=1   web/bin/deploy.sh     # also run `prisma db push` on the box
 #   DRY_RUN=1   web/bin/deploy.sh     # rsync --dry-run, no remote build/reload
@@ -41,9 +42,10 @@ BUILD_CMD="${BUILD_CMD:-bun run build}"
 DB_PUSH="${DB_PUSH:-0}"
 DRY_RUN="${DRY_RUN:-0}"
 
-# web/ is the parent of this script's bin/ directory.
+# web/ is the parent of this script's bin/ directory; repo root is parent of web/.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WEB_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$WEB_DIR/.." && pwd)"
 
 SSH_TARGET="${DEPLOY_USER}@${DEPLOY_HOST}"
 SSH="ssh -p ${SSH_PORT}"
@@ -53,6 +55,14 @@ ok()   { printf '\033[1;32m✓ %s\033[0m\n' "$*"; }
 die()  { printf '\033[1;31m✗ %s\033[0m\n' "$*" >&2; exit 1; }
 
 command -v rsync >/dev/null || die "rsync is required on your workstation"
+command -v git >/dev/null || die "git is required on your workstation"
+
+# --- 0. pull latest before any local install/build mutates the tree ---------
+log "Pulling latest from git (repo root: ${REPO_ROOT})..."
+cd "$REPO_ROOT"
+git pull --ff-only
+ok "Repo up to date"
+
 cd "$WEB_DIR"
 
 # --- 1. sync source to the server -------------------------------------------
@@ -95,6 +105,7 @@ $SSH "$SSH_TARGET" bash -euo pipefail <<REMOTE
   export BUN_INSTALL="\${BUN_INSTALL:-\$HOME/.bun}"
   export PATH="\$BUN_INSTALL/bin:\$HOME/.local/bin:/usr/local/bin:\$PATH"
   command -v bun >/dev/null || { echo "bun not found on server PATH (\$PATH)" >&2; exit 127; }
+  command -v pm2 >/dev/null || { echo "pm2 not found on server PATH (\$PATH)" >&2; exit 127; }
 
   # Don't leave multi-GB core dumps if the build is OOM-killed.
   ulimit -c 0
@@ -113,15 +124,16 @@ $SSH "$SSH_TARGET" bash -euo pipefail <<REMOTE
 
   ${REMOTE_DB_PUSH}
 
+  # Always reload (or start) PM2 when the build finishes.
   if pm2 describe "${PM2_NAME}" >/dev/null 2>&1; then
     echo "▸ pm2 reload ${PM2_NAME}"
     pm2 reload "${PM2_NAME}" --update-env
   else
     echo "▸ pm2 start (first run)"
     pm2 start bun --name "${PM2_NAME}" --cwd "${DEPLOY_PATH}" -- start
-    pm2 save
   fi
+  pm2 save
   pm2 status "${PM2_NAME}"
 REMOTE
 
-ok "Deployed. Tail logs with:  ${SSH} ${SSH_TARGET} 'pm2 logs ${PM2_NAME} --lines 50'"
+ok "Deployed + PM2 reloaded. Tail logs with:  ${SSH} ${SSH_TARGET} 'pm2 logs ${PM2_NAME} --lines 50'"
