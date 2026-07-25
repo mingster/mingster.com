@@ -1,10 +1,10 @@
-#!/usr/bin/env bash
+#!/bin/bash
 #
 # deploy.sh — on-box deploy for mx2.mingster.com (~4GB RAM + Mail-in-a-Box).
 #
 # Run this ON the target machine (not from your laptop):
-#   cd /var/www/mingster.com && web/bin/deploy.sh
-#   # or from web/:  bin/deploy.sh
+#   cd /var/www/mingster.com && bash web/bin/deploy.sh
+#   # or:  chmod +x web/bin/deploy.sh && web/bin/deploy.sh
 #
 # Flow (mirrors pstv_web2 bin/deploy-win.sh, with PM2 instead of IIS):
 #   1. git pull --ff-only          (before install/build mutates the tree)
@@ -16,15 +16,22 @@
 #   7. pm2 reload (or start)
 #
 # Usage:
-#   web/bin/deploy.sh
-#   MAX_OLD_SPACE=3072 web/bin/deploy.sh   # raise/lower Node heap cap (MB)
-#   DB_PUSH=1          web/bin/deploy.sh   # also run `prisma db push`
+#   bash web/bin/deploy.sh
+#   MAX_OLD_SPACE=3072 bash web/bin/deploy.sh   # raise/lower Node heap cap (MB)
+#   DB_PUSH=1          bash web/bin/deploy.sh   # also run `prisma db push`
 #
 # Config (override via env):
 #   PM2_NAME       pm2 process name                  (default: mingster.com)
 #   MAX_OLD_SPACE  Node heap cap in MB for the build (default: 2560)
 #   BUILD_CMD      build command                     (default: bun run build)
 #
+
+# Ubuntu's /bin/sh is dash — it rejects `set -o pipefail`. Re-exec under bash
+# when someone runs `sh deploy.sh` (common on Jammy).
+if [ -z "${BASH_VERSION:-}" ]; then
+  exec /bin/bash "$0" "$@"
+fi
+
 set -euo pipefail
 
 # --- config -----------------------------------------------------------------
