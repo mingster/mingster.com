@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatProvider, useChat } from "@/hooks/useChat";
 import { cn } from "@/lib/utils";
+import { ChatMarkdown } from "./chat-markdown";
 import { ChatUI } from "./ChatUI";
 
 const OUTDOOR_BG = "/images/backgrounds/outdoor.jpg";
@@ -45,30 +46,40 @@ function ChatHistory() {
 
 	useEffect(() => {
 		scrollEndRef.current?.scrollIntoView({ behavior: "smooth" });
-	}, [displayHistory]);
+	}, [displayHistory.length]);
 
 	if (displayHistory.length === 0) return null;
 
 	return (
 		<div className="absolute inset-x-0 top-0 z-20 flex justify-center px-4 pt-6">
-			<ScrollArea className="w-full max-w-xl max-h-52 rounded-xl bg-black/40 backdrop-blur-sm">
-				<div className="px-5 py-3 space-y-1.5">
-					{displayHistory.map((entry, i) => (
-						<p
-							// biome-ignore lint/suspicious/noArrayIndexKey: entries have no stable id
-							key={i}
-							className={cn(
-								"text-sm leading-snug transition-colors duration-300",
-								entry.role === "user"
-									? "text-sky-300"
-									: entry.messageRef === currentMessage
-										? "text-white"
-										: "text-white/55",
-							)}
-						>
-							{entry.text}
-						</p>
-					))}
+			<ScrollArea className="max-h-[min(45vh,22rem)] w-full max-w-xl rounded-xl bg-black/40 backdrop-blur-sm">
+				<div className="space-y-2 px-5 py-3">
+					{displayHistory.map((entry, i) => {
+						const isUser = entry.role === "user";
+						const isActive = !isUser && entry.messageRef === currentMessage;
+						return (
+							<div
+								// biome-ignore lint/suspicious/noArrayIndexKey: entries have no stable id
+								key={i}
+								className={cn(
+									"text-sm transition-colors duration-300",
+									isUser
+										? "text-sky-300"
+										: isActive
+											? "text-white"
+											: "text-white/55",
+								)}
+							>
+								{isUser ? (
+									<p className="leading-snug whitespace-pre-wrap">
+										{entry.text}
+									</p>
+								) : (
+									<ChatMarkdown content={entry.text} />
+								)}
+							</div>
+						);
+					})}
 					<div ref={scrollEndRef} />
 				</div>
 			</ScrollArea>
