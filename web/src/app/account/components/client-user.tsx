@@ -117,7 +117,6 @@ export const UserClient: React.FC<iUserTabProps> = ({ user }) => {
 						}}
 					/>
 				</TabsContent>
-
 			</Tabs>
 		</Container>
 	);

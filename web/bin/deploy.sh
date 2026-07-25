@@ -24,7 +24,7 @@
 #   DEPLOY_PATH    app dir on server (the web/ dir)  (default: /var/www/mingster.com/web)
 #   PM2_NAME       pm2 process name                  (default: mingster.com)
 #   SSH_PORT       ssh port                          (default: 22)
-#   MAX_OLD_SPACE  Node heap cap in MB for the build (default: 2048)
+#   MAX_OLD_SPACE  Node heap cap in MB for the build (default: 2560)
 #   BUILD_CMD      build command run on the box      (default: bun run build)
 #
 set -euo pipefail
@@ -35,7 +35,7 @@ DEPLOY_HOST="${DEPLOY_HOST:-mx2.mingster.com}"
 DEPLOY_PATH="${DEPLOY_PATH:-/var/www/mingster.com/web}"
 PM2_NAME="${PM2_NAME:-mingster.com}"
 SSH_PORT="${SSH_PORT:-22}"
-MAX_OLD_SPACE="${MAX_OLD_SPACE:-2048}"
+MAX_OLD_SPACE="${MAX_OLD_SPACE:-2560}"
 BUILD_CMD="${BUILD_CMD:-bun run build}"
 
 DB_PUSH="${DB_PUSH:-0}"
@@ -104,10 +104,12 @@ $SSH "$SSH_TARGET" bash -euo pipefail <<REMOTE
   echo "▸ bun install --frozen-lockfile"
   bun install --frozen-lockfile
 
-  # Build on the box. Cap the Node heap so a 4GB box builds without a swap file.
+  # Build on the box. Cap the Node heap + enable Next low-memory mode so a 4GB
+  # box builds without a swap file. Known-good on mx2:
+  #   NEXT_BUILD_LOW_MEMORY=1 NODE_OPTIONS="--max-old-space-size=2560" bun run build
   # \`bun run build\` runs postinstall (prisma generate for Linux + patch) then next build.
-  echo "▸ ${BUILD_CMD}  (NODE_OPTIONS=--max-old-space-size=${MAX_OLD_SPACE})"
-  NODE_OPTIONS="\${NODE_OPTIONS:---max-old-space-size=${MAX_OLD_SPACE}}" ${BUILD_CMD}
+  echo "▸ ${BUILD_CMD}  (NEXT_BUILD_LOW_MEMORY=1 NODE_OPTIONS=--max-old-space-size=${MAX_OLD_SPACE})"
+  NEXT_BUILD_LOW_MEMORY=1 NODE_OPTIONS="\${NODE_OPTIONS:---max-old-space-size=${MAX_OLD_SPACE}}" ${BUILD_CMD}
 
   ${REMOTE_DB_PUSH}
 

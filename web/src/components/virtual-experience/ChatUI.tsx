@@ -184,9 +184,7 @@ export function ChatUI() {
 					{/* Auth gate */}
 					{!sessionLoading && !isSignedIn && (
 						<div className="flex items-center justify-between gap-3 py-1">
-							<p className="text-sm text-white/70">
-								Sign in to start chatting.
-							</p>
+							<p className="text-sm text-white/70">Sign in to chat.</p>
 							<Button
 								size="sm"
 								variant="outline"

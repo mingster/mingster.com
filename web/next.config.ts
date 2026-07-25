@@ -4,53 +4,9 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
 	pageExtensions: ["js", "jsx", "ts", "tsx", "mdx"],
 
-	async redirects() {
-		const defaultStoreId = process.env.NEXT_PUBLIC_DEFAULT_STORE_ID?.trim();
-		if (defaultStoreId) {
-			return [
-				{
-					source: "/customized",
-					destination: `/shop/${defaultStoreId}/customized`,
-					permanent: true,
-				},
-				{
-					source: "/customized/:productId",
-					destination: `/shop/${defaultStoreId}/p/:productId/customizer`,
-					permanent: true,
-				},
-				{
-					source: "/shop/customized/:productId",
-					destination: `/shop/${defaultStoreId}/p/:productId/customizer`,
-					permanent: true,
-				},
-			];
-		}
-		return [
-			{
-				source: "/customized",
-				destination: "/shop",
-				permanent: true,
-			},
-			{
-				source: "/customized/:productId",
-				destination: "/shop",
-				permanent: true,
-			},
-			{
-				source: "/shop/customized/:productId",
-				destination: "/shop",
-				permanent: true,
-			},
-		];
-	},
-
 	allowedDevOrigins: ["192.168.2.5", "*.192.168.2.5"],
 	turbopack: {
 		rules: {
-			"*.svg": {
-				loaders: ["@svgr/webpack"],
-				as: "*.js",
-			},
 			// MDX is compiled via webpack when using `next build` (default). When Turbopack is used
 			// (e.g. some tooling paths), register the loader so dynamic imports from `blog/api.ts` work.
 			"*.mdx": {
