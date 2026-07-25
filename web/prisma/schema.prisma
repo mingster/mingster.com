@@ -3,7 +3,7 @@
 
 generator client {
   provider        = "prisma-client-js"
-  previewFeatures = ["views", "relationJoins"]
+  previewFeatures = ["relationJoins"]
   output          = "./generated/client"
 }
 
@@ -27,9 +27,6 @@ model User {
   timezone                   String?
   phoneNumber                String? // E.164 format (e.g., +886912345678)
   phoneNumberVerified        Boolean? @default(false)
-  line_userId                String?  @unique
-  lineOfficialAccountAdded   Boolean? @default(false) // User added LINE Official Account as friend (via webhook)
-  lineOfficialAccountAddedAt BigInt? // Epoch timestamp when user added Official Account
   stripeCustomerId           String?  @unique
 
   twoFactorEnabled Boolean? @default(false)
@@ -325,66 +322,18 @@ model Store {
   organizationId String
   name           String
   ownerId        String
+  isDeleted      Boolean @default(false)
+  createdAt      BigInt
+  updatedAt      BigInt
 
-  defaultCountry     String   @default("TW")
-  /// ISO alpha-2 country codes this store operates in. Drives which payment/shipping methods are offered.
-  supportedCountries String[] @default(["TW"])
-  defaultCurrency    String   @default("twd")
-  isDeleted          Boolean  @default(false)
-  defaultLocale      String   @default("tw")
+  Owner            User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  Organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  MessageTemplates MessageTemplate[]
+  EmailQueues      EmailQueue[]
 
-  supportedLocales String[] @default(["tw", "en"])
-  defaultTimezone  String   @default("Asia/Taipei")
-
-  autoAcceptOrder      Boolean @default(true)
-  isOpen               Boolean @default(true)
-  acceptAnonymousOrder Boolean @default(true)
-
-  requireSeating Boolean @default(false) //需要帶位or not
-  requirePrepaid Boolean @default(false) //先付款再出貨
-
-  useBusinessHours Boolean @default(true)
-
-  useOrderSystem Boolean @default(false) //使用訂單系統
-
-  useCustomerCredit         Boolean @default(false) //使用儲值系統 use CustomerCredit.point
-  creditExchangeRate        Decimal @default(0) // 1點 = ??元
-  creditServiceExchangeRate Decimal @default(0) // 1點 = ??分鍾的服務
-  creditMaxPurchase         Decimal @default(0) // 最多一次可購買的點數
-  creditMinPurchase         Decimal @default(0) // 一次最少需購買的點數
-  creditExpiration          Int     @default(365) // 儲值點數的有效期限(天)
-
-  payoutSchedule  Int     @default(0)
-  bankCode        String?
-  bankAccount     String?
-  bankAccountName String?
-
-  level        Int     @default(0) //store's subscription level
-  customDomain String? @unique
-
-  paymentCredentials Json?
-
-  logo         String?
-  logoPublicId String?
-  createdAt    BigInt
-  updatedAt    BigInt
-
-  Owner                              User                                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  Organization                       Organization                        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  MessageTemplates                   MessageTemplate[]
-  EmailQueues                        EmailQueue[]
-
-  // Composite indexes for common query patterns
-  // For owner store listings
   @@index([ownerId])
   @@index([organizationId])
   @@index([name])
-  @@index([defaultCountry])
-  @@index([defaultCurrency])
-  @@index([level])
-  @@index([customDomain])
-  @@index([createdAt])
-  @@index([updatedAt])
   @@index([ownerId, isDeleted])
 }
 
@@ -448,7 +397,6 @@ model EmailQueue {
 
   // Email metadata
   storeId        String?
-  notificationId String? // Link to MessageQueue if applicable
   templateId     String? // Link to MessageTemplate if applicable
   priority       Int     @default(0)
 
@@ -465,7 +413,6 @@ model EmailQueue {
   @@index([to])
   @@index([storeId])
   @@index([priority])
-  @@index([notificationId])
   @@index([templateId])
   @@index([claimedAt])
   @@index([sendTries, priority, createdOn])

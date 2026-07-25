@@ -72,22 +72,6 @@ async function populateLocaleData() {
 }
 
 // ---------------------------------------------------------------------------
-// Payment Methods
-// ---------------------------------------------------------------------------
-type InstallPaymentMethodJson = {
-	name: string;
-	payUrl?: string;
-	priceDescr?: string;
-	fee?: number;
-	feeAdditional?: number;
-	clearDays?: number;
-	isDeleted?: boolean;
-	isDefault?: boolean;
-	canDelete?: boolean;
-	visibleToCustomer?: boolean;
-};
-
-// ---------------------------------------------------------------------------
 // Platform settings / Stripe
 // ---------------------------------------------------------------------------
 async function ensurePlatformStripeSubscription(): Promise<void> {

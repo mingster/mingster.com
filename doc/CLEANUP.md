@@ -12,7 +12,7 @@ Branch: `chore/strip-to-three-features`
 |---|---|---|
 | Tracked files under `web/src` | 952 | 180 |
 | Prisma models | 92 | 18 |
-| `prisma/schema.prisma` | 2,523 lines | 480 lines |
+| `prisma/schema.prisma` | 2,523 lines | 428 lines |
 | `public/` assets removed | — | 51 files, 28 MB |
 | Typecheck errors | 387 | 14 (all pre-existing, see below) |
 
@@ -41,7 +41,7 @@ sign-in form links to them, so they are part of auth.
 | `app/account/` | the only host for profile + sign out |
 | `lib/stripe/` | imported by `lib/auth.ts`; the Stripe auth plugin was retained |
 | `lib/mail/`, `lib/notification/import-message-template-backup.ts` | auth email pipeline |
-| `Store` model | `MessageTemplate` and `EmailQueue` have FKs to it |
+| `Store` model | `MessageTemplate` and `EmailQueue` have FKs to it. Trimmed from 35 columns to 7 — only `id`, `organizationId`, `name`, `ownerId`, `isDeleted`, `createdAt`, `updatedAt` are read (and only `id`/`name` by `resolveStoreForAuthEmail`) |
 
 ## Decisions taken
 
@@ -53,6 +53,8 @@ sign-in form links to them, so they are part of auth.
   direct sends. See the open items below.
 - **`package.json` was not modified.** Candidate removals are triaged in
   [`CLEANUP_DEP_CANDIDATES.md`](./CLEANUP_DEP_CANDIDATES.md).
+- **Existing DB data is expendable**, so field-level trimming went further than
+  it otherwise would and `db push --accept-data-loss` replaces a migration.
 
 ## Rewritten, not just deleted
 
@@ -95,11 +97,16 @@ sign-in form links to them, so they are part of auth.
 4. **Seed the auth templates** — `bun run install:data`. Without them
    `messageTemplateLocalized` has no `auth.magic_link` row and the sender logs
    an error and returns.
-5. **Database cleanup is not applied.** `prisma/drop-orphaned-tables.sql` drops
-   the 74 tables, 1 view and 2 enum types behind the removed models. It defaults
-   to `ROLLBACK` and starts with a read-only row-count block. Take a `pg_dump`
-   first. Confirmed safe in principle: mingster.com has its own database,
-   separate from riben.life.
+5. **Run `bun run dbpush`.** Existing data is expendable, so `prisma db push`
+   drops the 74 orphaned tables, the view and the 2 enum types on its own —
+   no hand-written migration needed:
+
+   ```bash
+   cd web && bun run sql:generate && bun x prisma db push --accept-data-loss
+   ```
+
+   Then `bun run install:data` to reseed locales, platform settings and the auth
+   message templates.
 6. **Unreferenced VE assets, left in place deliberately:**
    `public/models/character-ming.glb` (12 MB), `public/models/avatar/model.fbx`
    (11 MB), `public/models/avatar/character_girl.glb` (2.9 MB). Only
