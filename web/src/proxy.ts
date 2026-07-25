@@ -53,6 +53,23 @@ const badRequest = new NextResponse(null, {
 });
 
 /**
+ * True when the request's Origin is the site's own origin. Compares hostname
+ * (ignoring scheme) against the forwarded/host header, so a reverse proxy that
+ * rewrites X-Forwarded-Proto cannot cause a same-origin request to be rejected.
+ */
+function isSameOrigin(req: NextRequest, origin: string): boolean {
+	const host = (req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "")
+		.split(",")[0]
+		.trim();
+	if (!host) return false;
+	try {
+		return new URL(origin).host === host;
+	} catch {
+		return false;
+	}
+}
+
+/**
  * Apply CORS headers to response in a single batch operation
  * More efficient than multiple append() calls
  */
@@ -128,6 +145,14 @@ export function proxy(req: NextRequest) {
 
 	// Only process CORS if origin is present
 	if (origin) {
+		// Always allow same-origin requests. The site's own frontend must be able
+		// to call its own API regardless of how FRONTEND_URLS is configured; CORS
+		// only matters for genuine cross-origin (third-party) callers.
+		if (isSameOrigin(req, origin)) {
+			applyCorsHeaders(response, origin);
+			return response;
+		}
+
 		const allowedOrigins = getAllowedOrigins();
 
 		// Use Set.has() for O(1) lookup instead of array.includes() O(n)
