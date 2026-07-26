@@ -51,7 +51,7 @@ should drop to zero before you evaluate anything here.
 | Package | Note |
 |---|---|
 | `zustand` | check no surviving store; `hooks/use-cart` etc. are gone |
-| `framer-motion` | `lib/motion` deleted — confirm no VE component animates with it |
+| `motion` | Replaces `framer-motion`; import from `motion/react` when needed |
 | `usehooks-ts` | confirm no surviving hook re-exports it |
 | `vaul` | drawer primitive; only if no `components/ui/drawer` remains |
 | `crypto-js`, `@types/crypto-js` | `lib/crypto-util` deleted |
