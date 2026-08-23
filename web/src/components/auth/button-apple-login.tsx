@@ -5,19 +5,28 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { analytics } from "@/lib/analytics";
 import { authClient } from "@/lib/auth-client";
+import {
+	DEFAULT_POST_AUTH_REDIRECT,
+	oauthRedirectUrls,
+} from "@/lib/auth-sign-in-urls";
 import logger from "@/lib/logger";
 import { useI18n } from "@/providers/i18n-provider";
 
-const AppleLoginButton = ({ callbackUrl = "/" }: { callbackUrl?: string }) => {
+const AppleLoginButton = ({
+	callbackUrl = DEFAULT_POST_AUTH_REDIRECT,
+}: {
+	callbackUrl?: string;
+}) => {
 	const { lng } = useI18n();
 	const { t } = useTranslation(lng);
 
 	const handleClick = async () => {
 		try {
+			const { callbackURL, errorCallbackURL } = oauthRedirectUrls(callbackUrl);
 			const { error } = await authClient.signIn.social({
-				// Better Auth social provider id
 				provider: "apple",
-				callbackURL: callbackUrl,
+				callbackURL,
+				errorCallbackURL,
 			});
 
 			analytics.trackLogin("appleId");

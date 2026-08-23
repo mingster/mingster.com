@@ -66,6 +66,8 @@ model User {
 model Account {
   id                    String    @id @default(cuid())
   userId                String
+  /// OIDC issuer or Better Auth synthetic issuer (`local:credential`, `local:oauth:<id>`).
+  issuer                String
   accountId             String
   providerId            String
   accessToken           String?
@@ -80,6 +82,7 @@ model Account {
   updatedAt DateTime @updatedAt
   user      User?    @relation(fields: [userId], references: [id])
 
+  @@unique([issuer, accountId], map: "account_issuer_accountId_key")
   @@index([userId])
   @@map("account")
 }

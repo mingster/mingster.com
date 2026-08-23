@@ -2,15 +2,18 @@
 
 import { GoogleIcon } from "@daveyplate/better-auth-ui";
 import { useTranslation } from "react-i18next";
-//import { signIn } from '@/auth';
 import { analytics } from "@/lib/analytics";
 import { authClient } from "@/lib/auth-client";
+import {
+	DEFAULT_POST_AUTH_REDIRECT,
+	oauthRedirectUrls,
+} from "@/lib/auth-sign-in-urls";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/providers/i18n-provider";
 import { Button } from "../ui/button";
 
 const GoogleLoginButton = ({
-	callbackUrl = "/",
+	callbackUrl = DEFAULT_POST_AUTH_REDIRECT,
 	className,
 }: {
 	callbackUrl?: string;
@@ -20,13 +23,14 @@ const GoogleLoginButton = ({
 	const { t } = useTranslation(lng);
 
 	const handleClick = async () => {
+		const { callbackURL, errorCallbackURL } = oauthRedirectUrls(callbackUrl);
 		const _data = await authClient.signIn.social({
 			provider: "google",
-			callbackURL: callbackUrl,
+			callbackURL,
+			errorCallbackURL,
 		});
 
 		analytics.trackLogin("google");
-		//console.log(data);
 	};
 	return (
 		<Button

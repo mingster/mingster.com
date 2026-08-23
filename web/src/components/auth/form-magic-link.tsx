@@ -11,6 +11,10 @@ import { useIsHydrated } from "@/hooks/use-hydrated";
 import { useRecaptcha } from "@/hooks/use-recaptcha";
 import { analytics } from "@/lib/analytics";
 import { authClient } from "@/lib/auth-client";
+import {
+	DEFAULT_POST_AUTH_REDIRECT,
+	wrapOAuthCallbackUrl,
+} from "@/lib/auth-sign-in-urls";
 import { clientLogger } from "@/lib/client-logger";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/providers/i18n-provider";
@@ -27,7 +31,7 @@ import {
 import { Input } from "../ui/input";
 
 function FormMagicLinkInner({
-	callbackUrl = "/",
+	callbackUrl = DEFAULT_POST_AUTH_REDIRECT,
 	className,
 }: {
 	callbackUrl?: string;
@@ -91,8 +95,8 @@ function FormMagicLinkInner({
 
 			const { data, error } = await authClient.signIn.magicLink({
 				email,
-				callbackURL: callbackUrl,
-				newUserCallbackURL: callbackUrl,
+				callbackURL: wrapOAuthCallbackUrl(callbackUrl),
+				newUserCallbackURL: wrapOAuthCallbackUrl(callbackUrl),
 				fetchOptions,
 			});
 

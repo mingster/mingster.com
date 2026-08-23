@@ -14,6 +14,7 @@ import {
 	phoneNumber,
 	twoFactor,
 } from "better-auth/plugins";
+import { nextCookies } from "better-auth/next-js";
 
 import { stripe as stripeClient } from "@/lib/stripe/config";
 import { handleStripeSubscriptionEvent } from "@/lib/stripe/handle-subscription-event";
@@ -47,6 +48,12 @@ export const auth = betterAuth({
 		{ name: "admin" },
 	],
 	advanced: {
+		trustedProxyHeaders: true,
+		// Apple Sign In uses response_mode=form_post: the browser POSTs the OAuth
+		// result back from appleid.apple.com, so the Origin header is cross-site.
+		// Without this, originCheckMiddleware blocks the callback with FORBIDDEN.
+		// The type definition is stale (boolean only) but the runtime supports string[].
+		disableOriginCheck: ["/api/auth/callback/"] as unknown as boolean,
 		cookies: {
 			state: {
 				attributes: {
@@ -67,7 +74,13 @@ export const auth = betterAuth({
 			enabled: true,
 			allowDifferentEmails: true,
 			trustedProviders: ["google", "line", "phone", "apple"],
+			updateUserInfoOnLink: true,
 		},
+		// Store OAuth state in the database (verification table) instead of cookies.
+		// Firefox's Total Cookie Protection partitions cookies by top-level origin,
+		// so the state cookie set on localhost gets invisible when Google's redirect
+		// returns — causing a state_mismatch error. Database storage is immune to this.
+		storeStateStrategy: "database",
 	},
 	emailAndPassword: {
 		enabled: true,
@@ -95,11 +108,13 @@ export const auth = betterAuth({
 			clientSecret: process.env.AUTH_GOOGLE_SECRET as string,
 			accessType: "offline",
 			prompt: "select_account consent",
+			overrideUserInfoOnSignIn: true,
 		},
 		line: {
 			clientId: process.env.AUTH_LINE_ID as string,
 			clientSecret: process.env.AUTH_LINE_SECRET as string,
 			scopes: ["openid", "profile", "email"],
+			overrideUserInfoOnSignIn: true,
 		},
 		apple: {
 			clientId: process.env.AUTH_APPLE_ID as string,
@@ -303,6 +318,9 @@ export const auth = betterAuth({
 			//impersonationSessionDuration: 60 * 60 * 24, // 1 day
 		}),
 		apiKey(),
+		// Must be last: copies Set-Cookie onto Next.js `cookies()` so OAuth
+		// 302s persist the session on the first callback.
+		nextCookies(),
 	],
 	user: {
 		additionalFields: {

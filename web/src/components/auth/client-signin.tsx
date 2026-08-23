@@ -1,5 +1,14 @@
 "use client";
 
+import {
+	IconBrandMeta,
+	IconChevronDown,
+	IconChevronUp,
+} from "@tabler/icons-react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import GoogleLoginButton from "@/components/auth/button-google-login";
 import PasskeyLoginButton from "@/components/auth/button-passkey-login";
 import FormMagicLink from "@/components/auth/form-magic-link";
@@ -15,22 +24,13 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/providers/i18n-provider";
-import {
-	IconBrandMeta,
-	IconChevronDown,
-	IconChevronUp,
-} from "@tabler/icons-react";
-import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useState } from "react";
-import { useTranslation } from "react-i18next";
 import LineLoginButton from "./button-line-login";
 
 // client sign in component - display supported sign in methods.
 // show phone otp by default. user click more then show more options (line, google, etc.)
 //
 export default function ClientSignIn({
-	callbackUrl = "/",
+	callbackUrl = "/account",
 	lineOnlyPreferred = false,
 	noTitle = false,
 	googleLoginButtonClassName,
