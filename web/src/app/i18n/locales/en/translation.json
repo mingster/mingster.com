@@ -1159,5 +1159,6 @@
   "weekday_Wednesday": "Wednesday",
   "weekly_digest": "Weekly Digest",
   "yes": "Yes",
-  "you_are_not_allowed_to_register_this_passkey": "You are not allowed to register this passkey"
+  "you_are_not_allowed_to_register_this_passkey": "You are not allowed to register this passkey",
+  "signing_in": "Signing in..."
 }

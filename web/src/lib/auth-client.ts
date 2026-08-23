@@ -6,7 +6,6 @@ import {
 	anonymousClient,
 	customSessionClient,
 	//emailOTPClient,
-	genericOAuthClient,
 	inferAdditionalFields,
 	magicLinkClient,
 	//multiSessionClient,
@@ -35,7 +34,6 @@ export const authClient = createAuthClient({
 		twoFactorClient(),
 		magicLinkClient(),
 		passkeyClient(),
-		genericOAuthClient(),
 		phoneNumberClient(),
 		anonymousClient(),
 		apiKeyClient(),
@@ -45,14 +43,7 @@ export const authClient = createAuthClient({
 	],
 });
 
-export const {
-	signIn,
-	signUp,
-	signOut,
-	useSession,
-	//forgetPassword,
-	//resetPassword,
-} = createAuthClient();
+export const { signIn, signUp, signOut, useSession } = authClient;
 
 export type AuthClient = typeof authClient;
 export type Session = AuthClient["$Infer"]["Session"]["session"];

@@ -1176,5 +1176,6 @@
   "weekday_Wednesday": "週三",
   "weekly_digest": "每週摘要",
   "yes": "是",
-  "you_are_not_allowed_to_register_this_passkey": "你不能註冊這個密碼金鑰"
+  "you_are_not_allowed_to_register_this_passkey": "你不能註冊這個密碼金鑰",
+  "signing_in": "登入中..."
 }

@@ -3,13 +3,17 @@ import { IconBrandLine } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import { analytics } from "@/lib/analytics";
 import { authClient } from "@/lib/auth-client";
+import {
+	DEFAULT_POST_AUTH_REDIRECT,
+	oauthRedirectUrls,
+} from "@/lib/auth-sign-in-urls";
 import logger from "@/lib/logger";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/providers/i18n-provider";
 import { Button } from "../ui/button";
 
 const LineLoginButton = ({
-	callbackUrl = "/",
+	callbackUrl = DEFAULT_POST_AUTH_REDIRECT,
 	className,
 }: {
 	callbackUrl?: string;
@@ -21,9 +25,11 @@ const LineLoginButton = ({
 	const handleClick = async () => {
 		try {
 			logger.info("Starting Line OAuth flow...");
-			const { data, error } = await authClient.signIn.social({
+			const { callbackURL, errorCallbackURL } = oauthRedirectUrls(callbackUrl);
+			const { error } = await authClient.signIn.social({
 				provider: "line",
-				callbackURL: callbackUrl,
+				callbackURL,
+				errorCallbackURL,
 			});
 
 			analytics.trackLogin("line");

@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { shouldPassThroughBetterAuthProxy } from "@/lib/auth/auth-proxy";
 import logger from "./lib/logger";
 
 export const config = {
@@ -127,6 +128,13 @@ async function handleAppleCallback(
 export async function proxy(req: NextRequest) {
 	const appleResponse = await handleAppleCallback(req);
 	if (appleResponse) return appleResponse;
+
+	// Do not mutate NextResponse for Better Auth — extra headers/CORS can drop
+	// Set-Cookie on OAuth 302, so the first Google/LINE/Apple callback
+	// never stores the session cookie.
+	if (shouldPassThroughBetterAuthProxy(req.nextUrl.pathname)) {
+		return NextResponse.next();
+	}
 
 	//#region csp - https://nextjs.org/docs/pages/guides/content-security-policy
 	/*

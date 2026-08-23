@@ -2,9 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased] — 2026-08-23
+
+### Fixed
+
+- Port riben.life better-auth 1.7 fixes: `Account.issuer`, `nextCookies()`, OAuth `/auth/continue` hop, proxy pass-through for `/api/auth`, database OAuth state
+
 ## [Unreleased] — 2026-07-25
 
 ### Changed
+
 - Fix MDX provider wiring under Turbopack so blog posts render headers, lists, paragraphs, and links.
 - Redesign blog index as a year-grouped editorial archive with previews and thumbnails.
 - Render Markdown (headers/lists/GFM) in VirtualExperience chat replies; prompt Gemini to use Markdown for structured answers.

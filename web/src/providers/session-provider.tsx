@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 
 import { useTranslation } from "@/app/i18n/client";
 import { authClient } from "@/lib/auth-client";
+import { DEFAULT_POST_AUTH_REDIRECT } from "@/lib/auth-sign-in-urls";
 import { useI18n } from "@/providers/i18n-provider";
 
 export function SessionWrapper({ children }: { children: ReactNode }) {
@@ -24,6 +25,7 @@ export function SessionWrapper({ children }: { children: ReactNode }) {
 				router.refresh();
 			}}
 			Link={Link}
+			redirectTo={DEFAULT_POST_AUTH_REDIRECT}
 			social={{
 				providers: ["google", "line", "apple" /*"facebook", "discord"*/],
 			}}
