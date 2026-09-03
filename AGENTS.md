@@ -117,41 +117,32 @@ Naming: `verb-object.ts` + `verb-object.validation.ts`, exported as `verbObjectA
 | `storeActionClient` | Store members (owner/storeAdmin/staff) |
 | `adminActionClient` | Admin role only |
 
-## CRUD pattern (admin pages)
-
-1. **`page.tsx`** — Server component: fetch data, pass to client component
-2. **`components/client-[object].tsx`** — Client component: holds `useState` array, defines columns, passes callbacks
-3. **`components/edit-[object].tsx`** — Dialog with react-hook-form + Zod; calls server action; invokes callback to update parent state
-
-Reference: `src/app/sysAdmin/sysmsg/`
-
-## Data fetching
-
-- **Server components:** fetch directly with Prisma
-- **Client components:** SWR for GETs (`useSWR<T>("/api/...")`)
-- **Mutations:** always server actions
-
 ## Auth roles
 
 Better Auth with roles: `user`, `owner`, `staff`, `storeAdmin`, `admin`.
 Social providers: Google, LINE, Apple. Also: phone/OTP, magic link, passkeys, anonymous.
 
-## i18n
+## Code conventions
 
-Default locale: `tw`. Locale files: `src/app/i18n/locales/{tw,en,jp}/translation.json`.
-Keys: **snake_case only**.
+`docs/agents/conventions.md` covers the CRUD pattern for admin pages, data fetching
+(server components vs SWR vs actions), i18n keys, the logger call shape, and import order.
 
-## Logging
+Read it before adding an admin CRUD page, fetching data in a component, adding a
+user-facing string, or writing a log line.
 
-```typescript
-import logger from "@/lib/logger";
-logger.info("Order created", { metadata: { orderId, userId }, tags: ["order"] });
-logger.error("Payment failed", { metadata: { error: err instanceof Error ? err.message : String(err) }, tags: ["payment"] });
-```
+## Agent skills
 
-## Imports
+### Issue tracker
 
-Use `@/` alias for all `src/` imports. Order: external deps → internal components → actions/utils → types.
+GitHub issues in this repo, via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical triage roles, label strings unchanged. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single context: `CONTEXT.md` plus `docs/adr/` at the repo root. See `docs/agents/domain.md`.
 
 ---
 
