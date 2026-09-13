@@ -22,12 +22,12 @@ model User {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  role                       String?  @default("user")
-  locale                     String?
-  timezone                   String?
-  phoneNumber                String? // E.164 format (e.g., +886912345678)
-  phoneNumberVerified        Boolean? @default(false)
-  stripeCustomerId           String?  @unique
+  role                String?  @default("user")
+  locale              String?
+  timezone            String?
+  phoneNumber         String? // E.164 format (e.g., +886912345678)
+  phoneNumberVerified Boolean? @default(false)
+  stripeCustomerId    String?  @unique
 
   twoFactorEnabled Boolean? @default(false)
 
@@ -46,11 +46,7 @@ model User {
   members     Member[]
   invitations Invitation[]
 
-  Store             Store[]
-
-
-
-
+  Store Store[]
 
   @@unique([normalizedEmail])
   @@index([email])
@@ -123,8 +119,11 @@ model TwoFactor {
   id     String @id
   userId String
 
-  secret      String
-  backupCodes String
+  secret                  String
+  backupCodes             String
+  verified                Boolean   @default(false)
+  failedVerificationCount Int       @default(0)
+  lockedUntil             DateTime?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -321,7 +320,7 @@ model Locale {
 }
 
 model Store {
-  id             String @id @default(uuid())
+  id             String  @id @default(uuid())
   organizationId String
   name           String
   ownerId        String
@@ -399,13 +398,13 @@ model EmailQueue {
   claimedAt   BigInt?
 
   // Email metadata
-  storeId        String?
-  templateId     String? // Link to MessageTemplate if applicable
-  priority       Int     @default(0)
+  storeId    String?
+  templateId String? // Link to MessageTemplate if applicable
+  priority   Int     @default(0)
 
   // Relations
-  Store        Store?           @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  Template     MessageTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  Store    Store?           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  Template MessageTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
 
   // Composite index for queue processing
   // For queue worker queries
