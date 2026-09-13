@@ -2,8 +2,8 @@ import { apiKey } from "@better-auth/api-key";
 import { passkey } from "@better-auth/passkey";
 import { stripe } from "@better-auth/stripe";
 import { type BetterAuthOptions, betterAuth } from "better-auth";
-import { emailHarmony } from "better-auth-harmony";
 import { prismaAdapter } from "better-auth/adapters/prisma";
+import { nextCookies } from "better-auth/next-js";
 import {
 	admin,
 	anonymous,
@@ -14,7 +14,7 @@ import {
 	phoneNumber,
 	twoFactor,
 } from "better-auth/plugins";
-import { nextCookies } from "better-auth/next-js";
+import { emailHarmony } from "better-auth-harmony";
 
 import { stripe as stripeClient } from "@/lib/stripe/config";
 import { handleStripeSubscriptionEvent } from "@/lib/stripe/handle-subscription-event";
@@ -85,11 +85,6 @@ export const auth = betterAuth({
 	emailAndPassword: {
 		enabled: true,
 		requireEmailVerification: false,
-		account: {
-			accountLinking: {
-				enabled: true,
-			},
-		},
 		sendResetPassword: async ({ user, url, token }, _request) => {
 			await sendAuthPasswordReset(user.email, url);
 		},
@@ -113,7 +108,7 @@ export const auth = betterAuth({
 		line: {
 			clientId: process.env.AUTH_LINE_ID as string,
 			clientSecret: process.env.AUTH_LINE_SECRET as string,
-			scopes: ["openid", "profile", "email"],
+			scope: ["openid", "profile", "email"],
 			overrideUserInfoOnSignIn: true,
 		},
 		apple: {
@@ -317,10 +312,12 @@ export const auth = betterAuth({
 			//adminUserIds: ["Nz6WKKKMKvadXXmgZgaHiqIYOuXr31w1"],
 			//impersonationSessionDuration: 60 * 60 * 24, // 1 day
 		}),
-		apiKey(),
+		apiKey() as unknown as NonNullable<BetterAuthOptions["plugins"]>[number],
 		// Must be last: copies Set-Cookie onto Next.js `cookies()` so OAuth
 		// 302s persist the session on the first callback.
-		nextCookies(),
+		nextCookies() as unknown as NonNullable<
+			BetterAuthOptions["plugins"]
+		>[number],
 	],
 	user: {
 		additionalFields: {

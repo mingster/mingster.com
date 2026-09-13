@@ -1,13 +1,12 @@
-import { auth } from "@/lib/auth";
-import { sqlClient } from "@/lib/prismadb";
-import logger from "@/lib/logger";
+import { Role } from "@prisma/client";
+import { headers } from "next/headers";
 import { createSafeActionClient } from "next-safe-action";
 import { z } from "zod";
-
+import { auth, type CustomSessionUser } from "@/lib/auth";
+import logger from "@/lib/logger";
+import { sqlClient } from "@/lib/prismadb";
 import { SafeError } from "@/utils/error";
 import { isAdmin } from "@/utils/is-admin";
-import { headers } from "next/headers";
-import { Role } from "@prisma/client";
 
 // TODO: take functionality from `withActionInstrumentation` and move it here (apps/web/utils/actions/middleware.ts)
 
@@ -132,7 +131,7 @@ export const storeActionClient = baseClient
 		if (!session?.user) throw new SafeError("Unauthorized");
 
 		// admin users can access any store
-		if (session.user.role === Role.admin) {
+		if ((session.user as CustomSessionUser).role === Role.admin) {
 			/*
 			logger.info("access granted - user is an admin", {
 				metadata: {
@@ -173,7 +172,7 @@ export const storeActionClient = baseClient
 				{
 					metadata: {
 						userId: session.user.id,
-						userRole: session.user.role,
+						userRole: (session.user as CustomSessionUser).role,
 						storeId,
 						organizationId: store.organizationId,
 						actionName: metadata?.name,

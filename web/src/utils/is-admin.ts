@@ -1,7 +1,7 @@
-import { auth } from "@/lib/auth";
-import { isAllowlistedAdminEmail } from "@/lib/admin/access";
 import { Role } from "@prisma/client";
 import { headers } from "next/headers";
+import { isAllowlistedAdminEmail } from "@/lib/admin/access";
+import { auth, type CustomSessionUser } from "@/lib/auth";
 
 /** True when the session user has admin role or an allowlisted admin email. */
 export async function isAdmin({ email }: { email?: string | null }) {
@@ -13,7 +13,7 @@ export async function isAdmin({ email }: { email?: string | null }) {
 		return false;
 	}
 
-	const role = session.user.role;
+	const role = (session.user as CustomSessionUser).role;
 	if (role === Role.admin || role === "admin") {
 		return true;
 	}

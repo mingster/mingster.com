@@ -1,6 +1,6 @@
-import { auth } from "@/lib/auth";
 import { Role } from "@prisma/client";
 import { headers } from "next/headers";
+import { auth, type CustomSessionUser } from "@/lib/auth";
 
 /**
  * Comma-separated emails in ADMINS or ADMIN (e.g. `ADMINS=you@x.com,other@y.com`).
@@ -34,7 +34,7 @@ export async function checkAdminAccess(): Promise<boolean> {
 		return false;
 	}
 
-	const role = session.user.role;
+	const role = (session.user as CustomSessionUser).role;
 	const hasAdminRole = role === Role.admin || role === "admin";
 
 	if (hasAdminRole) {
