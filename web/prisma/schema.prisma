@@ -189,6 +189,10 @@ model TwoFactor {
   secret      String
   backupCodes String
 
+  verified                Boolean   @default(false)
+  failedVerificationCount Int       @default(0)
+  lockedUntil             DateTime?
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
