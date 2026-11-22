@@ -734,5 +734,14 @@
   "avatar_chat_placeholder": "輸入訊息，或輸入 / 使用指令…",
   "avatar_chat_thinking": "思考中…",
   "avatar_chat_loading": "載入中…",
-  "avatar_chat_access_error": "暫時無法確認你的訂閱狀態，請重新整理頁面。"
+  "avatar_chat_access_error": "暫時無法確認你的訂閱狀態，請重新整理頁面。",
+  "sysadmin_no_access": "您沒有權限查看此頁。",
+  "sysadmin_ai_models_title": "AI 模型",
+  "sysadmin_ai_models_descr": "選擇虛擬 Ming 聊天要用的模型。只列出已設定 API 金鑰的供應商。",
+  "sysadmin_ai_purpose_avatar_chat": "虛擬 Ming 聊天",
+  "sysadmin_ai_model_label": "模型",
+  "sysadmin_ai_fallback_label": "備援模型（主要模型逾時或出錯時，改用一次）",
+  "sysadmin_ai_fallback_none": "不使用",
+  "sysadmin_ai_purpose_misconfigured": "所選供應商尚未設定 API 金鑰，目前改用 Gemini 回答。",
+  "sysadmin_ai_save_failed": "儲存失敗，請再試一次。"
 }

@@ -12,12 +12,8 @@ import {
 } from "./generate-content";
 import { loadAiModelAssignment } from "./load-ai-model-assignment";
 import type { AiModelAssignment, ModelCatalogEntry } from "./model-catalog";
-import { hasProviderEnvKey } from "./provider-env-keys";
-import {
-	type AiProvider,
-	type AiPurpose,
-	WIRED_AI_PROVIDERS,
-} from "./providers";
+import { hasUsableProviderKey } from "./provider-env-keys";
+import type { AiProvider, AiPurpose } from "./providers";
 import { resolveAiModelForPurpose } from "./resolve-ai-model-for-purpose";
 
 export interface GenerateAssignedTextResult {
@@ -56,11 +52,6 @@ export interface GenerateAssignedTextInput {
 export interface GenerateAssignedTextDeps {
 	generate?: (i: GenerateContentInput) => Promise<GenerateContentResultText>;
 	loadAssignment?: () => Promise<AiModelAssignment>;
-}
-
-/** A provider counts as keyed only when it has both a key and an adapter. */
-function hasUsableProviderKey(provider: AiProvider): boolean {
-	return WIRED_AI_PROVIDERS.includes(provider) && hasProviderEnvKey(provider);
 }
 
 /**

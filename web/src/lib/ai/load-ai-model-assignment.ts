@@ -33,6 +33,35 @@ export function parseAssignmentFromSettingsJson(
 	}
 }
 
+/**
+ * Writes the assignment into the settings JSON as the `AI.ModelAssignment`
+ * entry and keeps every other entry as it was. Throws when the stored text is
+ * not a JSON array, so a bad row is never overwritten.
+ */
+export function mergeAssignmentIntoSettingsJson(
+	settingsJson: string | null | undefined,
+	assignment: AiModelAssignment,
+): string {
+	let pairs: { label?: string; value?: string }[] = [];
+	if (settingsJson) {
+		const parsed: unknown = JSON.parse(settingsJson);
+		if (!Array.isArray(parsed)) {
+			throw new Error("PlatformSettings.settings is not a JSON array");
+		}
+		pairs = parsed;
+	}
+	const value = JSON.stringify({
+		...assignment.assigned,
+		fallback: assignment.fallback,
+	});
+	const index = pairs.findIndex(
+		(item) => item?.label === AI_MODEL_ASSIGNMENT_LABEL,
+	);
+	if (index >= 0) pairs[index] = { ...pairs[index], value };
+	else pairs.push({ label: AI_MODEL_ASSIGNMENT_LABEL, value });
+	return JSON.stringify(pairs);
+}
+
 /** Loads the assignment from the first `PlatformSettings` row. A read failure uses the default. */
 export async function loadAiModelAssignment(): Promise<AiModelAssignment> {
 	try {
