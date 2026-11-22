@@ -21,7 +21,7 @@
     "depcheck": "npx depcheck .",
     "precommit": "lint-staged",
     "commit": "clear && npx git-cz",
-    "lint": "next lint; eslint --fix \"./src/**/*.{js,jsx,ts,tsx}\"",
+    "lint": "eslint --fix \"./src/**/*.{js,jsx,ts,tsx}\"",
     "bio_lint": "npx biome check --fix ./src"
   },
   "dependencies": {
