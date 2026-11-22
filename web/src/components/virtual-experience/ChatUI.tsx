@@ -53,13 +53,7 @@ export function ChatUI() {
 		soundEnabled,
 		setSoundEnabled,
 	} = useChat();
-	const { t } = useTranslation();
 	const { data: session, isPending: sessionLoading } = authClient.useSession();
-	// The server decides who may chat; the key makes it ask again after sign in or out.
-	const accessState = useChatAccess(
-		sessionLoading ? undefined : (session?.user?.id ?? null),
-	);
-	const view = getChatAccessView(accessState);
 	const [input, setInput] = useState("");
 	const inputRef = useRef<HTMLInputElement>(null);
 	const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
@@ -178,6 +172,13 @@ export function ChatUI() {
 			openCommandPage,
 		],
 	);
+
+	const { t } = useTranslation();
+	// The server decides who may chat; the key makes it ask again after sign in or out.
+	const accessState = useChatAccess(
+		sessionLoading ? undefined : (session?.user?.id ?? null),
+	);
+	const view = getChatAccessView(accessState);
 
 	return (
 		<>
