@@ -8,6 +8,8 @@ import {
 	useState,
 	useSyncExternalStore,
 } from "react";
+import { useTranslation } from "@/app/i18n/client";
+import { clientLogger } from "@/lib/client-logger";
 import type { ChatMessage } from "@/types/virtual-experience";
 
 export interface DisplayEntry {
@@ -61,6 +63,16 @@ const ChatContext = createContext<ChatContextValue | null>(null);
 
 const CHAT_API = "/api/chat";
 
+/** Server limits (chatRequestSchema). Staying inside them keeps normal use off the 400 path. */
+const CHAT_TEXT_MAX_CHARS = 2000;
+const CHAT_HISTORY_MAX_ENTRIES = 12;
+
+type ChatUiLanguage = "tw" | "en" | "jp";
+
+function toChatUiLanguage(lng: string | undefined): ChatUiLanguage {
+	return lng === "en" || lng === "jp" ? lng : "tw";
+}
+
 interface ChatHistoryEntry {
 	role: "user" | "model";
 	text: string;
@@ -111,6 +123,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 	const [currentIndex, setCurrentIndex] = useState(-1);
 	const [loading, setLoading] = useState(false);
 	const [cameraZoomed, setCameraZoomed] = useState(false);
+	const { i18n } = useTranslation();
 	const [danceTrigger, setDanceTrigger] = useState<number | null>(null);
 	const [chatHistory, setChatHistory] = useState<ChatHistoryEntry[]>([]);
 	// Sound preference lives in localStorage; the server and hydration render use true
@@ -140,7 +153,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
 	const chat = useCallback(
 		async (text: string) => {
-			const trimmed = text.trim();
+			const trimmed = text.trim().slice(0, CHAT_TEXT_MAX_CHARS);
 			if (!trimmed) return;
 
 			// Show user message immediately
@@ -157,8 +170,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify({
 						message: trimmed,
-						history: chatHistory,
+						history: chatHistory
+							.slice(-CHAT_HISTORY_MAX_ENTRIES)
+							.map((entry) => ({
+								role: entry.role,
+								text: entry.text.slice(0, CHAT_TEXT_MAX_CHARS),
+							})),
 						noAudio: !soundEnabled,
+						uiLanguage: toChatUiLanguage(i18n.resolvedLanguage),
 					}),
 				});
 
@@ -185,7 +204,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 					{ role: "model" as const, text: collectedTexts.join(" ") },
 				]);
 			} catch (err) {
-				console.error("Chat error:", err);
+				clientLogger.error("Chat error", {
+					metadata: { errorName: err instanceof Error ? err.name : "unknown" },
+					tags: ["avatar-chat"],
+				});
 				const errMsg: ChatMessage = {
 					text: err instanceof Error ? err.message : "Something went wrong.",
 					facialExpression: "sad",
@@ -200,7 +222,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 				setLoading(false);
 			}
 		},
-		[messages.length, chatHistory, soundEnabled],
+		[messages.length, chatHistory, soundEnabled, i18n],
 	);
 
 	const clearMessages = useCallback(() => {
@@ -222,7 +244,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 			const res = await fetch(CHAT_API, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({}),
+				body: JSON.stringify({
+					uiLanguage: toChatUiLanguage(i18n.resolvedLanguage),
+				}),
 			});
 			if (!res.ok) return;
 			await readNdjsonStream(res, (msg) => {
@@ -243,7 +267,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 		} finally {
 			setLoading(false);
 		}
-	}, [messages.length]);
+	}, [messages.length, i18n]);
 
 	const pushAnimationMessage = useCallback(
 		(animation: string, text?: string) => {

@@ -24,6 +24,23 @@ function isAllowlistedAdminEmail(email: string): boolean {
 	return parseAdminEmailsFromEnv().includes(normalized);
 }
 
+/**
+ * True for the admin role, or for an email in ADMINS that is verified. The
+ * verified check stops anyone claiming an ADMINS address by signing up with it.
+ */
+export function isAdminSessionUser(user: CustomSessionUser): boolean {
+	const role = user.role;
+	if (role === Role.admin || role === "admin") {
+		return true;
+	}
+	const email = user.email;
+	return (
+		typeof email === "string" &&
+		isAllowlistedAdminEmail(email) &&
+		user.emailVerified === true
+	);
+}
+
 /** True if the current session may access sysAdmin routes and adminActionClient. */
 export async function checkAdminAccess(): Promise<boolean> {
 	const session = await auth.api.getSession({
@@ -34,19 +51,7 @@ export async function checkAdminAccess(): Promise<boolean> {
 		return false;
 	}
 
-	const role = (session.user as CustomSessionUser).role;
-	const hasAdminRole = role === Role.admin || role === "admin";
-
-	if (hasAdminRole) {
-		return true;
-	}
-
-	const email = session.user.email;
-	if (typeof email === "string" && isAllowlistedAdminEmail(email)) {
-		return true;
-	}
-
-	return false;
+	return isAdminSessionUser(session.user as CustomSessionUser);
 }
 
 export { isAllowlistedAdminEmail, parseAdminEmailsFromEnv };

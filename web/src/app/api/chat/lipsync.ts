@@ -3,19 +3,23 @@
  * Requires Rhubarb binary on PATH or at RHUBARB_PATH (e.g. web/bin/rhubarb).
  */
 
-import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { LipsyncData, MouthCue } from "@/types/virtual-experience";
-
-const RHUBARB_PATH = process.env.RHUBARB_PATH ?? "rhubarb";
+import {
+	RHUBARB_TIMEOUT_MS,
+	runProcess,
+	SpawnTimeoutError,
+} from "./run-process";
 
 /**
  * Run Rhubarb on a WAV file and return mouth cues JSON, or null if Rhubarb is unavailable.
+ * A hung Rhubarb is killed and throws SpawnTimeoutError, so the caller sends audio without lip sync.
  */
 export async function runRhubarb(
 	wavBuffer: Buffer,
+	timeoutMs: number = RHUBARB_TIMEOUT_MS,
 ): Promise<LipsyncData | null> {
 	const tmpDir = os.tmpdir();
 	const wavPath = path.join(
@@ -28,25 +32,12 @@ export async function runRhubarb(
 	);
 	try {
 		fs.writeFileSync(wavPath, wavBuffer);
-		await new Promise<void>((resolve, reject) => {
-			// -f json: output format; -o: output file; -r phonetic: language-independent
-			const proc = spawn(
-				RHUBARB_PATH,
-				["-f", "json", "-o", jsonPath, wavPath, "-r", "phonetic"],
-				{
-					stdio: ["ignore", "pipe", "pipe"],
-				},
-			);
-			let stderr = "";
-			proc.stderr?.on("data", (d) => {
-				stderr += d.toString();
-			});
-			proc.on("close", (code) => {
-				if (code === 0) resolve();
-				else reject(new Error(`Rhubarb exited ${code}: ${stderr.slice(-500)}`));
-			});
-			proc.on("error", (err) => reject(err));
-		});
+		// -f json: output format; -o: output file; -r phonetic: language-independent
+		await runProcess(
+			process.env.RHUBARB_PATH ?? "rhubarb",
+			["-f", "json", "-o", jsonPath, wavPath, "-r", "phonetic"],
+			timeoutMs,
+		);
 		const jsonStr = fs.readFileSync(jsonPath, "utf-8");
 		const data = JSON.parse(jsonStr) as {
 			mouthCues?: Array<{ start: number; end: number; value: string }>;
@@ -57,7 +48,8 @@ export async function runRhubarb(
 			value: c.value,
 		}));
 		return { mouthCues };
-	} catch {
+	} catch (err) {
+		if (err instanceof SpawnTimeoutError) throw err;
 		return null;
 	} finally {
 		try {

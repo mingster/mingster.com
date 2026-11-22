@@ -721,5 +721,11 @@
   "weekly_digest": "Weekly Digest",
   "yes": "Yes",
   "you_are_not_allowed_to_register_this_passkey": "You are not allowed to register this passkey",
-  "signing_in": "Signing in..."
+  "signing_in": "Signing in...",
+  "avatar_chat_intro_1": "Hi, I'm virtual Ming, an AI assistant. Say something and I'll answer with voice and expressions.",
+  "avatar_chat_intro_2": "Ask me about any post on the blog.",
+  "avatar_chat_reply_sign_in": "Please sign in first to chat with me.",
+  "avatar_chat_reply_paid_only": "Chat is only open to invited paid subscribers right now.",
+  "avatar_chat_reply_not_configured": "I can't answer right now. Please try again later.",
+  "avatar_chat_reply_failed": "Sorry, I couldn't answer that. Please try again."
 }

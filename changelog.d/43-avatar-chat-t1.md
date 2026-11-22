@@ -1,0 +1,4 @@
+- The avatar chat now runs on a shared AI module with a model catalog and Gemini Flash by default, and the chat API checks its request size, language and access in one place
+- Signed out and unpaid visitors now hear a short spoken reply instead of silence, in the UI language with a matching voice, and Japanese and Chinese messages get a reply and voice in their own language
+- The chat owner check now uses the ADMINS email list and only counts a verified email, so nobody can claim an ADMINS address by signing up with it first
+- A hung ffmpeg or Rhubarb process is now killed after a timeout instead of holding the chat stream open

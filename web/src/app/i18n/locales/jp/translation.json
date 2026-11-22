@@ -60,5 +60,11 @@
   "select_user": "ユーザーを選択",
   "search_user": "ユーザーを検索...",
   "no_user_found": "ユーザーが見つかりません",
-  "signing_in": "サインイン中..."
+  "signing_in": "サインイン中...",
+  "avatar_chat_intro_1": "こんにちは、AIアシスタントのバーチャルMingです。話しかけてください。声と表情でお答えします。",
+  "avatar_chat_intro_2": "ブログの記事のことなら、何でも聞いてください。",
+  "avatar_chat_reply_sign_in": "チャットするには、先にログインしてください。",
+  "avatar_chat_reply_paid_only": "チャットは現在、招待された有料会員のみご利用いただけます。",
+  "avatar_chat_reply_not_configured": "ただいまお答えできません。しばらくしてからもう一度お試しください。",
+  "avatar_chat_reply_failed": "すみません、お答えできませんでした。もう一度お試しください。"
 }

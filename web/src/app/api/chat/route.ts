@@ -1,131 +1,273 @@
-import { auth } from "@/lib/auth";
-import { sqlClient } from "@/lib/prismadb";
+import {
+	AiGenerationError,
+	generateAssignedText,
+} from "@/lib/ai/generate-assigned-text.server";
+import type { AttemptUsage } from "@/lib/ai/generate-content";
+import {
+	type AvatarReply,
+	parseAvatarReply,
+} from "@/lib/ai/parse-avatar-reply";
+import logger from "@/lib/logger";
 import type { ChatMessage } from "@/types/virtual-experience";
-import type { ChatHistoryEntry } from "./gemini";
-import { getGeminiReply } from "./gemini";
-import { runRhubarb } from "./lipsync";
-import { textToSpeech } from "./tts";
+import { buildChatPrompt, buildChatSystem } from "./chat-prompt";
+import { type FixedReplyKey, getFixedReply } from "./fixed-replies";
+import { getChatAccess } from "./get-chat-access";
+import {
+	type ChatLocale,
+	DEFAULT_CHAT_LOCALE,
+	detectReplyLocale,
+} from "./language";
+import { chatRequestSchema } from "./request-schema";
+import { speakPart } from "./speak";
 
-const GEMINI_API_KEY =
-	process.env.GOOGLE_GENERATIVE_AI_API_KEY ?? process.env.GEMINI_API_KEY;
+/** Starting values, tune from the per attempt logs. */
+const MODEL_TIMEOUT_MS = 20_000;
+const MODEL_MAX_OUTPUT_TOKENS = 4096;
+/** One turn speaks at most this many parts, so it cannot run dozens of TTS calls. */
+const MAX_REPLY_PARTS = 6;
 
-const OWNER_EMAIL = "mingster.tsai@gmail.com";
+type Send = (msg: ChatMessage) => void;
 
-async function isAuthorized(userId: string, email: string): Promise<boolean> {
-	if (email === OWNER_EMAIL) return true;
-	const sub = await sqlClient.subscription.findFirst({
-		where: { referenceId: userId, status: { in: ["active", "trialing"] } },
-		select: { id: true },
+interface TurnContext {
+	userId?: string;
+	message: string;
+	history: NonNullable<ReturnType<typeof chatRequestSchema.parse>["history"]>;
+	uiLanguage: ChatLocale;
+	noAudio: boolean;
+}
+
+function errorName(err: unknown): string {
+	return err instanceof Error ? err.name : "unknown";
+}
+
+async function sendFixed(
+	send: Send,
+	key: FixedReplyKey,
+	locale: ChatLocale,
+	noAudio: boolean,
+) {
+	const { message } = await getFixedReply(key, locale, { noAudio });
+	send(message);
+}
+
+/** One line per model attempt (case 21). Counts and timings only, never chat text. */
+function logAttempts(
+	attempts: AttemptUsage[],
+	ctx: Pick<TurnContext, "userId">,
+	turn: {
+		ttsMs: number;
+		rhubarbMs: number;
+		reply?: Pick<AvatarReply, "grounding" | "offTopic">;
+	},
+) {
+	for (const a of attempts) {
+		logger.info("avatar chat model attempt", {
+			userId: ctx.userId,
+			metadata: {
+				modelId: a.modelId,
+				provider: a.provider,
+				usedFallback: a.usedFallback,
+				attempt: a.attempt,
+				inputTokens: a.inputTokens,
+				cachedInputTokens: a.cachedInputTokens,
+				outputTokens: a.outputTokens,
+				thinkingTokens: a.thinkingTokens,
+				modelMs: a.modelMs,
+				ttsMs: turn.ttsMs,
+				rhubarbMs: turn.rhubarbMs,
+				grounding: turn.reply?.grounding ?? null,
+				offTopic: turn.reply?.offTopic ?? null,
+				finishReason: a.finishReason,
+				errorName: a.errorName,
+				errorStatus: a.errorStatus,
+			},
+			tags: ["avatar-chat", "model-attempt"],
+		});
+	}
+}
+
+async function runModelTurn(send: Send, ctx: TurnContext) {
+	const replyLocale = detectReplyLocale(ctx.message, ctx.uiLanguage);
+	let result: Awaited<ReturnType<typeof generateAssignedText>>;
+	try {
+		result = await generateAssignedText({
+			purpose: "avatar_chat",
+			system: buildChatSystem(replyLocale),
+			prompt: buildChatPrompt(ctx.history, ctx.message),
+			timeoutMs: MODEL_TIMEOUT_MS,
+			maxOutputTokens: MODEL_MAX_OUTPUT_TOKENS,
+		});
+	} catch (err) {
+		const failure = err instanceof AiGenerationError ? err : null;
+		logAttempts(failure?.attempts ?? [], ctx, { ttsMs: 0, rhubarbMs: 0 });
+		logger.warn("avatar chat model call failed", {
+			userId: ctx.userId,
+			metadata: {
+				notConfigured: failure?.notConfigured ?? false,
+				causeName: errorName(failure?.cause ?? err),
+				// Safe: configuration errors carry fixed text only.
+				cause: failure?.notConfigured
+					? (failure.cause as Error).message
+					: undefined,
+			},
+			tags: ["avatar-chat", "model-failed"],
+		});
+		await sendFixed(
+			send,
+			failure?.notConfigured
+				? "avatar_chat_reply_not_configured"
+				: "avatar_chat_reply_failed",
+			ctx.uiLanguage,
+			ctx.noAudio,
+		);
+		return;
+	}
+
+	let reply: AvatarReply;
+	try {
+		reply = parseAvatarReply(result.text);
+	} catch (err) {
+		const last = result.attempts[result.attempts.length - 1];
+		logAttempts(result.attempts, ctx, { ttsMs: 0, rhubarbMs: 0 });
+		// Metadata only: model output can echo the visitor's message or email.
+		logger.warn("avatar chat bad model output", {
+			userId: ctx.userId,
+			metadata: {
+				errorName: errorName(err),
+				length: result.text.length,
+				finishReason: last?.finishReason,
+				provider: result.provider,
+				modelId: result.modelId,
+			},
+			tags: ["avatar-chat", "bad-json"],
+		});
+		await sendFixed(
+			send,
+			"avatar_chat_reply_failed",
+			ctx.uiLanguage,
+			ctx.noAudio,
+		);
+		return;
+	}
+
+	let ttsMs = 0;
+	let rhubarbMs = 0;
+	try {
+		for (const part of reply.parts.slice(0, MAX_REPLY_PARTS)) {
+			const spoken = await speakPart(part, replyLocale, {
+				noAudio: ctx.noAudio,
+			});
+			ttsMs += spoken.ttsMs;
+			rhubarbMs += spoken.rhubarbMs;
+			send(spoken.message);
+		}
+	} finally {
+		logAttempts(result.attempts, ctx, { ttsMs, rhubarbMs, reply });
+	}
+}
+
+function streamOf(work: (send: Send) => Promise<void>): Response {
+	const encoder = new TextEncoder();
+	const stream = new ReadableStream({
+		async start(controller) {
+			const send: Send = (msg) => {
+				try {
+					controller.enqueue(encoder.encode(`${JSON.stringify(msg)}\n`));
+				} catch {
+					// The client went away; nothing left to send to.
+				}
+			};
+			try {
+				await work(send);
+			} catch (err) {
+				logger.error("avatar chat stream failed", {
+					metadata: { errorName: errorName(err) },
+					tags: ["avatar-chat"],
+				});
+			} finally {
+				try {
+					controller.close();
+				} catch {
+					/* already closed */
+				}
+			}
+		},
 	});
-	return sub !== null;
+	return new Response(stream, {
+		headers: { "Content-Type": "application/x-ndjson" },
+	});
 }
 
 /**
  * POST /api/chat
- * Body: { message?: string, history?: ChatHistoryEntry[] }
- * Returns: NDJSON stream — one JSON object per line, each a ChatMessage.
+ * Body: { message?, history?, noAudio?, uiLanguage? } (see chatRequestSchema).
+ * Returns: NDJSON stream, one JSON object per line, each a ChatMessage.
  *
- * Auth: requires a valid session. Only owner email or active subscribers may chat.
- * Intro (no message body) is public — allows the avatar to greet unauthenticated visitors.
+ * A body that fails the schema gets 400 with no model call and no TTS. An empty
+ * message returns the public intro. Otherwise the access gate runs: signed out
+ * and unpaid users hear a cached spoken reply, the owner and paid users get a model reply.
  */
 export async function POST(req: Request) {
-	const body = await req.json().catch(() => ({}));
-	const message = typeof body.message === "string" ? body.message.trim() : "";
-	const history: ChatHistoryEntry[] = Array.isArray(body.history)
-		? body.history
-		: [];
-	const noAudio = body.noAudio === true;
+	// An unreadable body is undefined, which fails the schema and gets 400.
+	const parsed = chatRequestSchema.safeParse(
+		await req.json().catch(() => undefined),
+	);
+	if (!parsed.success) {
+		logger.warn("avatar chat bad request", {
+			metadata: {
+				fields: parsed.error.issues.map((issue) => issue.path.join(".")),
+			},
+			tags: ["avatar-chat"],
+		});
+		return Response.json({ error: "invalid_request" }, { status: 400 });
+	}
+	const uiLanguage = parsed.data.uiLanguage ?? DEFAULT_CHAT_LOCALE;
+	const noAudio = parsed.data.noAudio === true;
+	const message = parsed.data.message?.trim() ?? "";
 
-	const encoder = new TextEncoder();
-	const stream = new ReadableStream({
-		async start(controller) {
-			const send = (msg: ChatMessage) =>
-				controller.enqueue(encoder.encode(`${JSON.stringify(msg)}\n`));
+	if (!message) {
+		return streamOf(async (send) => {
+			await sendFixed(send, "avatar_chat_intro_1", uiLanguage, noAudio);
+			await sendFixed(send, "avatar_chat_intro_2", uiLanguage, noAudio);
+		});
+	}
 
-			try {
-				// Intro messages are public — no auth needed
-				if (!message) {
-					send({
-						text: "Hi! I'm your virtual companion. Say something and I'll reply with voice and expressions.",
-						facialExpression: "happy",
-						animation: "Talking_0",
-					});
-					send({
-						text: "You can ask me anything, and I'll do my best to keep you company.",
-						facialExpression: "neutral",
-						animation: "Idle",
-					});
-					controller.close();
-					return;
-				}
-
-				// Auth check for actual chat
-				const session = await auth.api.getSession({ headers: req.headers });
-				if (!session?.user) {
-					controller.close();
-					return;
-				}
-				if (!(await isAuthorized(session.user.id, session.user.email ?? ""))) {
-					controller.close();
-					return;
-				}
-
-				if (!GEMINI_API_KEY) {
-					send({
-						text: "Chat is not configured yet. Please add GOOGLE_GENERATIVE_AI_API_KEY to your environment variables.",
-						facialExpression: "sad",
-						animation: "Idle",
-					});
-					controller.close();
-					return;
-				}
-
-				const parts = await getGeminiReply(message, GEMINI_API_KEY, history);
-				const disableLipSync = process.env.DISABLE_LIP_SYNC === "true";
-
-				for (const p of parts) {
-					let audio: string | undefined;
-					let audioMime: "audio/wav" | "audio/mpeg" | undefined;
-					let lipsync: ChatMessage["lipsync"];
-					if (!noAudio) {
-						try {
-							const ttsResult = await textToSpeech(p.text);
-							audio = ttsResult.audioBase64;
-							audioMime = ttsResult.isWav ? "audio/wav" : "audio/mpeg";
-							if (!disableLipSync && ttsResult.isWav && ttsResult.audioBase64) {
-								const wavBuffer = Buffer.from(ttsResult.audioBase64, "base64");
-								lipsync = (await runRhubarb(wavBuffer)) ?? undefined;
-							}
-						} catch (ttsErr) {
-							console.warn("TTS failed for message:", ttsErr);
-						}
-					}
-					send({
-						text: p.text,
-						facialExpression: p.facialExpression,
-						animation: p.animation,
-						audio,
-						audioMime,
-						lipsync,
-					});
-				}
-				controller.close();
-			} catch (err) {
-				console.error("POST /api/chat error:", err);
-				send({
-					text:
-						err instanceof Error
-							? err.message
-							: "Something went wrong. Please try again.",
-					facialExpression: "sad",
-					animation: "Idle",
-				});
-				controller.close();
-			}
-		},
+	let access: Awaited<ReturnType<typeof getChatAccess>>;
+	try {
+		access = await getChatAccess();
+	} catch (err) {
+		logger.error("avatar chat access check failed", {
+			metadata: { errorName: errorName(err) },
+			tags: ["avatar-chat"],
+		});
+		return streamOf((send) =>
+			sendFixed(send, "avatar_chat_reply_failed", uiLanguage, noAudio),
+		);
+	}
+	logger.info("avatar chat request", {
+		userId: access.userId,
+		metadata: { access: access.access },
+		tags: ["avatar-chat", "request"],
 	});
 
-	return new Response(stream, {
-		headers: { "Content-Type": "application/x-ndjson" },
-	});
+	if (access.access === "sign_in") {
+		return streamOf((send) =>
+			sendFixed(send, "avatar_chat_reply_sign_in", uiLanguage, noAudio),
+		);
+	}
+	if (access.access === "paid_only") {
+		return streamOf((send) =>
+			sendFixed(send, "avatar_chat_reply_paid_only", uiLanguage, noAudio),
+		);
+	}
+
+	return streamOf((send) =>
+		runModelTurn(send, {
+			userId: access.userId,
+			message,
+			history: parsed.data.history ?? [],
+			uiLanguage,
+			noAudio,
+		}),
+	);
 }
