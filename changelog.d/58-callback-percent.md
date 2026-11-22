@@ -1,0 +1,1 @@
+- Sign-in no longer falls back to /account for valid paths that contain an encoded percent, such as /search?q=100%25

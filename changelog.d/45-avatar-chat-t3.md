@@ -1,0 +1,3 @@
+- The avatar now answers from every public blog post and says plainly when the blog does not cover a question, instead of answering from general knowledge
+- The avatar names the speaker when a post quotes someone, confirms it is an AI assistant when asked, and no longer claims current knowledge
+- Posts marked private never reach the avatar

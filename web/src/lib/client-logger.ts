@@ -94,11 +94,9 @@ class ClientLogger {
 				}),
 			});
 
-			if (!response.ok) {
-				console.error(
-					"Failed to send log batch to server:",
-					response.statusText,
-				);
+			// 4xx (rejected or rate limited by /api/log-write): drop the batch.
+			// Retrying would loop forever against a route that keeps refusing.
+			if (!response.ok && response.status >= 500) {
 				// Put logs back in queue for retry
 				this.queue.unshift(...batch);
 			}

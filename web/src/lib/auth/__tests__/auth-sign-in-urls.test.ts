@@ -29,6 +29,8 @@ const UNSAFE_CALLBACKS = [
 	"/\t/evil.example",
 	"/\n/evil.example",
 	"/account?next=https://evil.example",
+	"/%25%5Cevil.example",
+	"/%2525252F%2525252Fevil.example",
 	"evil.example",
 	"account",
 ];
@@ -58,6 +60,15 @@ describe("resolveOAuthCallbackUrl same-origin only", () => {
 		expect(resolveOAuthCallbackUrl("/account?x=1")).toBe("/account?x=1");
 		expect(resolveOAuthCallbackUrl("/blog/post-1#top")).toBe(
 			"/blog/post-1#top",
+		);
+	});
+
+	test("keeps valid paths that carry an encoded percent", () => {
+		expect(resolveOAuthCallbackUrl("/search?q=100%25")).toBe(
+			"/search?q=100%25",
+		);
+		expect(resolveOAuthCallbackUrl("/search?q=100%25&x=a%20b")).toBe(
+			"/search?q=100%25&x=a%20b",
 		);
 	});
 

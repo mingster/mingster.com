@@ -7,6 +7,7 @@ import {
 	type AvatarReply,
 	parseAvatarReply,
 } from "@/lib/ai/parse-avatar-reply";
+import { getBlogCorpus, renderBlogCorpus } from "@/lib/blog/blog-corpus";
 import logger from "@/lib/logger";
 import type { ChatMessage } from "@/types/virtual-experience";
 import { buildChatPrompt, buildChatSystem } from "./chat-prompt";
@@ -90,10 +91,22 @@ async function runModelTurn(send: Send, ctx: TurnContext) {
 	const replyLocale = detectReplyLocale(ctx.message, ctx.uiLanguage);
 	let result: Awaited<ReturnType<typeof generateAssignedText>>;
 	try {
+		const corpus = await getBlogCorpus();
+		if (corpus.overThreshold) {
+			// Retrieval is a later ticket; the whole corpus is still sent.
+			logger.warn("blog corpus over retrieval threshold", {
+				metadata: { textBytes: corpus.textBytes },
+				tags: ["avatar-chat", "blog-corpus"],
+			});
+		}
 		result = await generateAssignedText({
 			purpose: "avatar_chat",
 			system: buildChatSystem(replyLocale),
-			prompt: buildChatPrompt(ctx.history, ctx.message),
+			prompt: buildChatPrompt(
+				renderBlogCorpus(corpus),
+				ctx.history,
+				ctx.message,
+			),
 			timeoutMs: MODEL_TIMEOUT_MS,
 			maxOutputTokens: MODEL_MAX_OUTPUT_TOKENS,
 		});

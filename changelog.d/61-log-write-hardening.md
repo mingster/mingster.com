@@ -1,0 +1,1 @@
+- `/api/log-write` now accepts browser logs from the same site only, limits each IP, always tags rows as client, ignores caller tags and server field overrides, and keeps only warn and error in production
