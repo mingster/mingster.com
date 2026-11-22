@@ -2,18 +2,11 @@ import { type ClassValue, clsx } from "clsx";
 import crypto from "crypto";
 import { twMerge } from "tailwind-merge";
 
-//import type { StoreFacility } from "@prisma/client";
 import Decimal from "decimal.js"; // gets added if installed
 import { z } from "zod";
 import { getNumOfDaysInTheMonth, getUtcNow } from "./datetime-utils";
 
 export const highlight_css = "border-dashed border-green-500 border-2";
-
-/*
-export function getTableName(tables: StoreFacility[], facilityId: string) {
-  return tables.find((table) => table.id === facilityId)?.facilityName || "";
-}
-*/
 
 export function GetSubscriptionLength(totalCycles: number) {
 	const now = getUtcNow();

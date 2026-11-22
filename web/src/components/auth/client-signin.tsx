@@ -6,7 +6,6 @@ import {
 	IconChevronUp,
 } from "@tabler/icons-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import GoogleLoginButton from "@/components/auth/button-google-login";
@@ -51,13 +50,6 @@ export default function ClientSignIn({
 	const { lng } = useI18n();
 	const { t } = useTranslation(lng);
 	const [showMoreOptions, setShowMoreOptions] = useState(lineOnlyPreferred);
-
-	const params = useParams();
-	const storeId = params.storeId as string;
-
-	if (storeId) {
-		callbackUrl = `/s/${storeId}`;
-	}
 
 	return (
 		<Card className="w-full max-w-lg max-h-lg p-2 backdrop-blur-sm dark:text-gray-200">
