@@ -1,0 +1,1 @@
+- Restrict the sign-in callbackUrl to same-origin paths so /signIn can no longer redirect to another site
