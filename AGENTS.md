@@ -71,7 +71,7 @@ Do not reintroduce store/tenant concepts.
 | `src/lib/prismadb.ts` | Prisma singleton (`sqlClient`) |
 | `src/utils/actions/safe-action.ts` | Action clients |
 | `src/lib/logger.ts` | Structured Pino logger |
-| `prisma/schema.prisma` | Database schema, 18 models covering auth, mail, Stripe subscription and platform settings |
+| `prisma/schema.prisma` | Database schema, 17 models covering auth, mail, Stripe subscription and platform settings |
 | `src/components/virtual-experience/` | VE avatar, scene, chat UI |
 | `src/lib/legal-content.ts` | Reads privacy/terms markdown from `public/defaults/` |
 
