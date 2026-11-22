@@ -95,7 +95,7 @@ export const adminActionClient = baseClient.use(async ({ next, metadata }) => {
 		headers: await headers(), // you need to pass the headers object.
 	});
 	if (!session?.user) throw new SafeError("Unauthorized");
-	if (!isAdmin({ email: session.user.email }))
+	if (!(await isAdmin({ email: session.user.email })))
 		throw new SafeError("Unauthorized");
 
 	return next({ ctx: {} });
