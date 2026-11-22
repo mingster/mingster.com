@@ -1,0 +1,1 @@
+- Set up the agent team: project settings, team and deploy facts (self hosted on mx2.mingster.com), changelog fragments and a commit trailer check

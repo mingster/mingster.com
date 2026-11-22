@@ -157,3 +157,19 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## Token budget
+
+Every agent and teammate pays for what it reads, on every turn after. These hold in every session.
+
+- Search, then read the part. Grep or Glob first, then Read with `offset` and `limit`.
+- Keep command output short: pipe test, build and lint output through `tail -40`. Lint only the files you edited, never a whole repo lint with autofix (it rewrites every file). Run only the unit's listed test cases and the test files you touch, never the full suite: Regression runs only in the development pass before staging, or with the coordinator's approval recorded on the issue.
+- Plan before you edit: 3 to 5 lines naming the files, the change and the test that proves it.
+- Strikes. The same test failing twice after your change means stop editing: check whether a fake is stale or the test database is wrong. The same command failing 3 times in a row is a hard stop, enforced by `.claude/hooks/strikes.py`. Report the failing output and what was ruled out, and wait for the user. This is the only strike rule; role files point here.
+- Use `active_run.md` (git ignored) only on a unit with more than one slice: write it at the start and when blocked.
+- Hard limits: sessions compact at 200k tokens (`autoCompactWindow` in `.claude/settings.json`), and an Orca worker gets a warning at 120 turns and is stopped at 200 (`.claude/hooks/worker-budget.py`). A worker that hits the stop pushes and reports what is left.
+- Report with `git diff main...HEAD --stat`, the branch name, test counts and only the failing output.
+
+## Compact instructions
+
+When the conversation is compacted, keep: your role, the task list and who acts next, the branch and worktree, the allowed files, the verify command, strike counts and the last failing output. Drop file contents and command output; they are re-read from the repo.
