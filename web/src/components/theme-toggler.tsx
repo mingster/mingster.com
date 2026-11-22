@@ -2,12 +2,12 @@
 
 import { IconSun } from "@tabler/icons-react";
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { useIsHydrated } from "@/hooks/use-hydrated";
 import useColorMode from "@/hooks/useColorMode";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export const ThemeToggler = () => {
-	const [mounted, setMounted] = useState(false);
+	const mounted = useIsHydrated();
 
 	const [colorMode, setColorMode] = useColorMode();
 	const { setTheme } = useTheme();
@@ -19,10 +19,7 @@ export const ThemeToggler = () => {
 		setTheme(theme);
 	}
 
-	// useEffect only runs on the client, so now we can safely show the UI
-	useEffect(() => {
-		setMounted(true);
-	}, []);
+	// false on the server and during hydration, so the UI only shows on the client
 
 	if (!mounted) {
 		return <Skeleton className="h-7.5 w-14 rounded-full" />;

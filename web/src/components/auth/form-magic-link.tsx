@@ -3,7 +3,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { BetterFetchOption } from "better-auth/react";
 import { Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod/v4";
 import { useTranslation } from "@/app/i18n/client";
@@ -60,11 +59,7 @@ function FormMagicLinkInner({
 		},
 	});
 
-	const [isSubmitting, setIsSubmitting] = useState(false);
-
-	useEffect(() => {
-		setIsSubmitting?.(form.formState.isSubmitting);
-	}, [form.formState.isSubmitting]);
+	const isSubmitting = form.formState.isSubmitting;
 
 	async function sendMagicLink({ email }: z.infer<typeof formSchema>) {
 		try {

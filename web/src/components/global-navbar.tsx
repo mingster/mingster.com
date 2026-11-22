@@ -1,7 +1,7 @@
 "use client";
 import clsx from "clsx";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import ClipLoader from "react-spinners/ClipLoader";
 //import { cn } from '@/lib/utils';
 import DropdownUser from "@/components/auth/dropdown-user";
@@ -16,41 +16,34 @@ import {
 } from "@/components/ui/sheet";
 //import { useI18n } from '@/providers/i18n-provider';
 //import { useTranslation } from '@/app/i18n/client';
+import { useIsHydrated } from "@/hooks/use-hydrated";
 import { authClient } from "@/lib/auth-client";
 import DialogSignIn from "./auth/dialog-sign-in";
 import { BackgroundImage } from "./BackgroundImage";
 import { LanguageToggler } from "./language-toggler";
 import { Logo } from "./logo";
 
+const SCROLL_OFFSET = 50;
+
+function subscribeScroll(onChange: () => void) {
+	window.addEventListener("scroll", onChange, { passive: true });
+	return () => window.removeEventListener("scroll", onChange);
+}
+const getScrolled = () => window.scrollY > SCROLL_OFFSET;
+const getScrolledOnServer = () => false;
+
 interface NavbarProps {
 	title: string;
 }
 
 export function GlobalNavbar({ title }: NavbarProps) {
-	const [mounted, setMounted] = useState(false);
-	const [isOpaque, setIsOpaque] = useState(false);
+	const mounted = useIsHydrated();
+	const isOpaque = useSyncExternalStore(
+		subscribeScroll,
+		getScrolled,
+		getScrolledOnServer,
+	);
 	const { data: session } = authClient.useSession();
-	useEffect(() => {
-		const offset = 50;
-		function onScroll() {
-			if (!isOpaque && window.scrollY > offset) {
-				setIsOpaque(true);
-			} else if (isOpaque && window.scrollY <= offset) {
-				setIsOpaque(false);
-			}
-		}
-		onScroll();
-		window.addEventListener("scroll", onScroll, { passive: true });
-
-		return () => {
-			window.removeEventListener("scroll", onScroll);
-			//window.addEventListener("scroll", onScroll, { passive: true } as any);
-		};
-	}, [isOpaque]);
-
-	useEffect(() => {
-		setMounted(true);
-	}, []);
 	if (!mounted) return <ClipLoader />;
 
 	/*

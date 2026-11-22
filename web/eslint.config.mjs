@@ -34,8 +34,7 @@ const eslintConfig = [
 			"react/no-unescaped-entities": "off",
 			"react/react-in-jsx-scope": "off",
 			"react-hooks/exhaustive-deps": "off",
-			// New in react-hooks v7 (eslint-config-next 16). 14 existing hits, kept visible as warnings until refactored.
-			"react-hooks/set-state-in-effect": "warn",
+			"react-hooks/set-state-in-effect": "error",
 			"react/display-name": "off",
 			"react/prop-types": "off",
 			"react/no-unknown-property": "off",

@@ -1,11 +1,12 @@
 "use client";
 
 import { useCookies } from "next-client-cookies";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { useTranslation } from "@/app/i18n/client";
 import { cookieName, languages } from "@/app/i18n/settings";
 import { Button } from "@/components/ui/button";
+import { useIsHydrated } from "@/hooks/use-hydrated";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
 	DropdownMenu,
@@ -18,7 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export const LanguageToggler = () => {
-	const [mounted, setMounted] = useState(false);
+	const mounted = useIsHydrated();
 	const { i18n } = useTranslation();
 	const [activeLng, setActiveLng] = useState(i18n.resolvedLanguage);
 	//const { t } = useTranslation();
@@ -33,10 +34,7 @@ export const LanguageToggler = () => {
 		//console.log(`activeLng set to: ${lng}`);
 	};
 
-	// useEffect only runs on the client, so now we can safely show the UI
-	useEffect(() => {
-		setMounted(true);
-	}, []);
+	// false on the server and during hydration, so the UI only shows on the client
 
 	if (!mounted) {
 		return <Skeleton className="ml-1 size-8 rounded-full" />;

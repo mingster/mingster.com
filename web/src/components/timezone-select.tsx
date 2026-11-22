@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
 	Select,
 	SelectContent,
@@ -43,11 +43,14 @@ export function TimezoneSelect({
 		value || Intl.DateTimeFormat().resolvedOptions().timeZone,
 	);
 
-	useEffect(() => {
+	// Follow the value prop when it changes (adjusted during render)
+	const [prevValue, setPrevValue] = useState(value);
+	if (prevValue !== value) {
+		setPrevValue(value);
 		if (value) {
 			setSelectedTimezone(value);
 		}
-	}, [value]);
+	}
 
 	return (
 		<Select

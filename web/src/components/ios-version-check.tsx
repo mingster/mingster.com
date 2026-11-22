@@ -1,23 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
+
+function subscribe() {
+	return () => {};
+}
+
+function isUnsupportedIOS() {
+	// Check iOS version on client side
+	const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+	return (
+		isIOS &&
+		parseInt(navigator.userAgent.match(/OS (\d+)_(\d+)_?(\d+)?/)?.[1] || "0") <
+			16
+	);
+}
 
 export function IOSVersionCheck({ children }: { children: React.ReactNode }) {
-	const [showIOSWarning, setShowIOSWarning] = useState(false);
-
-	useEffect(() => {
-		// Check iOS version on client side
-		const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-		const isIOS16 =
-			isIOS &&
-			parseInt(
-				navigator.userAgent.match(/OS (\d+)_(\d+)_?(\d+)?/)?.[1] || "0",
-			) < 16;
-
-		if (isIOS16) {
-			setShowIOSWarning(true);
-		}
-	}, []);
+	const showIOSWarning = useSyncExternalStore(
+		subscribe,
+		isUnsupportedIOS,
+		() => false,
+	);
 
 	if (showIOSWarning) {
 		return (

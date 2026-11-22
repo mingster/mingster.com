@@ -71,13 +71,13 @@ export function ChatUI() {
 		[commandQuery],
 	);
 
-	useEffect(() => {
-		if (!showCommandList) setSelectedCommandIndex(0);
-		else
-			setSelectedCommandIndex((i) =>
-				Math.min(Math.max(0, i), filteredCommands.length - 1),
-			);
-	}, [showCommandList, filteredCommands.length]);
+	// Keep the selection in range (adjusted during render)
+	const clampedCommandIndex = showCommandList
+		? Math.min(Math.max(0, selectedCommandIndex), filteredCommands.length - 1)
+		: 0;
+	if (clampedCommandIndex !== selectedCommandIndex) {
+		setSelectedCommandIndex(clampedCommandIndex);
+	}
 
 	const openCommandPage = useCallback(
 		(path: string) => {

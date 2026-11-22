@@ -33,10 +33,14 @@ function FormPhoneOtpInner({
 	callbackUrl = "/",
 	onSuccess,
 	editMode = false,
+	initialCountryCode = "+886",
+	initialLocalPhoneNumber = "",
 }: {
 	callbackUrl?: string;
 	onSuccess?: () => void;
 	editMode?: boolean;
+	initialCountryCode?: string;
+	initialLocalPhoneNumber?: string;
 }) {
 	const { lng } = useI18n();
 	const { t } = useTranslation(lng);
@@ -45,12 +49,13 @@ function FormPhoneOtpInner({
 
 	const [step, setStep] = useState<"phone" | "otp">("phone");
 	const [phoneNumber, setPhoneNumber] = useState<string>("");
-	const [countryCode, setCountryCode] = useState<string>("+886"); // Default to Taiwan
-	const [localPhoneNumber, setLocalPhoneNumber] = useState<string>(""); // Phone number without country code
+	const [countryCode, setCountryCode] = useState<string>(initialCountryCode); // Default to Taiwan
+	const [localPhoneNumber, setLocalPhoneNumber] = useState<string>(
+		initialLocalPhoneNumber,
+	); // Phone number without country code
 	const [resendCountdown, setResendCountdown] = useState(0);
 	const [isSendingOTP, setIsSendingOTP] = useState(false);
 	const [isVerifyingOTP, setIsVerifyingOTP] = useState(false);
-	const [_isAnimating, setIsAnimating] = useState(false);
 	const phoneInputRef = useRef<HTMLInputElement>(null);
 	const otpInputRef = useRef<HTMLDivElement>(null);
 	const isInitialMountRef = useRef<boolean>(true);
@@ -115,28 +120,9 @@ function FormPhoneOtpInner({
 	const phoneForm = useForm({
 		resolver: zodResolver(phoneFormSchema),
 		defaultValues: {
-			phoneNumber: "",
+			phoneNumber: initialLocalPhoneNumber,
 		},
 	});
-
-	// Load phone number and country code from localStorage on mount
-	useEffect(() => {
-		if (typeof window !== "undefined" && isHydrated) {
-			const savedCountryCode = localStorage.getItem("phone_country_code");
-			const savedPhoneNumber = localStorage.getItem("phone_local_number");
-
-			if (
-				savedCountryCode &&
-				(savedCountryCode === "+1" || savedCountryCode === "+886")
-			) {
-				setCountryCode(savedCountryCode);
-			}
-			if (savedPhoneNumber) {
-				setLocalPhoneNumber(savedPhoneNumber);
-				phoneForm.setValue("phoneNumber", savedPhoneNumber);
-			}
-		}
-	}, [isHydrated, phoneForm]);
 
 	// Save country code to localStorage when it changes
 	useEffect(() => {
@@ -177,17 +163,6 @@ function FormPhoneOtpInner({
 			const timer = setTimeout(() => {
 				setResendCountdown((prev) => prev - 1);
 			}, 1000);
-			return () => clearTimeout(timer);
-		}
-	}, [resendCountdown]);
-
-	// Animate countdown display when it changes
-	useEffect(() => {
-		if (resendCountdown > 0) {
-			setIsAnimating(true);
-			const timer = setTimeout(() => {
-				setIsAnimating(false);
-			}, 300); // Animation duration
 			return () => clearTimeout(timer);
 		}
 	}, [resendCountdown]);
@@ -597,11 +572,29 @@ export default function FormPhoneOtp({
 	onSuccess?: () => void;
 	editMode?: boolean;
 }) {
+	const isHydrated = useIsHydrated();
+
+	// Saved values come from localStorage, which the server cannot read. The server
+	// render uses the defaults; once hydrated, remount the form (key) so it starts
+	// from the saved values instead of setting state in an effect.
+	let initialCountryCode = "+886";
+	let initialLocalPhoneNumber = "";
+	if (isHydrated) {
+		const savedCountryCode = localStorage.getItem("phone_country_code");
+		if (savedCountryCode === "+1" || savedCountryCode === "+886") {
+			initialCountryCode = savedCountryCode;
+		}
+		initialLocalPhoneNumber = localStorage.getItem("phone_local_number") ?? "";
+	}
+
 	return (
 		<FormPhoneOtpInner
+			key={isHydrated ? "client" : "server"}
 			callbackUrl={callbackUrl}
 			onSuccess={onSuccess}
 			editMode={editMode}
+			initialCountryCode={initialCountryCode}
+			initialLocalPhoneNumber={initialLocalPhoneNumber}
 		/>
 	);
 }
