@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { buildChatSystem } from "../chat-prompt";
 import { detectReplyLocale, voiceForLocale } from "../language";
 
 describe("detectReplyLocale", () => {
@@ -9,8 +10,25 @@ describe("detectReplyLocale", () => {
 		expect(detectReplyLocale("カタカナ and English", "tw")).toBe("jp");
 		expect(detectReplyLocale("你好", "en")).toBe("tw");
 		expect(detectReplyLocale("hello", "en")).toBe("en");
-		expect(detectReplyLocale("hello", "jp")).toBe("jp");
 		expect(detectReplyLocale("12345", "tw")).toBe("tw");
+	});
+
+	test("Latin script wins over the UI language (issue 72)", () => {
+		expect(detectReplyLocale("which model are u", "tw")).toBe("en");
+		expect(detectReplyLocale("hello", "jp")).toBe("en");
+	});
+
+	test("unclear script falls back to the UI language", () => {
+		expect(detectReplyLocale("👍", "jp")).toBe("jp");
+		expect(detectReplyLocale("42 ?!", "tw")).toBe("tw");
+	});
+
+	test("the system prompt asks for English when an English message arrives under a tw UI", () => {
+		const system = buildChatSystem(
+			detectReplyLocale("which model are u", "tw"),
+		);
+		expect(system).toContain("in English.");
+		expect(system).not.toContain("Traditional Chinese");
 	});
 });
 
