@@ -1,8 +1,7 @@
 # Deployment Note
 
 [mingster.com](https://mingster.com) is self hosted on **mx2.mingster.com**. There is no staging.
-A commit to `main` goes live only when `web/bin/deploy.sh` runs on the box. (`web/vercel.json` is
-left over from the old Vercel hosting.)
+A commit to `main` goes live only when `web/bin/deploy.sh` runs on the box.
 
 ## Production
 
@@ -502,13 +501,4 @@ pm2 logs mingster.com --lines 50
 
 ## Cron jobs
 
-This app has no application cron jobs and no `CRON_SECRET`. The only scheduled task on the box is certificate renewal.
-
-```bash
-sudo crontab -e
-```
-
-```bash
-# renew cert at 3:01AM everyday
-1   3   *   *   *   certbot renew
-```
+This app has no application cron jobs. Certificates are managed by Mail-in-a-Box, see the SSL section above.
