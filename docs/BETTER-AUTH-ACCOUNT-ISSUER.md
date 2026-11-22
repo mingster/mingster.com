@@ -1,32 +1,21 @@
-# Better Auth 1.7 Account issuer
+# Better Auth Account issuer (unused column)
 
-**Date:** 2026-08-23
+**Date:** 2026-11-22
 **Status:** Active
 **Related:** [OAUTH-FIRST-SIGN-IN.md](./OAUTH-FIRST-SIGN-IN.md)
 
 ## Overview
 
-Better Auth 1.7 keys OAuth and credential accounts by `(issuer, accountId)` instead of `providerId` alone. Google sign-in queries `Account.issuer = "https://accounts.google.com"`. The Prisma `Account` model must include `issuer` and `@@unique([issuer, accountId])`.
+Better Auth 1.7.0 to 1.7.2 keyed accounts by `(issuer, accountId)`. From 1.7.3 on (we run 1.7.27) it is back to `providerId` plus `accountId`, and Better Auth never writes `issuer`.
 
-Without the column, `/api/auth/sign-in/social` fails with `Unknown argument issuer`.
+`Account.issuer` stays in `prisma/schema.prisma` as an optional, unused `String?` so rows written under 1.7.0 to 1.7.2 are kept. The unique key on `(issuer, accountId)` was removed. Nothing in the app reads or writes the column.
 
-## Backfill
+## Why it matters
 
-Existing rows were created before `issuer` existed. From `web/`:
+A required `issuer` column made every email sign-up and every first OAuth sign-in fail with `Argument issuer is missing` (issue #66). The test `web/src/lib/auth/__tests__/account-schema.test.ts` guards against it: any Account column Better Auth does not write must be optional or have a default, and must not sit in a unique key.
 
-```bash
-bun --no-env-file --env-file=.env.local bin/backfill-account-issuer.ts
-bun run dbpush
-```
+## Deploy
 
-The script is idempotent. Mapping (must match the installed providers):
+The change needs a schema push: `DB_PUSH=1`, run by release-manager with a `pg_dump` taken first. The push only relaxes NOT NULL and drops a unique index, so it needs no data loss flag.
 
-| `providerId` | `issuer` |
-| --- | --- |
-| `google` | `https://accounts.google.com` |
-| `apple` | `https://appleid.apple.com` |
-| `line` | `https://access.line.me` |
-| `credential` / `phone` | `local:credential` |
-| other OAuth | `local:oauth:<encoded providerId>` |
-
-Helper: `web/src/lib/auth/account-issuer.ts`.
+The old backfill script and issuer helper were removed because nothing uses them.
