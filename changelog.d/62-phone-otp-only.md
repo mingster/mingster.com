@@ -1,0 +1,1 @@
+- Account settings no longer save a phone number without proof. Phone changes now go only through the one time code flow
