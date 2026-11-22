@@ -17,6 +17,7 @@ import {
 import { emailHarmony } from "better-auth-harmony";
 
 import { accountLinkingConfig } from "@/lib/auth/account-linking";
+import { lineProviderOptions } from "@/lib/auth/line-provider";
 import { stripe as stripeClient } from "@/lib/stripe/config";
 import { handleStripeSubscriptionEvent } from "@/lib/stripe/handle-subscription-event";
 import { linkAnonymousAccount } from "@/utils/account-linking";
@@ -98,8 +99,7 @@ export const auth = betterAuth({
 		line: {
 			clientId: process.env.AUTH_LINE_ID as string,
 			clientSecret: process.env.AUTH_LINE_SECRET as string,
-			scope: ["openid", "profile", "email"],
-			overrideUserInfoOnSignIn: true,
+			...lineProviderOptions,
 		},
 		apple: {
 			clientId: process.env.AUTH_APPLE_ID as string,
