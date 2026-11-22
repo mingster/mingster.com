@@ -6,7 +6,6 @@ import type { StringNVType } from "@/types/enum";
 import { getUtcNowEpoch } from "@/utils/datetime-utils";
 import { loadOuterHtmTemplate } from "./load-outer-htm-template";
 import { phasePlaintextToHtm } from "./phase-plaintext-to-htm";
-import { resolveStoreForAuthEmail } from "./resolve-store-for-auth-email";
 import { PhaseTags } from "./phase-tags";
 
 // send auth magic link email to customer
@@ -14,13 +13,8 @@ import { PhaseTags } from "./phase-tags";
 export const sendAuthMagicLink = async (
 	email: string,
 	magicLinkUrl: string,
-	request?: Request | null,
 ) => {
 	const log = logger.child({ module: "sendAuthMagicLink" });
-	const storeContext = await resolveStoreForAuthEmail(
-		magicLinkUrl,
-		request ?? null,
-	);
 
 	// log.info(
 	// 	`🔔 sending auth magic link to customer: ${email}. magicLinkUrl: ${magicLinkUrl}`,
@@ -69,7 +63,6 @@ export const sendAuthMagicLink = async (
 		message_content_template.subject,
 		null,
 		user as User,
-		storeContext,
 	);
 	phased_subject = applyAuthEmailMustacheValues(phased_subject, {
 		magicLinkURL: magicLinkUrl,
@@ -79,7 +72,6 @@ export const sendAuthMagicLink = async (
 		message_content_template.body,
 		null,
 		user as User,
-		storeContext,
 	);
 	textMessage = applyAuthEmailMustacheValues(textMessage, {
 		magicLinkURL: magicLinkUrl,
