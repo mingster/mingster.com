@@ -3,9 +3,11 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+let hangTts = false;
 mock.module("edge-tts-universal", () => ({
 	Communicate: class {
 		async *stream() {
+			if (hangTts) await new Promise(() => {});
 			yield { type: "audio", data: new Uint8Array([1, 2, 3]) };
 		}
 	},
@@ -62,6 +64,19 @@ describe("spawn timeouts (case 27)", () => {
 	test("a hung Rhubarb makes runRhubarb throw SpawnTimeoutError", async () => {
 		const err = await runRhubarb(Buffer.from("wav"), 150).catch((e) => e);
 		expect(err).toBeInstanceOf(SpawnTimeoutError);
+	});
+
+	test("a hung TTS service makes textToSpeech throw TtsTimeoutError", async () => {
+		hangTts = true;
+		try {
+			const { TtsTimeoutError } = await import("../tts");
+			const err = await textToSpeech("hello", { ttsTimeoutMs: 150 }).catch(
+				(e) => e,
+			);
+			expect(err).toBeInstanceOf(TtsTimeoutError);
+		} finally {
+			hangTts = false;
+		}
 	});
 
 	test("a missing ffmpeg still falls back to mp3 audio", async () => {

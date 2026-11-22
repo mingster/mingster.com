@@ -27,6 +27,7 @@ let subscriptionStatus: string | null = null;
 const logs: { level: string; message: string; opts: any }[] = [];
 const ttsCalls: { text: string; voice: string }[] = [];
 const geminiCalls: { model: string; prompt: string }[] = [];
+let ttsFails = false;
 let geminiBehavior: () => unknown = () => {
 	throw new Error("no behavior set");
 };
@@ -71,6 +72,7 @@ mock.module("edge-tts-universal", () => ({
 			ttsCalls.push({ text, voice: opts.voice });
 		}
 		async *stream() {
+			if (ttsFails) throw new Error("tts down");
 			yield { type: "audio", data: new Uint8Array([1, 2, 3, 4]) };
 		}
 	},
@@ -216,6 +218,20 @@ describe("case 1: signed out", () => {
 		expect(spawns()).toHaveLength(spawnsAfterFirst);
 		expect(geminiCalls).toHaveLength(0);
 		expect(logs.some((l) => l.message.includes("cache hit"))).toBe(true);
+	});
+
+	test("a degraded build (TTS down) is sent as text and is not cached", async () => {
+		ttsFails = true;
+		const degraded = await lines(
+			await post({ message: "hi", uiLanguage: "en" }),
+		);
+		expect(degraded[0].text).toBe("Please sign in first to chat with me.");
+		expect(degraded[0].audio).toBeUndefined();
+		ttsFails = false;
+		const recovered = await lines(
+			await post({ message: "hi", uiLanguage: "en" }),
+		);
+		expect(recovered[0].audio).toBeTruthy();
 	});
 
 	test("the cache is per language", async () => {

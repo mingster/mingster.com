@@ -16,9 +16,20 @@ import {
 
 const DEFAULT_VOICE = process.env.EDGE_TTS_VOICE ?? "en-US-JennyNeural";
 
+export const TTS_TIMEOUT_MS = 15_000;
+
+/** The edge TTS service did not finish in time. */
+export class TtsTimeoutError extends Error {
+	constructor(readonly timeoutMs: number) {
+		super(`edge tts timed out after ${timeoutMs}ms`);
+		this.name = "TtsTimeoutError";
+	}
+}
+
 export interface TtsOptions {
 	voice?: string;
 	ffmpegTimeoutMs?: number;
+	ttsTimeoutMs?: number;
 }
 
 async function mp3ToWav(
@@ -84,10 +95,28 @@ export async function textToSpeech(
 	});
 	const chunks: Buffer[] = [];
 
-	for await (const chunk of communicate.stream()) {
-		if (chunk.type === "audio" && chunk.data) {
-			chunks.push(Buffer.from(chunk.data));
+	const collect = async () => {
+		for await (const chunk of communicate.stream()) {
+			if (chunk.type === "audio" && chunk.data) {
+				chunks.push(Buffer.from(chunk.data));
+			}
 		}
+	};
+	// The service has no abort hook, so a hung connection is abandoned, not cancelled.
+	const timeoutMs = options.ttsTimeoutMs ?? TTS_TIMEOUT_MS;
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	try {
+		await Promise.race([
+			collect(),
+			new Promise<never>((_, reject) => {
+				timer = setTimeout(
+					() => reject(new TtsTimeoutError(timeoutMs)),
+					timeoutMs,
+				);
+			}),
+		]);
+	} finally {
+		clearTimeout(timer);
 	}
 
 	const mp3Buffer = Buffer.concat(chunks);
