@@ -6,10 +6,13 @@ import { Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { useTranslation } from "@/app/i18n/client";
 import { authClient } from "@/lib/auth-client";
 import { useChat } from "@/hooks/useChat";
 import { cn } from "@/lib/utils";
 import { ANIMATION_KEYS } from "./AvatarGLB";
+import { getChatAccessView } from "./chat-access";
+import { useChatAccess } from "./use-chat-access";
 
 const SIGNIN_ROUTE = "/signIn";
 
@@ -39,8 +42,6 @@ const CHAT_ANIMATION_KEYWORDS: Record<string, string> = (() => {
 	Object.assign(map, { dance: "Dancing" });
 	return map;
 })();
-
-const OWNER_EMAIL = "mingster.tsai@gmail.com";
 
 export function ChatUI() {
 	const router = useRouter();
@@ -172,52 +173,48 @@ export function ChatUI() {
 		],
 	);
 
-	const isOwner = session?.user?.email === OWNER_EMAIL;
-	// Subscription check is enforced on the server; client only checks sign-in state.
-	// Authorized = owner email. Other signed-in users are allowed to attempt (server gates on subscription).
-	const isSignedIn = !!session?.user;
+	const { t } = useTranslation();
+	// The server decides who may chat; the key makes it ask again after sign in or out.
+	const accessState = useChatAccess(
+		sessionLoading ? undefined : (session?.user?.id ?? null),
+	);
+	const view = getChatAccessView(accessState);
 
 	return (
 		<>
 			<div className="z-10 shrink-0 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:absolute md:bottom-0 md:left-0 md:right-0 md:p-4">
 				<div className="relative mx-auto max-w-xl rounded-xl border border-white/10 p-3">
-					{/* Auth gate */}
-					{!sessionLoading && !isSignedIn && (
+					{view.notice && view.showSignInButton && (
 						<div className="flex items-center justify-between gap-3 py-1">
-							<p className="text-sm text-white/70">Sign in to chat.</p>
+							<p className="text-sm text-white/70">{t(view.notice)}</p>
 							<Button
 								size="sm"
 								variant="outline"
 								className="shrink-0 border-white/20 bg-white/10 text-white hover:bg-white/20"
-								onClick={() => router.push("/signIn")}
+								onClick={() => router.push(SIGNIN_ROUTE)}
 							>
-								Sign in
+								{t("avatar_chat_sign_in_button")}
 							</Button>
 						</div>
 					)}
 
-					{!sessionLoading && isSignedIn && !isOwner && (
-						<p className="mb-2 text-xs text-white/50">
-							Chat is available for paid subscribers.{" "}
-							<button
-								type="button"
-								className="underline hover:text-white/80"
-								onClick={() => router.push("/account")}
-							>
-								Manage subscription
-							</button>
+					{view.notice && !view.showSignInButton && (
+						<p
+							className={cn("text-sm text-white/70", view.showInput && "mb-2")}
+						>
+							{t(view.notice)}
 						</p>
 					)}
 
-					{isSignedIn && loading && (
+					{view.showInput && loading && (
 						<div className="mb-2 flex items-center gap-1.5 text-sm text-white/80">
 							<span className="size-2 animate-pulse rounded-full bg-white/80" />
 							<span className="size-2 animate-pulse rounded-full bg-white/80" />
 							<span className="size-2 animate-pulse rounded-full bg-white/80" />
-							<span>Thinking...</span>
+							<span>{t("avatar_chat_thinking")}</span>
 						</div>
 					)}
-					{isSignedIn && (
+					{view.showInput && (
 						<form onSubmit={handleSubmit} className="flex gap-2">
 							<div className="relative min-h-11 flex-1">
 								<Input
@@ -225,7 +222,7 @@ export function ChatUI() {
 									value={input}
 									onChange={(e) => setInput(e.target.value)}
 									onKeyDown={handleKeyDown}
-									placeholder="Type a message or / for commands..."
+									placeholder={t("avatar_chat_placeholder")}
 									className={cn(
 										"min-h-11 w-full border border-white/15 bg-white/5 text-base text-white placeholder:text-white/50",
 									)}
