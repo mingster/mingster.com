@@ -1,0 +1,1 @@
+- Remove the unused nextjs-current-url, @stripe/stripe-js and @stripe/react-stripe-js packages, which drops the 3 critical bun audit advisories (41 findings down to 3)
