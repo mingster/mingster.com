@@ -11,7 +11,7 @@
     "postinstall": "bun run sql:generate && node scripts/patch-three-clock.js",
     "patch:three-clock": "node scripts/patch-three-clock.js",
     "dbpush": "bun run sql:dbpush",
-    "sql:generate": "rm -rf prisma/generated/client && bun x prisma generate",
+    "sql:generate": "node scripts/generate-prisma-client.js",
     "sql:dbpush": "bun x prisma db push",
     "install:data": "bun run bin/install.ts",
     "install:check": "bun run bin/install.ts --check",
