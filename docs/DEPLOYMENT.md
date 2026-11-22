@@ -1,8 +1,8 @@
 # Deployment Note
 
-Currently [mingster.com](https://mingster.com) is hosted at [vercel](https://vercel.com).
-
-As you commit to main branch, new code will deploy to the stage automatically.
+[mingster.com](https://mingster.com) is self hosted on **mx2.mingster.com**. There is no staging.
+A commit to `main` goes live only when `web/bin/deploy.sh` runs on the box. (`web/vercel.json` is
+left over from the old Vercel hosting.)
 
 ## Production
 
@@ -13,7 +13,7 @@ small (~4GB RAM) Debian box that **also runs [Mail-in-a-Box](https://mailinabox.
 1. **4GB RAM is tight for `next build`.** A default build OOMs (`spawn ENOMEM`, multi-GB `core.*`
    dumps), so the build runs on the box with a **capped Node heap** (`--max-old-space-size`) — no
    swap file needed. We build on the box (not ship a Mac-built `.next/`) to avoid Linux-vs-macOS
-   native/bundle mismatches. See [Sync source, build on the box](#sync-source-build-on-the-box).
+   native/bundle mismatches. See [Pull and build on the box](#pull-and-build-on-the-box).
 2. **Mail-in-a-Box owns nginx and TLS.** It regenerates `/etc/nginx/conf.d/local.conf` and
    renews Let's Encrypt certs on its own. Do **not** hand-edit nginx here or run your own
    certbot — your changes get wiped on the next MiaB update. Add the app the MiaB-blessed way.
@@ -25,22 +25,20 @@ small (~4GB RAM) Debian box that **also runs [Mail-in-a-Box](https://mailinabox.
 
 ---
 
-## Sync source, build on the box
+## Pull and build on the box
 
-`web/bin/deploy.sh` runs from **your workstation**. It rsyncs the app **source** to the server,
-then builds **on the box** with a capped Node heap (`--max-old-space-size`) — no swap file needed
-on 4GB — and reloads PM2.
+`web/bin/deploy.sh` runs **on the box**, not from your workstation. It pulls `main` with
+`git pull --ff-only`, builds there with a capped Node heap (`--max-old-space-size`, so no swap file
+is needed on 4GB), and reloads PM2.
 
 > **Why build on the box instead of shipping a prebuilt `.next/`?** The workstation is
-> macOS/arm64, the server is Linux/x64, and a Next build is not portable across that gap:
-> `node_modules` holds native binaries (the Prisma query engine most of all), and Next 16's default
-> **Turbopack** externalizes `serverExternalPackages` (stripe, pino, pg, `@prisma/*`) with
-> content-hash names that only resolve against the **exact** `node_modules` from build time. Ship
-> the Mac build → native/hash mismatches → runtime crashes (`Failed to load external module
-> stripe-<hash>`). Building on the box sidesteps all of it: Turbopack runs natively, the Prisma
-> engine is Linux-native, and the hashes match the box's own `node_modules`.
+> macOS/arm64 and the server is Linux/x64. `node_modules` holds native binaries (the Prisma query
+> engine most of all), and Turbopack names externalized `serverExternalPackages` with content
+> hashes that only resolve against the exact `node_modules` from build time. A Mac build crashes
+> at runtime on the box (`Failed to load external module stripe-<hash>`). Building on the box
+> avoids that.
 
-`.env` stays on the server and is never synced or overwritten.
+`.env` lives only on the box (`/var/www/mingster.com/web/.env`) and the script never touches it.
 
 ### First-time setup on the box
 
@@ -50,51 +48,49 @@ curl -fsSL https://deb.nodesource.com/setup_24.x | sudo bash - && sudo apt-get i
 curl -fsSL https://bun.com/install | bash
 bun install -g pm2
 
-# app dir + your production .env (deploy.sh does the rest)
-sudo mkdir -p /var/www/mingster.com/web
+# clone the repo, then put your production .env in place
+sudo git clone https://github.com/mingster/mingster.com.git /var/www/mingster.com
 # copy your production .env into /var/www/mingster.com/web/.env
 ```
 
-You also need SSH key access to the box (`ssh-copy-id`), since `deploy.sh` uses ssh/rsync.
+You need SSH key access to the box (`ssh-copy-id`) to log in and run the script.
 
 ### Deploy
 
-From the repo root (or `web/`):
+From your workstation:
 
 ```bash
-web/bin/deploy.sh
+ssh mx2.mingster.com 'cd /var/www/mingster.com && bash web/bin/deploy.sh'
 ```
 
-Common variants:
+Common variants (run on the box):
 
 ```bash
-MAX_OLD_SPACE=3072 web/bin/deploy.sh   # raise/lower the build heap cap (MB)
-DB_PUSH=1          web/bin/deploy.sh   # also run `prisma db push` on the box (schema changed)
-DRY_RUN=1          web/bin/deploy.sh   # rsync --dry-run; builds/reloads nothing
+MAX_OLD_SPACE=3072 bash web/bin/deploy.sh   # raise or lower the build heap cap (MB)
+DB_PUSH=1          bash web/bin/deploy.sh   # also run `prisma db push` (schema changed)
 ```
 
 Config (override via env), with defaults:
 
 | Var | Default | Purpose |
 |-----|---------|---------|
-| `DEPLOY_USER` | `root` | ssh user on the box |
-| `DEPLOY_HOST` | `mx2.mingster.com` | server hostname |
-| `DEPLOY_PATH` | `/var/www/mingster.com/web` | the `web/` dir on the box |
 | `PM2_NAME` | `mingster.com` | pm2 process name |
-| `SSH_PORT` | `22` | ssh port |
-| `MAX_OLD_SPACE` | `2048` | Node heap cap (MB) for the build — the low-memory lever |
-| `BUILD_CMD` | `bun run build` | build command run on the box |
+| `MAX_OLD_SPACE` | `2560` | Node heap cap (MB) for the build, the low memory lever |
+| `BUILD_CMD` | `bun run build` | build command |
+| `DB_PUSH` | `0` | `1` runs `bun run sql:dbpush` after the build |
 
-```bash
-# example: deploy as root over a non-standard ssh port
-DEPLOY_USER=root SSH_PORT=2222 web/bin/deploy.sh
-```
+What the script does, in order: `ulimit -c 0` (no core dumps), `git pull --ff-only` at the repo
+root, remove `.next`, `node_modules`, `.swc` and `prisma/generated`, `bun install`,
+`git restore .` (undo lockfile churn), `bun install --frozen-lockfile`,
+`NEXT_BUILD_LOW_MEMORY=1 NODE_OPTIONS=--max-old-space-size=$MAX_OLD_SPACE bun run build`,
+optionally `bun x prisma db push` (when `DB_PUSH=1`), then `pm2 reload mingster.com --update-env`
+(or `pm2 start` on the first run) and `pm2 save`.
 
-What the script does, in order: `rsync -az --delete` the **source** (excluding `node_modules`,
-`.next`, `prisma/generated`, `.env`, `.git`, logs, `core.*`) → on the box `ulimit -c 0` (no core
-dumps) → `bun install --frozen-lockfile` → `NODE_OPTIONS=--max-old-space-size=$MAX_OLD_SPACE
-bun run build` (postinstall regenerates the Prisma client for Linux, then `next build`) →
-`pm2 reload mingster.com` (or first-run `pm2 start`).
+> **Before any production `DB_PUSH=1`:** the script takes no backup. On the box, first run
+> `pg_dump -Fc` on the database named in `.env` into `/var/backups/mingster.com/<sha>.dump` and
+> check it with `pg_restore --list`. Stop if the backup fails. `prisma db push` keeps no history,
+> and the owner approves any push that drops or renames columns. Do not print or copy `.env`
+> values: [Omitted/Configured via Env].
 
 > If a build ever gets OOM-killed, raise `MAX_OLD_SPACE`, or add swap (see
 > [`spawn ENOMEM` during `next build`](#spawn-enomem-during-next-build) below).
@@ -254,7 +250,7 @@ sudo ufw allow proto tcp from 63.141.238.242 to any port 5432
 back to the web site:
 
 ```bash
-psql -h mx2.mingster.com -d riben_life -U pstv_user
+psql -h <db host> -d <database> -U <user>   # values: [Omitted/Configured via Env]
 ```
 
 #### Install Node.js and npm
@@ -358,7 +354,7 @@ server {
         proxy_set_header Connection 'upgrade';
         proxy_cache_bypass $http_upgrade;
 
-        # OAuth callbacks + AI menu scan (Gemini can run several minutes)
+        # OAuth callbacks + Gemini replies (can run long)
         proxy_connect_timeout 300s;
         proxy_send_timeout 300s;
         proxy_read_timeout 300s;
@@ -396,9 +392,8 @@ If the test is successful, restart Nginx:
 sudo systemctl restart nginx
 ```
 
-**Existing production servers:** If AI menu scan works locally but fails on `mingster.com` with 502/504 or a dropped connection after ~60 seconds, raise the three `proxy_*_timeout` values above (300s is enough for Gemini Pro scans) and reload nginx.
+**Existing production servers:** If a slow request (the VE chat) fails on `mingster.com` with 502/504 or a dropped connection after ~60 seconds, raise the three `proxy_*_timeout` values above (300s is enough for Gemini) and reload nginx.
 
-**Store admin realtime nav (SSE):** After deploying sidebar badge SSE, add the dedicated nginx block and env guidance in [[DEPLOYMENT-STORE-ADMIN-REALTIME-NAV]]. Architecture: [[STORE-ADMIN-REALTIME-NAV]]. **PM2 cluster or multiple app servers:** enable Redis first — [[DEPLOYMENT-redis]].
 
 #### SSL
 
@@ -416,9 +411,8 @@ sudo certbot --nginx -d mingster.com
 
 ### clone the source
 
-> On mx2.mingster.com you do **not** need to clone — `web/bin/deploy.sh` rsyncs the build and
-> source from your workstation into `/var/www/mingster.com/web`. A clone is only useful if you
-> want the cron scripts / repo present independently. The build itself never happens on the box.
+> On mx2.mingster.com the clone at `/var/www/mingster.com` is required: `web/bin/deploy.sh`
+> pulls `main` into it and builds on the box.
 
 ```bash
 sudo mkdir -p /var/www
@@ -442,7 +436,6 @@ Then set in `.env`:
 NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=<paste the output above>
 ```
 
-See [ENVIRONMENT_VARIABLES.md](../ENVIRONMENT_VARIABLES.md#nextjs-server-actions-self-hosted--pm2) for details.
 
 ### file permission
 
@@ -461,8 +454,8 @@ cd
 
 ### build
 
-Deploys are driven by `web/bin/deploy.sh` (sync source → build on the box with a capped heap →
-reload PM2). See [Sync source, build on the box](#sync-source-build-on-the-box). The box builds the
+Deploys are driven by `web/bin/deploy.sh` (pull `main` → build on the box with a capped heap →
+reload PM2). See [Pull and build on the box](#pull-and-build-on-the-box). The box builds the
 app itself; the notes below help when a build runs low on memory.
 
 #### Core dumps (`core.*`) filling disk
@@ -473,46 +466,34 @@ If you see many **`core.<pid>`** files (often **~10GB** each) under `/var/www/..
 - **Free space now:** Remove them only after you are sure you do not need them for debugging:
   `sudo find /var/www/mingster.com -maxdepth 3 -name 'core.*' -type f -delete`
   (adjust path if cores landed elsewhere, e.g. `$HOME`).
-- **Prevention:** `bin/deploy.sh` sets **`ulimit -c 0`** so new deploys should not create new core files from that pipeline. For **PM2** / login shells, you can also set system limits (e.g. `/etc/security/limits.conf`: `* soft core 0`).
-- **Root cause:** Usually **not enough RAM or swap** for the build. See [BUILD-LOW-MEMORY.md](./BUILD-LOW-MEMORY.md); consider building in CI and using `./bin/deploy-pm2-minimal.sh`, or add swap / more RAM / lower `NODE_OPTIONS` parallelism on the server.
+- **Prevention:** `web/bin/deploy.sh` sets **`ulimit -c 0`** so new deploys should not create new core files from that pipeline. For **PM2** / login shells, you can also set system limits (e.g. `/etc/security/limits.conf`: `* soft core 0`).
+- **Root cause:** Usually **not enough RAM or swap** for the build. Add swap or RAM, or lower `MAX_OLD_SPACE` on the server.
 
 #### `spawn ENOMEM` during `next build`
 
 The kernel could not create a child process (**errno -12**). Typical on **2–4 GB RAM** VPS when the build uses a **large Node heap** **plus** several parallel workers.
 
-**`bin/deploy.sh`** defaults (for **~8 GB RAM**):
-
-- `NEXT_BUILD_LOW_MEMORY=0` — Next.js uses normal static-generation concurrency (`next.config.ts`).
-- `NODE_OPTIONS=--max-old-space-size=4096` unless you already exported `NODE_OPTIONS`.
-
-On a **small VPS** (2–4 GB), set before `deploy.sh`:
+**`web/bin/deploy.sh`** already builds with `NEXT_BUILD_LOW_MEMORY=1` and
+`--max-old-space-size=$MAX_OLD_SPACE` (default 2560 MB). On a smaller box, lower the cap on the box:
 
 ```bash
-export NEXT_BUILD_LOW_MEMORY=1
-export NODE_OPTIONS="--max-old-space-size=2048"
-sh deploy.sh production main
+MAX_OLD_SPACE=2048 bash web/bin/deploy.sh
 ```
 
-**Always ensure enough swap** on small instances (see BUILD-LOW-MEMORY.md).
+Add swap if the build is still OOM-killed.
 
 #### `next build` failed (generic / `prerender-manifest.json` missing)
 
-The deploy script only reports the **last** error; the **real cause is higher in the log** (TypeScript, prerender, missing `POSTGRES_URL`, ESLint, OOM, etc.).
+The deploy script only reports the **last** error; the **real cause is higher in the log** (TypeScript, prerender, missing `DATABASE_URL`, ESLint, OOM, etc.).
 
 On the server, from `/var/www/mingster.com/web`:
 
 ```bash
-# Verbose Next output
-NEXT_BUILD_DEBUG=1 bun run build:production
-
-# Skip ESLint during build (Next 16+: `next build --no-lint`; do not use eslint in next.config)
-NEXT_IGNORE_ESLINT=1 bun run build:production
-
-# Low memory profile (see above)
-NEXT_BUILD_LOW_MEMORY=1 NODE_OPTIONS="--max-old-space-size=2048" bun run build:production
+# Low memory profile, as deploy.sh runs it
+NEXT_BUILD_LOW_MEMORY=1 NODE_OPTIONS="--max-old-space-size=2560" bun run build
 ```
 
-Ensure `.env` / `POSTGRES_URL` exists where Prisma or server code needs it at build time.
+Ensure `.env` (`DATABASE_URL`) exists where Prisma or server code needs it at build time.
 
 ### pm2
 

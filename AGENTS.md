@@ -1,19 +1,19 @@
 # Agent instructions (mingster.com)
 
-mingster.com — Next.js 15 web platform. Main app: `web/`. Run all commands from `web/`.
+mingster.com: Next.js 16 web platform. Main app: `web/`. Run all commands from `web/`.
 
 ## Workspace layout
 
 | Path | Purpose |
 |------|---------|
 | `web/` | Next.js app (`src/`, `prisma/`, `package.json`) |
-| `doc/` | Project documentation |
+| `docs/` | Project documentation, `docs/agents/` team docs |
 | `bin/` | Utility scripts |
 
 ## Cross-project context (Obsidian)
 
 Tech patterns and project docs live in the Obsidian vault (`~/Documents/Obsidian`). Fetch on
-demand via the `obsidian` MCP — do not load everything upfront.
+demand via the `obsidian` MCP, and do not load everything upfront.
 
 | What | Entry point |
 |------|-------------|
@@ -42,7 +42,7 @@ Add new learnings: `~/dotfiles/script/contribute-to-agents.sh <topic> "note"`
 
 ## Architecture
 
-**Stack:** Next.js 15 (App Router), React 19, TypeScript (strict), PostgreSQL + Prisma, Tailwind v4,
+**Stack:** Next.js 16 (App Router), React 19, TypeScript (strict), PostgreSQL + Prisma 7, Tailwind v4,
 shadcn/ui, Better Auth, Pino logging, react-hook-form + Zod, next-safe-action.
 
 **App Router** (`web/src/app/`):
@@ -54,12 +54,13 @@ shadcn/ui, Better Auth, Pino logging, react-hook-form + Zod, next-safe-action.
 | `api/` | `auth`, `chat` (VE), `og` (blog), `common/get-locales`, `log-write` |
 | `auth/` | Better Auth UI pages `[authView]` |
 | `blog/` | Blog with MDX (content in `web/blogData/`) |
-| `page.tsx` | Home — renders VirtualExperience |
+| `page.tsx` | Home, renders VirtualExperience |
 | `qr-generator/` | QR tool, opened by the VE `/qrcode` slash command |
 
-**Scope:** this app is deliberately limited to three features — **auth**,
-**VirtualExperience**, and **blog**. Store, storefront, shop, checkout, payment,
-reservation, notification and admin code was removed (see `doc/CLEANUP.md`).
+**Scope:** this app is deliberately limited to three features: **auth**,
+**VirtualExperience**, and **blog**, plus a planned sysAdmin page that sets the
+avatar's AI model (intent `docs/intent/2026-11-22-avatar-clerk/`). Store, storefront,
+shop, checkout, payment, reservation, notification and admin code was removed (see `docs/CLEANUP.md`).
 Do not reintroduce store/tenant concepts.
 
 **Key files:**
@@ -77,15 +78,15 @@ Do not reintroduce store/tenant concepts.
 
 ## Constraints
 
-- Never `console.log` — use `logger` from `@/lib/logger` with structured `metadata`
+- Never `console.log`, use `logger` from `@/lib/logger` with structured `metadata`
 - No `@prisma/client` in `"use client"` modules
-- `components/ui/` is shadcn-only — wrap, don't edit directly
+- `components/ui/` is shadcn-only, wrap, don't edit directly
 - After mutations: update local `useState` directly; do not rely on `router.refresh()` for list data
 - User-facing errors: throw `SafeError`; use `getT()` from `@/app/i18n` for messages
 
 ## Prisma / datetime (critical)
 
-All datetime fields are **BigInt epoch milliseconds** — no Prisma `DateTime`, no `@default(now())`.
+All datetime fields are **BigInt epoch milliseconds**, no Prisma `DateTime`, no `@default(now())`.
 
 ```typescript
 import { getUtcNowEpoch, epochToDate } from "@/utils/datetime-utils"
@@ -106,13 +107,14 @@ transformBigIntToNumbers(data)
 Actions live in `src/actions/` by domain (currently `user/`).
 Naming: `verb-object.ts` + `verb-object.validation.ts`, exported as `verbObjectAction`.
 
-- Reuse the Zod schema from `*.validation.ts` in forms — never duplicate.
+- Reuse the Zod schema from `*.validation.ts` in forms, never duplicate.
 - Zod v4: `import { z } from "zod"`.
 
 | Client | Use for |
 |--------|---------|
 | `baseClient` | Public (no auth) |
 | `userRequiredActionClient` | Any authenticated user |
+| `emailRequiredActionClient` | Authenticated user with an email |
 | `adminActionClient` | Admin role only |
 
 ## Auth roles
@@ -136,11 +138,11 @@ GitHub issues in this repo, via the `gh` CLI. See `docs/agents/issue-tracker.md`
 
 ### Triage labels
 
-The five canonical triage roles, label strings unchanged. See `docs/agents/triage-labels.md`.
+State, P0 to P3, size, role, hold and status labels. See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
-Single context: `CONTEXT.md` plus `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+Single context: `CONTEXT.md` plus `docs/adr/` at the repo root (created on first use). See `docs/agents/domain.md`.
 
 ---
 
@@ -155,3 +157,19 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## Token budget
+
+Every agent and teammate pays for what it reads, on every turn after. These hold in every session.
+
+- Search, then read the part. Grep or Glob first, then Read with `offset` and `limit`.
+- Keep command output short: pipe test, build and lint output through `tail -40`. Lint only the files you edited, never a whole repo lint with autofix (it rewrites every file). Run only the unit's listed test cases and the test files you touch, never the full suite: Regression runs only in the development pass before staging, or with the coordinator's approval recorded on the issue.
+- Plan before you edit: 3 to 5 lines naming the files, the change and the test that proves it.
+- Strikes. The same test failing twice after your change means stop editing: check whether a fake is stale or the test database is wrong. The same command failing 3 times in a row is a hard stop. Report the failing output and what was ruled out, and wait for the user. This is the only strike rule; role files point here.
+- Use `active_run.md` (git ignored) only on a unit with more than one slice: write it at the start and when blocked.
+- Hard limit: sessions compact at 200k tokens (`autoCompactWindow` in `.claude/settings.json`). A worker that is stopped pushes and reports what is left.
+- Report with `git diff main...HEAD --stat`, the branch name, test counts and only the failing output.
+
+## Compact instructions
+
+When the conversation is compacted, keep: your role, the task list and who acts next, the branch and worktree, the allowed files, the verify command, strike counts and the last failing output. Drop file contents and command output; they are re-read from the repo.

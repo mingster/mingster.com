@@ -137,3 +137,6 @@ dist
 
 # Cursor hook state (machine-local)
 .cursor/hooks/state/
+active_run.md
+.claude/state/
+.claude/release-reports/

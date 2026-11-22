@@ -1,0 +1,172 @@
+{
+  "model": "sonnet",
+  "effortLevel": "medium",
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "CLAUDE_CODE_ENABLE_TODO_TOOLS": "1"
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cat \"$HOME/.claude/hooks/session-start.md\"; bash \"$HOME/.claude/bin/state-of-play.sh\""
+          }
+        ]
+      },
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Context was compacted. Keep your role from before (Elon unless you were spawned as a teammate or subagent). Before you act, re-read: (1) .claude/agents/<role>.md, (2) .agents/skills/poteto-mode/SKILL.md and .agents/skills/orca-adapter/ORCA-ADAPTER.md, (3) the Pre-build grill gate in ~/dotfiles/templates/agent-team/docs/agents/team.md. Then continue from TaskList and the last owner message. Rules that still hold: do not raise host or provider caps; do not commit or open a PR while the owner is discussing.'"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/.claude/hooks/guard-bash.py\""
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/.claude/hooks/strikes.py\""
+          },
+          {
+            "type": "command",
+            "command": "f=\"$HOME/dotfiles/script/usage-gate-hook.py\"; [ ! -f \"$f\" ] || python3 \"$f\""
+          }
+        ]
+      },
+      {
+        "matcher": "Read|Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/.claude/hooks/guard-bash.py\""
+          }
+        ]
+      },
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/.claude/hooks/worker-budget.py\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/.claude/hooks/owner-decisions-stop.py\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/.claude/hooks/strikes.py\""
+          }
+        ]
+      },
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/.claude/hooks/worker-budget.py\""
+          }
+        ]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Bash",
+      "Bash(*)",
+      "Bash(bin/promote-production.sh:*)",
+      "Bash(./bin/promote-production.sh:*)",
+      "Read",
+      "Write",
+      "Edit",
+      "Grep",
+      "Glob",
+      "WebSearch",
+      "WebFetch",
+      "Skill",
+      "TaskCreate",
+      "TaskGet",
+      "TaskList",
+      "TaskUpdate"
+    ],
+    "ask": [],
+    "defaultMode": "bypassPermissions",
+    "deny": [
+      "Read(**/.env)",
+      "Read(**/.env.local)",
+      "Read(**/.env.*.local)",
+      "Read(**/.env.production)",
+      "Read(**/.env.staging)",
+      "Read(**/*.p8)",
+      "Read(**/*.pem)",
+      "Read(**/*.p12)",
+      "Read(**/*.pfx)"
+    ]
+  },
+  "deniedMcpServers": [
+    {
+      "serverName": "claude.ai Vercel"
+    },
+    {
+      "serverName": "claude.ai AWS Marketplace"
+    },
+    {
+      "serverName": "claude.ai Dropbox"
+    },
+    {
+      "serverName": "claude.ai Notion"
+    },
+    {
+      "serverName": "claude.ai Slack"
+    },
+    {
+      "serverName": "plugin:productivity:slack"
+    },
+    {
+      "serverName": "claude.ai Cloudflare Developer Platform"
+    },
+    {
+      "serverName": "claude.ai Google Sheets"
+    },
+    {
+      "serverName": "claude.ai Claude Docs"
+    }
+  ],
+  "autoCompactWindow": 200000,
+  "enabledPlugins": {
+    "pdf-viewer@synced": false,
+    "design@synced": false,
+    "engineering@synced": false,
+    "productivity@synced": false,
+    "sales@synced": false,
+    "marketing@synced": false,
+    "data@synced": false,
+    "customer-support@synced": false,
+    "product-management@synced": false,
+    "cowork-plugin-management@synced": false
+  }
+}
