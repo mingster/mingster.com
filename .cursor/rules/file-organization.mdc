@@ -391,7 +391,6 @@ Keep configuration files at the root level:
 - `eslint.config.mjs` - ESLint configuration
 - `postcss.config.mjs` - PostCSS configuration
 - `components.json` - shadcn/ui configuration
-- `vercel.json` - Vercel deployment configuration
 description:
 globs:
 alwaysApply: true
