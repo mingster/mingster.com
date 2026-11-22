@@ -14,13 +14,15 @@ export const updateAiModelAssignmentAction = adminActionClient
 	.metadata({ name: "updateAiModelAssignment" })
 	.schema(updateAiModelAssignmentSchema)
 	.action(async ({ parsedInput: { purpose, model, fallback } }) => {
-		const { t } = await getT();
+		// Looked up only on a failure, so the save path never needs the request cookies.
+		const saveFailed = async () =>
+			new SafeError((await getT()).t("sysadmin_ai_save_failed"));
 		const chosen = [model, fallback].flatMap((id) => {
 			const entry = id ? getModelCatalogEntry(id) : undefined;
 			return entry ? [entry] : [];
 		});
 		if (chosen.some((entry) => !hasUsableProviderKey(entry.provider))) {
-			throw new SafeError(t("sysadmin_ai_save_failed"));
+			throw await saveFailed();
 		}
 
 		const row = await sqlClient.platformSettings.findFirst({
@@ -37,7 +39,7 @@ export const updateAiModelAssignmentAction = adminActionClient
 				metadata: { errorName: err instanceof Error ? err.name : "unknown" },
 				tags: ["ai"],
 			});
-			throw new SafeError(t("sysadmin_ai_save_failed"));
+			throw await saveFailed();
 		}
 		if (row) {
 			await sqlClient.platformSettings.update({

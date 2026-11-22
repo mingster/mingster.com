@@ -1,15 +1,15 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
 let session: unknown = null;
-mock.module("next/headers", () => ({ headers: async () => new Headers() }));
+mock.module("next/headers", () => ({
+	headers: async () => new Headers(),
+	cookies: async () => ({ get: () => undefined }),
+}));
 mock.module("@/lib/auth", () => ({
 	auth: { api: { getSession: async () => session } },
 }));
 mock.module("@/lib/logger", () => ({
 	default: { info() {}, error() {}, warn() {}, debug() {} },
-}));
-mock.module("@/app/i18n", () => ({
-	getT: async () => ({ t: (k: string) => k }),
 }));
 
 let row: { id: string; settings: string | null } | null = null;
