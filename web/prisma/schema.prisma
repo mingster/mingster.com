@@ -36,10 +36,6 @@ model User {
   timezone                   String?
   phoneNumber                String? // E.164 format (e.g., +886912345678)
   phoneNumberVerified        Boolean? @default(false)
-  /// Saved Taiwan 電子發票 手機條碼 (`/ABC1234`) for checkout autofill.
-  invoiceMobileBarcode       String?
-  /// Legacy JSON 超商 picks keyed by shop storeId. New rows: ShopCheckoutPreference.
-  shopCvsSelectionsJson      String?
   line_userId                String?  @unique
   lineOfficialAccountAdded   Boolean? @default(false) // User added LINE Official Account as friend (via webhook)
   lineOfficialAccountAddedAt BigInt? // Epoch timestamp when user added Official Account
