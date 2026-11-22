@@ -191,7 +191,7 @@
     "shadcn": "^4.23.0",
     "shiki": "^4.6.0",
     "tailwindcss": "^4.3.5",
-    "typescript": "^7.0.2",
+    "typescript": "~6.0.3",
     "typescript-eslint": "^8.73.0"
   },
   "husky": {
