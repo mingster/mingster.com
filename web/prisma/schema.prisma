@@ -62,12 +62,6 @@ model User {
   members     Member[]
   invitations Invitation[]
 
-  Store             Store[]
-
-
-
-
-
   @@unique([normalizedEmail])
   @@index([email])
   @@index([createdAt])
@@ -219,7 +213,6 @@ model Organization {
 
   members     Member[]
   invitations Invitation[]
-  stores      Store[]
 
   @@unique([slug])
   @@map("organization")
@@ -332,8 +325,6 @@ model PlatformSettings {
   settings        String?
 }
 
-
-
 model Locale {
   id                String @id @unique @db.VarChar(5)
   name              String
@@ -347,126 +338,18 @@ model Locale {
   @@index([defaultCurrencyId])
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-model Store {
-  id             String  @id @default(uuid())
-  organizationId String
-  name           String
-  ownerId        String
-  isDeleted      Boolean @default(false)
-  createdAt      BigInt
-  updatedAt      BigInt
-
-  Owner            User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  Organization     Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  MessageTemplates MessageTemplate[]
-  EmailQueues      EmailQueue[]
-
-  @@index([ownerId])
-  @@index([organizationId])
-  @@index([name])
-  @@index([ownerId, isDeleted])
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 model MessageTemplate {
   id                       String                     @id @default(uuid())
   name                     String // Template identifier (e.g., "order_confirmation")
   templateType             String // "email", "line", "sms", "whatsapp", "wechat", "telegram", "push", "onsite"
-  isGlobal                 Boolean                    @default(false) // Global template vs store-specific
-  storeId                  String? // null for global templates
+  isGlobal                 Boolean                    @default(false)
   MessageTemplateLocalized MessageTemplateLocalized[]
   EmailQueues              EmailQueue[]
 
-  Store Store? @relation(fields: [storeId], references: [id], onDelete: Cascade)
 
-  // Unique template name per store (or global)
-  @@unique([name, storeId])
+  @@unique([name])
   @@index([name])
   @@index([templateType])
-  @@index([storeId])
 }
 
 model MessageTemplateLocalized {
@@ -508,13 +391,11 @@ model EmailQueue {
   claimedAt   BigInt?
 
   // Email metadata
-  storeId        String?
   notificationId String? // Link to MessageQueue if applicable
   templateId     String? // Link to MessageTemplate if applicable
   priority       Int     @default(0)
 
   // Relations
-  Store        Store?           @relation(fields: [storeId], references: [id], onDelete: Cascade)
   Template     MessageTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
 
   // Composite index for queue processing
@@ -524,7 +405,6 @@ model EmailQueue {
   @@index([sentOn])
   @@index([from])
   @@index([to])
-  @@index([storeId])
   @@index([priority])
   @@index([notificationId])
   @@index([templateId])

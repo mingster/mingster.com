@@ -3,7 +3,6 @@ import { resolveSupportEmailFromPlatformSettingsJson } from "@/lib/platform-sett
 import { sqlClient } from "@/lib/prismadb";
 import type { User } from "@/types";
 import type { StringNVType } from "@/types/enum";
-import type { AuthEmailStoreContext } from "./resolve-store-for-auth-email";
 
 /**
  * Replaces `{{...}}` placeholders in message templates. Legacy `%Token.Path%` in the
@@ -13,7 +12,6 @@ export async function PhaseTags(
 	messageToBePhased: string,
 	_customer?: User | null,
 	user?: User | null,
-	storeContext?: AuthEmailStoreContext | null,
 ): Promise<string> {
 	let result = convertLegacyPercentSyntaxToMustache(messageToBePhased);
 
@@ -40,15 +38,9 @@ export async function PhaseTags(
 	const appNameValue = appName?.value ?? "riben.life";
 	result = result.replace(/\{\{app\.name\}\}/gi, appNameValue);
 
-	const trimmedStoreName = storeContext?.name?.trim();
-	const storeDisplayName =
-		trimmedStoreName && trimmedStoreName.length > 0
-			? trimmedStoreName
-			: appNameValue;
-	const storeIdForTags = storeContext?.id?.trim() ?? "";
-
-	result = result.replace(/\{\{store\.name\}\}/gi, storeDisplayName);
-	result = result.replace(/\{\{store\.id\}\}/gi, storeIdForTags);
+	// Legacy store tags resolve to the app name; there is no store concept.
+	result = result.replace(/\{\{store\.name\}\}/gi, appNameValue);
+	result = result.replace(/\{\{store\.id\}\}/gi, "");
 
 	const userEmail = user?.email ?? "";
 	const userName = user?.name ?? "";

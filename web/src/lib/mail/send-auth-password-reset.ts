@@ -6,7 +6,6 @@ import type { StringNVType } from "@/types/enum";
 import { getUtcNowEpoch } from "@/utils/datetime-utils";
 import { loadOuterHtmTemplate } from "./load-outer-htm-template";
 import { phasePlaintextToHtm } from "./phase-plaintext-to-htm";
-import { resolveStoreForAuthEmail } from "./resolve-store-for-auth-email";
 import { PhaseTags } from "./phase-tags";
 
 // send reset password email to customer
@@ -14,13 +13,8 @@ import { PhaseTags } from "./phase-tags";
 export const sendAuthPasswordReset = async (
 	email: string,
 	resetUrl: string,
-	request?: Request | null,
 ) => {
 	const log = logger.child({ module: "sendAuthPasswordReset" });
-	const storeContext = await resolveStoreForAuthEmail(
-		resetUrl,
-		request ?? null,
-	);
 
 	// log.info(
 	// 	`🔔 sending reset password email to customer: ${email}. resetUrl: ${resetUrl}`,
@@ -67,7 +61,6 @@ export const sendAuthPasswordReset = async (
 		message_content_template.subject,
 		null,
 		user as User,
-		storeContext,
 	);
 	phased_subject = applyAuthEmailMustacheValues(phased_subject, {
 		passwordRecoveryURL: resetUrl,
@@ -77,7 +70,6 @@ export const sendAuthPasswordReset = async (
 		message_content_template.body,
 		null,
 		user as User,
-		storeContext,
 	);
 	textMessage = applyAuthEmailMustacheValues(textMessage, {
 		passwordRecoveryURL: resetUrl,
