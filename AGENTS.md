@@ -1,13 +1,13 @@
 # Agent instructions (mingster.com)
 
-mingster.com — Next.js 15 web platform. Main app: `web/`. Run all commands from `web/`.
+mingster.com: Next.js 16 web platform. Main app: `web/`. Run all commands from `web/`.
 
 ## Workspace layout
 
 | Path | Purpose |
 |------|---------|
 | `web/` | Next.js app (`src/`, `prisma/`, `package.json`) |
-| `doc/` | Project documentation |
+| `docs/` | Project documentation, `docs/agents/` team docs |
 | `bin/` | Utility scripts |
 
 ## Cross-project context (Obsidian)
@@ -42,7 +42,7 @@ Add new learnings: `~/dotfiles/script/contribute-to-agents.sh <topic> "note"`
 
 ## Architecture
 
-**Stack:** Next.js 15 (App Router), React 19, TypeScript (strict), PostgreSQL + Prisma, Tailwind v4,
+**Stack:** Next.js 16 (App Router), React 19, TypeScript (strict), PostgreSQL + Prisma 7, Tailwind v4,
 shadcn/ui, Better Auth, Pino logging, react-hook-form + Zod, next-safe-action.
 
 **App Router** (`web/src/app/`):
@@ -57,9 +57,11 @@ shadcn/ui, Better Auth, Pino logging, react-hook-form + Zod, next-safe-action.
 | `page.tsx` | Home — renders VirtualExperience |
 | `qr-generator/` | QR tool, opened by the VE `/qrcode` slash command |
 
-**Scope:** this app is deliberately limited to three features — **auth**,
-**VirtualExperience**, and **blog**. Store, storefront, shop, checkout, payment,
-reservation, notification and admin code was removed (see `doc/CLEANUP.md`).
+**Scope:** this app is deliberately limited to three features: **auth**,
+**VirtualExperience**, and **blog**, plus a planned sysAdmin page that sets the
+avatar's AI model (intent `docs/intent/2026-11-22-avatar-clerk/`). Store, storefront,
+shop, checkout, payment, reservation and notification pages were removed (see
+`docs/CLEANUP.md`); their leftover models and action clients go in #39.
 Do not reintroduce store/tenant concepts.
 
 **Key files:**
@@ -71,7 +73,7 @@ Do not reintroduce store/tenant concepts.
 | `src/lib/prismadb.ts` | Prisma singleton (`sqlClient`) |
 | `src/utils/actions/safe-action.ts` | Action clients |
 | `src/lib/logger.ts` | Structured Pino logger |
-| `prisma/schema.prisma` | Database schema — 18 models, auth + mail only |
+| `prisma/schema.prisma` | Database schema (115 models; the unused Store models go in #39) |
 | `src/components/virtual-experience/` | VE avatar, scene, chat UI |
 | `src/lib/legal-content.ts` | Reads privacy/terms markdown from `public/defaults/` |
 
@@ -103,10 +105,9 @@ transformBigIntToNumbers(data)
 
 ## Server actions
 
-Actions live in `src/actions/` by domain (`admin/`, `sysAdmin/`, `store/`, `user/`, `mail/`, `geo/`).
+Actions live in `src/actions/` by domain (today only `user/`; add `sysAdmin/` for the AI model page).
 Naming: `verb-object.ts` + `verb-object.validation.ts`, exported as `verbObjectAction`.
 
-- `storeActionClient`: first bound arg is `storeId` — do **not** include `storeId` in the Zod schema. Call as `action(storeId, { ...input })`.
 - Reuse the Zod schema from `*.validation.ts` in forms — never duplicate.
 - Zod v4: `import { z } from "zod"`.
 
@@ -114,12 +115,12 @@ Naming: `verb-object.ts` + `verb-object.validation.ts`, exported as `verbObjectA
 |--------|---------|
 | `baseClient` | Public (no auth) |
 | `userRequiredActionClient` | Any authenticated user |
-| `storeActionClient` | Store members (owner/storeAdmin/staff) |
+| `emailRequiredActionClient` | Authenticated user with an email |
 | `adminActionClient` | Admin role only |
 
 ## Auth roles
 
-Better Auth with roles: `user`, `owner`, `staff`, `storeAdmin`, `admin`.
+Better Auth roles in use: `user`, `admin`. `owner`, `staff` and `storeAdmin` are store leftovers that #39 removes.
 Social providers: Google, LINE, Apple. Also: phone/OTP, magic link, passkeys, anonymous.
 
 ## Code conventions
@@ -138,11 +139,11 @@ GitHub issues in this repo, via the `gh` CLI. See `docs/agents/issue-tracker.md`
 
 ### Triage labels
 
-The five canonical triage roles, label strings unchanged. See `docs/agents/triage-labels.md`.
+The 20 label set (state, P0 to P3, size, role, hold) plus status labels. See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
-Single context: `CONTEXT.md` plus `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+Single context: `CONTEXT.md` plus `docs/adr/` at the repo root (created on first use). See `docs/agents/domain.md`.
 
 ---
 
