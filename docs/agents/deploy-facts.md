@@ -23,7 +23,7 @@ One row per deployable component. With one row, `/deploy` takes no component arg
 ## local
 
 * Worktree path: `.claude/worktrees/deploy-local`.
-* Env file: `web/.env`. Allowed databases: localhost only. Masking tool: none.
+* Env file: `web/.env.local`. Allowed databases: localhost only. Masking tool: none.
 * Port that must be free: `3002`.
 * Steps, in order: `bun install`, `bun run sql:generate`, `bunx biome check src`, `bun test`, `bun run build`.
 
@@ -65,3 +65,24 @@ Schema changes ship with `DB_PUSH=1` on the deploy command (`prisma db push`), o
 
 * `git revert <bad sha>` on a branch, merge to `main` through a PR, then run the production deploy command. No force push.
 * The schema blocks this when the bad release dropped or renamed columns with `DB_PUSH=1`: restore `/var/backups/mingster.com/<sha>.dump` with `pg_restore` first, on the owner's go.
+
+## Production host facts
+
+Refs #42. Nothing in this file holds a secret or a connection string.
+
+* Host: mx2.mingster.com, reached with `ssh root@mx2.mingster.com` (host key pinned by the owner). The box rate limits ssh: one connect works, a quick second is refused for about 2 minutes, so batch work into few sessions.
+* App: `/var/www/mingster.com` on branch main, served by pm2 as `mingster.com` on port 3002 behind nginx (`/etc/nginx/sites-available/mingster.com`, which sets X-Real-IP and X-Forwarded-For).
+* Deploy log: `/root/db-backups/deploy-<sha>.log`. Add `DB_PUSH=1` only when `prisma/schema.prisma` changed.
+* Production database: the production database (Prisma Postgres), reached from mx2 with the URL in the box's own `/var/www/mingster.com/web/.env`. Never print it or copy `.env` off the box.
+* Backup before any `DB_PUSH=1`: `pg_dump -Fc` to `/root/db-backups/` on mx2, size above 0, `pg_restore -l` lists entries.
+* `prisma db push` runs without `--accept-data-loss`. A data loss warning stops the deploy until the owner decides.
+* Smoke on https://mingster.com (not mx2, which is the mail host): `/`, `/signIn`, `/api/auth/get-session` return 200, a signed-out POST to `/api/chat` returns the sign-in reply, `/api/log-write` with no Origin returns 403, a signed-out `/sysAdmin/ai-models` redirects to `/signIn`, pm2 online, no new error log lines except the restart pair.
+
+## Development database
+
+* Host: miniu (LAN, Postgres 18, port 5432). The laptop (192.168.2.5) is allowed by `pg_hba.conf` with password login.
+* Database and role: `mingster_local`, owned by role `mingster_local`. Created 2026-11-22 on the empty server, then seeded with `bun run dbpush` (no data loss flag) and `bun run install:data --skip-stripe`.
+* The connection string lives only on miniu, at `/home/mtsai/.mingster-dev/database-url` (mode 600, directory 700). Only `web/.env.local` is kept locally, and its `DATABASE_URL` points at this database. Never print it.
+* The laptop `web/.env.local` `DATABASE_URL` must show host `miniu` before any schema command. A `bun run dbpush` against the production database is a production push.
+* Seed order: `bun run dbpush`, then `bun run install:data`, against miniu only.
+* Left alone: an older database and role `mingster_dev` on miniu (115 tables from the old schema, empty `user` table). The owner can drop both if unused.

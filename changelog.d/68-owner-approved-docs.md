@@ -1,0 +1,1 @@
+- Remove the stale `emailRequiredActionClient` row from `AGENTS.md`, update the Stripe and `Subscription` role facts in `docs/agents/team-facts.md` (the Strikes row moved to mingster/dotfiles#1540), add production host and dev database facts to `docs/agents/deploy-facts.md` (`web/.env.local`), and replace stale `sysAdmin/sysmsg` pointers in Cursor rules and project memory

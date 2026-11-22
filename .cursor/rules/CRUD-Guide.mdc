@@ -52,9 +52,7 @@ This application follows a modern pattern for managing data (CRUD operations - C
 
 ## Example Reference
 
-- Main CRUD page: `src/app/sysAdmin/sysmsg/page.tsx`
-- Client table: `src/app/sysAdmin/sysmsg/components/client-sysmsg.tsx`
-- Edit/Create dialog: `src/app/sysAdmin/sysmsg/components/edit-sysmsg.tsx`
+The `sysAdmin/sysmsg` pages were removed with the store cleanup (see `docs/CLEANUP.md`). The active admin page is `src/app/sysAdmin/ai-models/page.tsx` (`src/app/sysAdmin/ai-models/components/client-ai-models.tsx`). Use the table and dialog pattern below only if a multi-row CRUD admin page is added.
 
 ---
 

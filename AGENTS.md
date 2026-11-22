@@ -114,7 +114,6 @@ Naming: `verb-object.ts` + `verb-object.validation.ts`, exported as `verbObjectA
 |--------|---------|
 | `baseClient` | Public (no auth) |
 | `userRequiredActionClient` | Any authenticated user |
-| `emailRequiredActionClient` | Authenticated user with an email |
 | `adminActionClient` | Admin role only |
 
 ## Auth roles

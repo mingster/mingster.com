@@ -110,8 +110,8 @@ This is a monorepo with multiple workspaces:
 import { Button, Dialog, DataTable, cn, useTheme } from "mingster.backbone";
 
 // 2. Project-specific from local paths
-import { EditSystemMessage } from "@/app/sysAdmin/sysmsg/components/edit-sysmsg";
-import { updateSystemMessageAction } from "@/actions/sysAdmin/systemMessage/update-system-message";
+import { AiModelsClient } from "@/app/sysAdmin/ai-models/components/client-ai-models";
+import { updateAiModelAssignmentAction } from "@/actions/sysAdmin/update-ai-model-assignment";
 import { auth } from "@/lib/auth";
 import prismadb from "@/lib/prismadb";
 ```
