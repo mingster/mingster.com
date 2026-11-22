@@ -16,6 +16,7 @@ import {
 } from "better-auth/plugins";
 import { emailHarmony } from "better-auth-harmony";
 
+import { accountLinkingConfig } from "@/lib/auth/account-linking";
 import { stripe as stripeClient } from "@/lib/stripe/config";
 import { handleStripeSubscriptionEvent } from "@/lib/stripe/handle-subscription-event";
 import { linkAnonymousAccount } from "@/utils/account-linking";
@@ -64,12 +65,7 @@ export const auth = betterAuth({
 		updateAge: 60 * 60 * 24, // 1 day (every 1 day the session expiration is updated)
 	},
 	account: {
-		accountLinking: {
-			enabled: true,
-			allowDifferentEmails: true,
-			trustedProviders: ["google", "line", "phone", "apple"],
-			updateUserInfoOnLink: true,
-		},
+		accountLinking: accountLinkingConfig,
 		// Store OAuth state in the database (verification table) instead of cookies.
 		// Firefox's Total Cookie Protection partitions cookies by top-level origin,
 		// so the state cookie set on localhost gets invisible when Google's redirect
