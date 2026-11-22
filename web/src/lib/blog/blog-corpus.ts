@@ -33,7 +33,14 @@ async function defaultBlogDataDir(): Promise<string> {
 	return direct;
 }
 
-const META_RE = /^export const meta = \{[\s\S]*?^\};?[ \t]*$/m;
+/** `export const meta = {` or `export const meta: Meta = {`, closed by a `};` line that may be indented. */
+const META_RE =
+	/^export\s+const\s+meta\s*(?::[^=\n]+)?=\s*\{[\s\S]*?^[ \t]*\};?[ \t]*$/m;
+/** The `private` key with optional quotes and spaces; group 1 is the raw value. */
+const PRIVATE_KEY_RE = /["']?\bprivate["']?\s*:\s*([^,\n}]*)/i;
+/** The word private within a few characters of true, in any shape. */
+const PRIVATE_NEAR_TRUE_RE =
+	/private[^\n]{0,24}\btrue\b|\btrue\b[^\n]{0,24}private/i;
 /** One `import x from "y";` or `import { a, b } from "y";` line, also over several lines. */
 const IMPORT_RE =
 	/^import\s+(?:[\w*{}\s,]+?\s+from\s+)?["'][^"'\n]+["'];?[ \t]*$/gm;
@@ -71,13 +78,42 @@ function stripMdx(source: string): string {
 		.trim();
 }
 
-/** Parse one MDX file. Returns null for a private post or a post with no text. */
+function warnSkipped(slug: string, reason: string) {
+	// Slug only: never the post text.
+	logger.warn("blog corpus post skipped as unsafe", {
+		metadata: { slug, reason },
+		tags: ["avatar-chat", "blog-corpus"],
+	});
+}
+
+/**
+ * Parse one MDX file. Returns null for a private post or a post with no text.
+ * Fails closed: a post whose meta block cannot be parsed, or whose `private`
+ * flag is anything but a plain `false`, is skipped.
+ */
 export function parseBlogPost(
 	slug: string,
 	source: string,
 ): BlogCorpusPost | null {
-	const meta = source.match(META_RE)?.[0] ?? "";
-	if (/^\s*private:\s*true\b/m.test(meta)) return null;
+	const meta = source.match(META_RE)?.[0];
+	if (!meta) {
+		warnSkipped(slug, "no_meta");
+		return null;
+	}
+	const key = meta.match(PRIVATE_KEY_RE);
+	if (key) {
+		const value = key[1]
+			.trim()
+			.replace(/^["']|["']$/g, "")
+			.toLowerCase();
+		if (value !== "false") {
+			if (value !== "true") warnSkipped(slug, "unparseable_private");
+			return null;
+		}
+	} else if (PRIVATE_NEAR_TRUE_RE.test(meta)) {
+		warnSkipped(slug, "unparseable_private");
+		return null;
+	}
 	const text = stripMdx(source);
 	if (!text) return null;
 	return {
