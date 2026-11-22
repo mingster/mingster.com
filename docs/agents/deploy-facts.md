@@ -5,7 +5,7 @@ Product facts the shared `deploy` skill reads. The skill is generated from dotfi
 ## Repository
 
 * GitHub: `mingster/mingster.com`. Development branch: `main`.
-* Decision record: `<ADR that set up this pipeline>`.
+* Decision record: none. Production setup is described in `docs/DEPLOYMENT.md`.
 
 ## Components
 
@@ -43,24 +43,25 @@ One row per deployable component. With one row, `/deploy` takes no component arg
 
 Schema changes ship with `DB_PUSH=1` on the deploy command (`prisma db push`), only on the owner's go. There are no SQL apply or secret scripts yet; production `.env` lives only on the box and is never synced.
 
-* Production SQL apply script: `<path and exact command, for example bin/apply-production-sql.sh <component> <sha> --dry-run <db> <files>>`. Dry run first, then the same command without `--dry-run`.
-* Production secret script: `<path and exact command, for example bin/set-production-secret.sh <component> <sha> <KEY>>`, with its allowed keys: `<list>`.
-* Approval scope that allows both: `<for example bin/owner-approve.sh promote <component> <sha> --schema --apply>`. Valid for `<minutes>`, one component and one full commit sha.
-* Migration login: `<least privilege login the SQL script uses, and where its credential lives>`. Preflight that checks it before any write: `<command, or none>`.
-* Ledger: `<table or file that records applied SQL files, and how a changed file is handled>`.
-* Backup before the first write: `<how it is made and verified, and where it lands>`. A failed backup stops the run.
-* One time user dry run: `<what the owner runs once to prove the scripts, login and backup work, and the date it passed>`.
+* Production SQL apply script: none. The only schema path is `DB_PUSH=1` on the deploy command.
+* Production secret script: none. Only the owner edits `/var/www/mingster.com/web/.env` on the box; agents never read or write it.
+* Approval scope that allows both: the owner's go in chat for one full commit sha, naming `DB_PUSH=1` when the schema changed.
+* Migration login: the app's own database login from the box's `.env` (no separate migration login). Preflight: `git diff <deployed sha>..<new sha> -- web/prisma/schema.prisma` must show no dropped or renamed columns, or the owner must approve the data loss.
+* Ledger: none. `prisma db push` keeps no history; the schema diff in the release summary is the record.
+* Backup before the first write: on the box, `pg_dump -Fc` of the database named in `.env` to `/var/backups/mingster.com/<sha>.dump`, checked with `pg_restore --list`. A failed backup stops the run.
+* One time user dry run: not done yet. The owner runs the backup command above once and records the date here.
 
 ## Owner approval
 
-* **Host preflight** before any production host job (promote, SQL, secrets, rollback, any ssh to a production host): read only the scope and expiry of the user approval and check it has the scope of the job (`host` for host jobs, `promote` for a promotion, `rollback` for a rollback) and covers the expected job length. While production holds only test data, a non-force push of the production branch needs no user approval. A rollback is a force push and still needs the owner's go. Host, SQL and secrets jobs still do. If it is missing, expired, another scope or too short, stop before the first ssh and ask the coordinator for a fresh user approval of that scope. The expiry itself stays.
-* Production needs the owner's go for each release once a real store is live. Before that, a non-force production push runs after the Playground regression passes. A production rollback still needs the owner's go.
-* Owner approval script: `<path and exact command, for example bin/owner-approve.sh <component> <sha>, or none>`. The user runs it; the deploy skill gives them the exact command.
+* **Host preflight** before any production host job (promote, SQL, secrets, rollback, any ssh to a production host): read only the scope and expiry of the user approval and check it has the scope of the job (`host` for host jobs, `promote` for a promotion, `rollback` for a rollback) and covers the expected job length. Production holds real user accounts, so every deploy, rollback, schema push and host job needs the owner's go. If it is missing, expired, another scope or too short, stop before the first ssh and ask the coordinator for a fresh user approval of that scope. The expiry itself stays.
+* Production needs the owner's go for each release and each rollback.
+* Owner approval script: none. The owner's go in chat is the approval.
 
 ## Host status
 
-* `<command that prints what each host runs, or none>`.
+* `web/bin/probe-server.sh` (read only: RAM, ports, PM2 status) and `ssh mx2.mingster.com 'git -C /var/www/mingster.com rev-parse HEAD'`.
 
 ## Rollback
 
-* `<emergency rollback steps, and when the schema blocks them>`.
+* `git revert <bad sha>` on a branch, merge to `main` through a PR, then run the production deploy command. No force push.
+* The schema blocks this when the bad release dropped or renamed columns with `DB_PUSH=1`: restore `/var/backups/mingster.com/<sha>.dump` with `pg_restore` first, on the owner's go.
