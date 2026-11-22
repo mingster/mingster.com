@@ -38,6 +38,21 @@ function isSafeLayer(path: string): boolean {
 }
 
 /**
+ * Decode every valid %XX run and leave a stray "%" (such as the one left by
+ * "%25") as a literal. Used on layers after the first, where a lone "%" is
+ * normal text and must not end the check early.
+ */
+function decodeLenient(path: string): string {
+	return path.replace(/(?:%[0-9a-fA-F]{2})+/g, (run) => {
+		try {
+			return decodeURIComponent(run);
+		} catch {
+			return run;
+		}
+	});
+}
+
+/**
  * Same-origin path only (blocks protocol-relative, scheme, backslash and
  * encoded open redirects). Every percent-decoding layer must also pass.
  */
@@ -48,10 +63,15 @@ export function isSafeInternalPath(path: string): boolean {
 			return false;
 		}
 		let decoded: string;
-		try {
-			decoded = decodeURIComponent(current);
-		} catch {
-			return false;
+		if (depth === 0) {
+			// A malformed first layer is not a path we produced: fail closed.
+			try {
+				decoded = decodeURIComponent(current);
+			} catch {
+				return false;
+			}
+		} else {
+			decoded = decodeLenient(current);
 		}
 		if (decoded === current) {
 			return true;
