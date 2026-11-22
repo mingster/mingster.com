@@ -140,3 +140,4 @@ dist
 active_run.md
 .claude/state/
 .claude/release-reports/
+/fileServer/secrets/
