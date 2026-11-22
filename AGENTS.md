@@ -71,7 +71,7 @@ Do not reintroduce store/tenant concepts.
 | `src/lib/prismadb.ts` | Prisma singleton (`sqlClient`) |
 | `src/utils/actions/safe-action.ts` | Action clients |
 | `src/lib/logger.ts` | Structured Pino logger |
-| `prisma/schema.prisma` | Database schema — 18 models, auth + mail only |
+| `prisma/schema.prisma` | Database schema — 18 models: auth, mail, Stripe subscription, platform settings |
 | `src/components/virtual-experience/` | VE avatar, scene, chat UI |
 | `src/lib/legal-content.ts` | Reads privacy/terms markdown from `public/defaults/` |
 
@@ -103,10 +103,9 @@ transformBigIntToNumbers(data)
 
 ## Server actions
 
-Actions live in `src/actions/` by domain (`admin/`, `sysAdmin/`, `store/`, `user/`, `mail/`, `geo/`).
+Actions live in `src/actions/` by domain (currently `user/`).
 Naming: `verb-object.ts` + `verb-object.validation.ts`, exported as `verbObjectAction`.
 
-- `storeActionClient`: first bound arg is `storeId` — do **not** include `storeId` in the Zod schema. Call as `action(storeId, { ...input })`.
 - Reuse the Zod schema from `*.validation.ts` in forms — never duplicate.
 - Zod v4: `import { z } from "zod"`.
 
@@ -114,12 +113,11 @@ Naming: `verb-object.ts` + `verb-object.validation.ts`, exported as `verbObjectA
 |--------|---------|
 | `baseClient` | Public (no auth) |
 | `userRequiredActionClient` | Any authenticated user |
-| `storeActionClient` | Store members (owner/storeAdmin/staff) |
 | `adminActionClient` | Admin role only |
 
 ## Auth roles
 
-Better Auth with roles: `user`, `owner`, `staff`, `storeAdmin`, `admin`.
+Better Auth with roles: `user`, `admin`.
 Social providers: Google, LINE, Apple. Also: phone/OTP, magic link, passkeys, anonymous.
 
 ## Code conventions

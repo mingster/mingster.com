@@ -230,19 +230,9 @@ export const RsvpAccessMode = {
 export type RsvpAccessModeValue =
 	(typeof RsvpAccessMode)[keyof typeof RsvpAccessMode];
 
-export const MemberRole = {
-	customer: "customer",
-	owner: "owner",
-	staff: "staff",
-	storeAdmin: "storeAdmin",
-} as const;
-
 // Role enum values for client-side use (matches Prisma schema)
 // Server components should use Role from @prisma/client
 export const Role = {
 	user: "user",
-	owner: "owner",
-	staff: "staff",
-	storeAdmin: "storeAdmin",
 	admin: "admin",
 } as const;
