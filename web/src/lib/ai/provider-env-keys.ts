@@ -1,4 +1,4 @@
-import type { AiProvider } from "./providers";
+import { type AiProvider, WIRED_AI_PROVIDERS } from "./providers";
 
 /** Env names per provider, tried in order. Values are server only and never logged. */
 const PROVIDER_ENV_KEYS: Record<AiProvider, readonly string[]> = {
@@ -19,4 +19,9 @@ export function getProviderApiKey(provider: AiProvider): string | undefined {
 
 export function hasProviderEnvKey(provider: AiProvider): boolean {
 	return getProviderApiKey(provider) !== undefined;
+}
+
+/** Usable means a key and an adapter. One predicate for chat and the sysAdmin page. */
+export function hasUsableProviderKey(provider: AiProvider): boolean {
+	return WIRED_AI_PROVIDERS.includes(provider) && hasProviderEnvKey(provider);
 }

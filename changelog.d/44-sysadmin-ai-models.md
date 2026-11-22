@@ -1,0 +1,2 @@
+- The owner can now pick the avatar chat model, and a fallback model, on a new admin page at /sysAdmin/ai-models, and the next chat turn uses it
+- Admin only server actions now use one admin check that also requires a verified email for an address in the ADMINS list
