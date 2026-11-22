@@ -10,7 +10,7 @@ generator client {
 datasource db {
   provider     = "postgres"
   relationMode = "prisma"
-  // Required: CustomerFiatLedger/CustomerCreditLedger.referenceId is polymorphic (RSVP ID, StoreOrder ID, user ID). DB FKs would fail on existing data.
+  // relationMode "prisma" emulates relations in the client, so no database foreign keys are created.
 }
 
 enum Role {
