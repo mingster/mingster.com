@@ -89,16 +89,13 @@ src/actions/
 │   ├── systemMessage/       # System message management
 │   ├── user/                # User management
 │   └── populate-*.ts        # Data population scripts
-├── storeAdmin/              # Store admin actions
-├── sysAdmin/                # System admin actions
-├── store/                   # Store-related actions
 ├── user/                    # User-related actions
 ├── mail/                    # Email sending and queue management
 ├── geo/                     # Geolocation services
 └── *.ts                     # Shared actions
 ```
 
-**Naming Convention**: `verb-object.ts` (e.g., `get-store-by_id.ts`, `create-store-notification.ts`)
+**Naming Convention**: `verb-object.ts` (e.g., `get-user-by-id.ts`)
 
 ### App Router (`/web/src/app/`)
 
@@ -108,30 +105,13 @@ Next.js 15 App Router pages, layouts, and API routes.
 src/app/
 ├── (root)/                  # Root route group
 │   ├── account/            # User account management
-│   ├── checkout/           # Checkout process
-│   ├── order/              # Order viewing
 │   ├── privacy/            # Privacy policy
 │   ├── terms/              # Terms of service
 │   └── unv/                # Universal landing pages
-├── (store)/                 # Store route group
-│   └── [storeId]/          # Dynamic store routes
-│       ├── category/       # Category pages
-│       ├── product/        # Product pages
-│       ├── faq/            # Store FAQ
-│       ├── support/        # Customer support
-│       └── components/     # Store-specific components
 ├── api/                     # API routes
 │   ├── auth/               # Authentication endpoints
-│   ├── common/             # Common utilities
-│   ├── payment/            # Payment processing
-│   ├── store/              # Store API endpoints
-│   ├── storeAdmin/         # Store admin API
-│   └── sysAdmin/           # System admin API
+│   └── common/             # Common utilities
 ├── auth/                    # Authentication pages
-├── storeAdmin/              # Store admin dashboard
-│   ├── (dashboard)/        # Dashboard route group
-│   └── (root)/             # Store admin root
-├── sysAdmin/                # System admin dashboard
 ├── css/                     # Global styles
 ├── i18n/                    # Internationalization
 ├── layout.tsx               # Root layout
@@ -151,13 +131,12 @@ src/components/
 ├── analytics/               # Analytics components
 ├── auth/                    # Authentication components
 ├── editor/                  # Rich text editors
-├── store/                   # Store-specific components
 └── *.tsx                    # Shared components
 ```
 
 **Naming Convention**: 
-- Component files: `kebab-case.tsx` (e.g., `cart-summary.tsx`)
-- Component names: `PascalCase` (e.g., `CartSummary`)
+- Component files: `kebab-case.tsx` (e.g., `user-menu.tsx`)
+- Component names: `PascalCase` (e.g., `UserMenu`)
 
 ### Hooks (`/web/src/hooks/`)
 
@@ -165,11 +144,10 @@ Custom React hooks.
 
 ```
 src/hooks/
-├── storeAdmin/              # Store admin hooks
 └── use-*.{ts,tsx}           # Custom hooks
 ```
 
-**Naming Convention**: `use-feature-name.ts` (e.g., `use-cart.tsx`, `use-geo-ip.tsx`)
+**Naming Convention**: `use-feature-name.ts` (e.g., `use-geo-ip.tsx`)
 
 ### Library (`/web/src/lib/`)
 
@@ -258,19 +236,17 @@ Prisma schema and database-related files.
 
 ```
 prisma/
-├── schema.prisma            # Database schema
-└── views/                   # SQL views
-    └── orderItemView.sql
+└── schema.prisma            # Database schema
 ```
 
 ## File Naming Conventions
 
 ### General Rules
 
-1. **Directories**: Use `kebab-case` (e.g., `store-admin/`, `mail-queue/`)
-2. **Components**: Use `kebab-case.tsx` (e.g., `cart-summary.tsx`)
-3. **Hooks**: Prefix with `use-` (e.g., `use-cart.tsx`)
-4. **Actions**: Use `verb-object.ts` (e.g., `get-store-by_id.ts`)
+1. **Directories**: Use `kebab-case` (e.g., `mail-queue/`)
+2. **Components**: Use `kebab-case.tsx` (e.g., `user-menu.tsx`)
+3. **Hooks**: Prefix with `use-` (e.g., `use-geo-ip.tsx`)
+4. **Actions**: Use `verb-object.ts` (e.g., `get-user-by-id.ts`)
 5. **API Routes**: Use `route.ts` for route handlers
 6. **Utilities**: Use descriptive names (e.g., `datetime-utils.ts`)
 7. **Documentation**: Use `UPPER_SNAKE_CASE.md` (e.g., `DEPLOYMENT.md`)
@@ -297,7 +273,7 @@ Use `@/` alias for cleaner imports:
 // Good
 import { Button } from '@/components/ui/button';
 import { prisma } from '@/lib/prismadb';
-import { getStore } from '@/actions/get-store';
+import { getUser } from '@/actions/user/get-user';
 
 // Avoid
 import { Button } from '../../../components/ui/button';
@@ -317,12 +293,12 @@ import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/dataTable';
 
 // 3. Actions and utilities
-import { getStore } from '@/actions/get-store';
+import { getUser } from '@/actions/user/get-user';
 import { formatDate } from '@/utils/datetime-utils';
 
 // 4. Types
-import type { Store } from '@prisma/client';
-import type { StoreConfig } from '@/types';
+import type { User } from '@prisma/client';
+import type { StringNVType } from '@/types/enum';
 ```
 
 ## Component Organization
@@ -391,7 +367,6 @@ Keep configuration files at the root level:
 - `eslint.config.mjs` - ESLint configuration
 - `postcss.config.mjs` - PostCSS configuration
 - `components.json` - shadcn/ui configuration
-- `vercel.json` - Vercel deployment configuration
 description:
 globs:
 alwaysApply: true

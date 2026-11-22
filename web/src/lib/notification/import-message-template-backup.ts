@@ -23,7 +23,6 @@ interface TemplateInput {
 	name: string;
 	templateType: string;
 	isGlobal: boolean;
-	storeId: string | null;
 	localizations: TemplateLocalizationInput[];
 }
 
@@ -114,7 +113,6 @@ function expandLifecycleSeedV2(seed: Record<string, unknown>): TemplateInput[] {
 						name,
 						templateType: channel,
 						isGlobal: true,
-						storeId: null,
 						localizations,
 					});
 				}
@@ -190,10 +188,6 @@ function normalizeTemplateInput(raw: Record<string, unknown>): TemplateInput {
 		templateType:
 			typeof raw.templateType === "string" ? raw.templateType : "email",
 		isGlobal: Boolean(raw.isGlobal),
-		storeId:
-			raw.storeId === null || typeof raw.storeId === "string"
-				? (raw.storeId as string | null)
-				: null,
 		localizations,
 	};
 }
@@ -247,14 +241,12 @@ export async function importMessageTemplateBackup(fileName: string): Promise<{
 				name: template.name,
 				templateType: template.templateType,
 				isGlobal: template.isGlobal,
-				storeId: template.storeId,
 			},
 			create: {
 				id: templateId,
 				name: template.name,
 				templateType: template.templateType,
 				isGlobal: template.isGlobal,
-				storeId: template.storeId,
 			},
 		});
 

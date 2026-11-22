@@ -1,6 +1,8 @@
 @import url("https://fonts.googleapis.com/css2?family=Iansui&family=Noto+Sans+TC&display=swap");
 
 @import "tailwindcss";
+@source not "../../../AGENTS.md";
+@source not "../../../CLAUDE.md";
 /* @import "tw-animate-css"; */
 @import "@daveyplate/better-auth-ui/css";
 

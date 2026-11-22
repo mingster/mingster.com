@@ -1,4 +1,4 @@
-import { APICallError, RetryError } from "ai";
+import { APICallError } from "ai";
 import type { z } from "zod";
 import logger from "@/lib/logger";
 
@@ -79,32 +79,12 @@ export class SafeError extends Error {
 	}
 }
 
-export function isIncorrectOpenAIAPIKeyError(error: APICallError): boolean {
-	return error.message.includes("Incorrect API key provided");
-}
-
-export function isInvalidOpenAIModelError(error: APICallError): boolean {
-	return error.message.includes(
-		"does not exist or you do not have access to it",
-	);
-}
-
-export function isOpenAIAPIKeyDeactivatedError(error: APICallError): boolean {
-	return error.message.includes("this API key has been deactivated");
-}
-
 export function isAnthropicInsufficientBalanceError(
 	error: APICallError,
 ): boolean {
 	return error.message.includes(
 		"Your credit balance is too low to access the Anthropic API",
 	);
-}
-
-// Handling OpenAI retry errors on their own because this will be related to the user's own API quota,
-// rather than an error on our side (as we default to Anthropic atm).
-export function isOpenAIRetryError(error: RetryError): boolean {
-	return error.message.includes("You exceeded your current quota");
 }
 
 export function isAWSThrottlingError(error: unknown): error is Error {
@@ -127,27 +107,6 @@ export function isServiceUnavailableError(error: unknown): error is Error {
 // we don't want to capture these errors
 export function isKnownApiError(error: unknown): boolean {
 	return (
-		(APICallError.isInstance(error) &&
-			(isIncorrectOpenAIAPIKeyError(error) ||
-				isInvalidOpenAIModelError(error) ||
-				isOpenAIAPIKeyDeactivatedError(error) ||
-				isAnthropicInsufficientBalanceError(error))) ||
-		(RetryError.isInstance(error) && isOpenAIRetryError(error))
+		APICallError.isInstance(error) && isAnthropicInsufficientBalanceError(error)
 	);
-}
-
-export function checkCommonErrors(
-	error: unknown,
-	url: string,
-): ApiErrorType | null {
-	if (RetryError.isInstance(error) && isOpenAIRetryError(error)) {
-		logger.warn("Operation log");
-		return {
-			type: "OpenAI Quota Exceeded",
-			message: `OpenAI error: ${error.message}`,
-			code: 429,
-		};
-	}
-
-	return null;
 }

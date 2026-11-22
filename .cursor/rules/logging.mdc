@@ -39,11 +39,10 @@ logger.info(user);
 For better observability, always use structured logging with metadata:
 
 ```typescript
-logger.info("Order created", {
+logger.info("Profile updated", {
   metadata: {
-    orderId: order.id,
     userId: user.id,
-    amount: order.total,
+    fields: ["name", "timezone"],
   }
 });
 ```
@@ -68,11 +67,10 @@ logger.warn("Authentication required", {
 The `metadata` field should contain structured data that you want to search/filter by:
 
 ```typescript
-logger.error("Failed to load store", {
+logger.error("Failed to load profile", {
   metadata: {
-    storeId: string,           // Entity IDs
-    userId: string,
-    orderId?: string,
+    userId: string,            // Entity IDs
+    sessionId?: string,
     
     // Error details
     error?: string,
@@ -102,10 +100,10 @@ logger.error("Failed to load store", {
 Use tags to categorize logs for easier filtering:
 
 ```typescript
-logger.error("Payment failed", {
-  metadata: { orderId, amount },
-  tags: ["payment", "stripe", "error"],
-  service: "payment-service",
+logger.error("Magic link send failed", {
+  metadata: { userId, error: error.message },
+  tags: ["mail", "auth", "error"],
+  service: "mail-service",
 });
 ```
 
@@ -122,25 +120,8 @@ logger.warn("Insufficient permissions", {
   metadata: {
     userId: session.user.id,
     role: session.user.role,
-    requiredRoles: ["owner", "admin"],
+    requiredRoles: ["admin"],
   }
-});
-```
-
-### Store Access Control
-
-```typescript
-// Access denied
-logger.warn("Store access denied or store not found", {
-  metadata: {
-    storeId,
-    userId,
-  }
-});
-
-// Missing parameters
-logger.error("Missing storeId or userId for access check", {
-  metadata: { storeId, userId }
 });
 ```
 
@@ -164,8 +145,8 @@ logger.error("Failed to fetch data from API", {
 logger.error("Database query failed", {
   metadata: {
     query: "findFirst",
-    table: "Store",
-    storeId,
+    table: "User",
+    userId,
     error: error.message,
   },
   tags: ["database", "prisma", "error"],
@@ -181,27 +162,11 @@ const duration = Date.now() - startTime;
 
 logger.info("Operation completed", {
   metadata: {
-    operation: "processOrder",
+    operation: "syncSession",
     duration,
     itemCount: items.length,
   },
   tags: ["performance"],
-});
-```
-
-### Payment Operations
-
-```typescript
-logger.info("Payment processed successfully", {
-  metadata: {
-    paymentId: payment.id,
-    orderId: order.id,
-    amount: payment.amount,
-    currency: payment.currency,
-    provider: "stripe",
-  },
-  tags: ["payment", "stripe", "success"],
-  service: "payment-service",
 });
 ```
 
@@ -227,28 +192,27 @@ logger.error("Email send failed", {
 
 ```typescript
 // Use structured metadata
-logger.warn("Store access denied", {
+logger.warn("Admin access denied", {
   metadata: {
-    storeId,
     userId,
+    requiredRole: "admin",
   }
 });
 
 // Include relevant context
-logger.error("Payment failed", {
+logger.error("Email send failed", {
   metadata: {
-    orderId: order.id,
-    amount: order.total,
-    provider: "stripe",
+    userId: user.id,
+    provider: "smtp",
     error: error.message,
   },
-  tags: ["payment", "error"],
+  tags: ["email", "error"],
 });
 
 // Use appropriate log levels
-logger.info("Order created");    // Success
+logger.info("User created");     // Success
 logger.warn("Rate limit reached"); // Warning
-logger.error("Payment failed");    // Error
+logger.error("Email send failed"); // Error
 ```
 
 ### ❌ DON'T
@@ -280,7 +244,6 @@ logger.info("User password: " + password); // ❌ Security risk
 **Safe to log:**
 
 - ✅ User IDs (UUIDs)
-- ✅ Order IDs
 - ✅ Timestamps
 - ✅ Status codes
 - ✅ Error messages (sanitized)
@@ -302,7 +265,7 @@ Focus on actionable logs that help diagnose issues:
 
 - Authentication failures
 - Authorization errors
-- Payment failures
+- Email delivery failures
 - API errors
 - Performance issues
 
@@ -311,52 +274,39 @@ Focus on actionable logs that help diagnose issues:
 ```typescript
 import logger from "@/lib/logger";
 
-export async function processOrder(orderId: string, userId: string) {
+export async function loadProfile(userId: string) {
   const startTime = Date.now();
-  
+
   try {
-    // Log operation start
-    logger.info("Processing order", {
-      metadata: { orderId, userId },
-      tags: ["order", "processing"],
+    logger.info("Loading profile", {
+      metadata: { userId },
+      tags: ["profile", "loading"],
     });
-    
-    const order = await db.order.findUnique({ where: { id: orderId } });
-    
-    if (!order) {
-      logger.warn("Order not found", {
-        metadata: { orderId, userId },
-        tags: ["order", "not-found"],
+
+    const user = await sqlClient.user.findUnique({ where: { id: userId } });
+
+    if (!user) {
+      logger.warn("Profile not found", {
+        metadata: { userId },
+        tags: ["profile", "not-found"],
       });
       return null;
     }
-    
-    // Process order...
-    const result = await doProcessing(order);
-    
-    // Log success
-    logger.info("Order processed successfully", {
-      metadata: {
-        orderId,
-        userId,
-        amount: order.total,
-        duration: Date.now() - startTime,
-      },
-      tags: ["order", "success"],
+
+    logger.info("Profile loaded", {
+      metadata: { userId, duration: Date.now() - startTime },
+      tags: ["profile", "success"],
     });
-    
-    return result;
-    
+
+    return user;
   } catch (error) {
-    // Log error with context
-    logger.error("Order processing failed", {
+    logger.error("Profile load failed", {
       metadata: {
-        orderId,
         userId,
         error: error instanceof Error ? error.message : String(error),
         duration: Date.now() - startTime,
       },
-      tags: ["order", "error"],
+      tags: ["profile", "error"],
     });
     throw error;
   }
