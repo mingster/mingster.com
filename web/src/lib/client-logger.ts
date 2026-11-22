@@ -28,12 +28,18 @@ interface LogEntry {
 	column?: number;
 }
 
+/** Retries after the first failed send on a 5xx, then the batch is dropped. */
+export const MAX_SEND_RETRIES = 3;
+const RETRY_BASE_MS = 1000;
+
 class ClientLogger {
 	private service: string;
 	private environment: string;
 	private version?: string;
 	private queue: LogEntry[] = [];
 	private isProcessing = false;
+	private retryAttempts = 0;
+	private timerPending = false;
 
 	constructor(
 		options: {
@@ -75,11 +81,12 @@ class ClientLogger {
 	}
 
 	private async processQueue(): Promise<void> {
-		if (this.isProcessing || this.queue.length === 0) {
+		if (this.isProcessing || this.timerPending || this.queue.length === 0) {
 			return;
 		}
 
 		this.isProcessing = true;
+		let delay = RETRY_BASE_MS;
 
 		try {
 			const batch = this.queue.splice(0, 10); // Process up to 10 logs at a time
@@ -97,8 +104,17 @@ class ClientLogger {
 			// 4xx (rejected or rate limited by /api/log-write): drop the batch.
 			// Retrying would loop forever against a route that keeps refusing.
 			if (!response.ok && response.status >= 500) {
-				// Put logs back in queue for retry
-				this.queue.unshift(...batch);
+				this.retryAttempts++;
+				if (this.retryAttempts <= MAX_SEND_RETRIES) {
+					// Exponential backoff: 1 s, 2 s, 4 s.
+					delay = RETRY_BASE_MS * 2 ** (this.retryAttempts - 1);
+					this.queue.unshift(...batch);
+				} else {
+					// Server keeps failing: drop the batch.
+					this.retryAttempts = 0;
+				}
+			} else {
+				this.retryAttempts = 0;
 			}
 		} catch (error) {
 			logger.error("Failed to send log batch to server:", {
@@ -114,7 +130,11 @@ class ClientLogger {
 
 			// Process remaining logs
 			if (this.queue.length > 0) {
-				setTimeout(() => this.processQueue(), 1000);
+				this.timerPending = true;
+				setTimeout(() => {
+					this.timerPending = false;
+					this.processQueue();
+				}, delay);
 			}
 		}
 	}

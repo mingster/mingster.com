@@ -9,12 +9,18 @@ const WINDOW_MS = 60_000;
 export const MAX_ENTRIES_PER_IP = 100;
 /** Log entries accepted across all IPs per window, a backstop for IP rotation. */
 export const MAX_ENTRIES_GLOBAL = 2000;
-const MAX_TRACKED_IPS = 5000;
+/** Hard cap on tracked IPs. When full, the oldest entry is evicted. */
+export const MAX_TRACKED_IPS = 5000;
 
 type Bucket = { windowStart: number; count: number };
 
 const buckets = new Map<string, Bucket>();
 let globalBucket: Bucket = { windowStart: 0, count: 0 };
+
+/** Number of IPs currently tracked (for tests). */
+export function trackedClientLogIps(): number {
+	return buckets.size;
+}
 
 export function resetClientLogLimits(): void {
 	buckets.clear();
@@ -52,36 +58,51 @@ export function getClientIp(headers: Headers): string {
 	return "unknown";
 }
 
-function take(bucket: Bucket, n: number, max: number, now: number): boolean {
+function roll(bucket: Bucket, now: number): void {
 	if (now - bucket.windowStart >= WINDOW_MS) {
 		bucket.windowStart = now;
 		bucket.count = 0;
 	}
-	if (bucket.count + n > max) return false;
-	bucket.count += n;
-	return true;
 }
 
-/** Returns true when `entries` more log entries from `ip` are allowed. */
+function fits(bucket: Bucket, n: number, max: number, now: number): boolean {
+	roll(bucket, now);
+	return bucket.count + n <= max;
+}
+
+/**
+ * Returns true when `entries` more log entries from `ip` are allowed.
+ * Both limits are checked before anything is allocated or spent, so a refused
+ * request leaves no state behind. The IP map is capped: expired buckets go
+ * first, then the oldest inserted IPs. Evicting (not rejecting) keeps real
+ * users served during an IP flood; the global limit still bounds total volume.
+ */
 export function allowClientLogs(
 	ip: string,
 	entries: number,
 	now = Date.now(),
 ): boolean {
-	if (buckets.size > MAX_TRACKED_IPS) {
-		for (const [key, b] of buckets) {
-			if (now - b.windowStart >= WINDOW_MS) buckets.delete(key);
-		}
-	}
+	if (!fits(globalBucket, entries, MAX_ENTRIES_GLOBAL, now)) return false;
+
 	let bucket = buckets.get(ip);
-	if (!bucket) {
+	if (bucket) {
+		if (!fits(bucket, entries, MAX_ENTRIES_PER_IP, now)) return false;
+	} else {
+		if (entries > MAX_ENTRIES_PER_IP) return false;
+		if (buckets.size >= MAX_TRACKED_IPS) {
+			for (const [key, b] of buckets) {
+				if (now - b.windowStart >= WINDOW_MS) buckets.delete(key);
+			}
+			// Map iterates in insertion order, so this drops the oldest first.
+			for (const key of buckets.keys()) {
+				if (buckets.size < MAX_TRACKED_IPS) break;
+				buckets.delete(key);
+			}
+		}
 		bucket = { windowStart: now, count: 0 };
 		buckets.set(ip, bucket);
 	}
-	if (!take(bucket, entries, MAX_ENTRIES_PER_IP, now)) return false;
-	if (!take(globalBucket, entries, MAX_ENTRIES_GLOBAL, now)) {
-		bucket.count -= entries;
-		return false;
-	}
+	bucket.count += entries;
+	globalBucket.count += entries;
 	return true;
 }

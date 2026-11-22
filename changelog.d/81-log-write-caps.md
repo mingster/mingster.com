@@ -1,0 +1,1 @@
+- `/api/log-write` caps the per-IP rate-limit map (oldest IPs are evicted) and no longer leaves a bucket behind when the global limit refuses a request. The browser logger retries a failing 5xx batch at most 3 times with 1 s, 2 s, 4 s backoff, then drops it
