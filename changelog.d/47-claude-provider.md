@@ -1,0 +1,1 @@
+- Claude (Haiku, Sonnet and Opus 5.5) can now be picked as the avatar chat model on the sysAdmin AI models page once `ANTHROPIC_API_KEY` is set, and chat falls back to Gemini on a Claude timeout, 429 or 5xx

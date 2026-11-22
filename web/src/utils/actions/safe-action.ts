@@ -5,13 +5,9 @@ import { checkAdminAccess } from "@/lib/admin/access";
 import { auth } from "@/lib/auth";
 import logger from "@/lib/logger";
 import { SafeError } from "@/utils/error";
+import { sanitizeForLog } from "@/utils/sanitize-for-log";
 
 // TODO: take functionality from `withActionInstrumentation` and move it here (apps/web/utils/actions/middleware.ts)
-
-function sanitizeForLog(value: unknown): string {
-	const raw = value instanceof Error ? value.message : String(value ?? "");
-	return raw.replace(/[A-Za-z0-9+/]{100,}={0,2}/g, "[base64]").slice(0, 400);
-}
 
 export const baseClient = createSafeActionClient({
 	defineMetadataSchema() {

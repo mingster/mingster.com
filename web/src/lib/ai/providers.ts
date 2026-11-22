@@ -2,8 +2,11 @@
 export const AI_PROVIDERS = ["gemini", "anthropic", "xai"] as const;
 export type AiProvider = (typeof AI_PROVIDERS)[number];
 
-/** Providers with a working adapter in generate-content.ts. Claude and Grok join in their own tickets. */
-export const WIRED_AI_PROVIDERS: readonly AiProvider[] = ["gemini"];
+/** Providers with a working adapter in generate-content.ts. Grok joins in its own ticket. */
+export const WIRED_AI_PROVIDERS: readonly AiProvider[] = [
+	"gemini",
+	"anthropic",
+];
 
 /** Why a model is called. The sysAdmin page assigns a model per purpose. */
 export const AI_PURPOSES = ["avatar_chat"] as const;

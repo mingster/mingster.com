@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { AiTimeoutError } from "./classify-provider-error";
+import { generateAnthropicText } from "./generate-anthropic-text";
 import type { ModelCatalogEntry } from "./model-catalog";
 import { getProviderApiKey } from "./provider-env-keys";
 import type { AiProvider } from "./providers";
@@ -109,6 +110,8 @@ async function generateContentOnce(
 	switch (input.entry.provider) {
 		case "gemini":
 			return generateGeminiText(input, apiKey, signal);
+		case "anthropic":
+			return generateAnthropicText(input, apiKey, signal);
 		default:
 			throw new AiNotConfiguredError(
 				`Provider ${input.entry.provider} has no adapter yet`,

@@ -97,7 +97,7 @@ describe("updateAiModelAssignmentAction", () => {
 	});
 
 	test("rejects a provider with no usable key", async () => {
-		process.env.ANTHROPIC_API_KEY = "unit-test-key";
+		delete process.env.ANTHROPIC_API_KEY;
 		const result = await save("claude-sonnet-5-5");
 		expect(result?.serverError).toBeDefined();
 		expect(writes).toHaveLength(0);
