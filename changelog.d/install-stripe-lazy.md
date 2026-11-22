@@ -1,0 +1,1 @@
+- Create the Stripe client on first use, so `install:data --skip-stripe` and the auth module load without STRIPE_SECRET_KEY
