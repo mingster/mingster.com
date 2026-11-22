@@ -59,7 +59,6 @@ export default function EditUser({ serverData }: props) {
 		name: dbUser?.name ?? "",
 		locale: dbUser?.locale || activeLng || "",
 		timezone: dbUser?.timezone || "America/Los_Angeles",
-		phone: dbUser?.phoneNumber ?? undefined,
 	};
 
 	const form = useForm<UpdateUserSettingsInput>({
