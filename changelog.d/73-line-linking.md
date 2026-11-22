@@ -1,0 +1,1 @@
+- Signed-in users can link LINE again from account settings, while a LINE sign-in with an email that matches another account still does not link
