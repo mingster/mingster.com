@@ -9,7 +9,7 @@ Read the relevant section before writing code of that kind.
 2. **`components/client-[object].tsx`** — Client component: holds `useState` array, defines columns, passes callbacks
 3. **`components/edit-[object].tsx`** — Dialog with react-hook-form + Zod; calls server action; invokes callback to update parent state
 
-Reference: `src/app/sysAdmin/sysmsg/`
+The admin and sysAdmin pages were removed with the store code (see `doc/CLEANUP.md`), so there is no live reference page. Use this pattern only if an admin page is added back.
 
 ## Data fetching
 
