@@ -721,5 +721,11 @@
   "weekly_digest": "每週摘要",
   "yes": "是",
   "you_are_not_allowed_to_register_this_passkey": "你不能註冊這個密碼金鑰",
-  "signing_in": "登入中..."
+  "signing_in": "登入中...",
+  "avatar_chat_intro_1": "嗨，我是虛擬 Ming，一個 AI 助理。說點什麼，我會用聲音和表情回覆你。",
+  "avatar_chat_intro_2": "部落格上的文章，都可以問我。",
+  "avatar_chat_reply_sign_in": "請先登入，再和我聊天。",
+  "avatar_chat_reply_paid_only": "聊天目前只開放給受邀的付費訂閱者。",
+  "avatar_chat_reply_not_configured": "我現在暫時無法回答，請稍後再試。",
+  "avatar_chat_reply_failed": "抱歉，我沒能回答這個問題，請再試一次。"
 }
