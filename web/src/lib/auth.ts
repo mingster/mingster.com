@@ -40,13 +40,7 @@ export const auth = betterAuth({
 	database: prismaAdapter(sqlClient, {
 		provider: "postgresql", // or "mysql", "postgresql", ...etc
 	}),
-	roles: [
-		{ name: "user" },
-		{ name: "owner" },
-		{ name: "staff" },
-		{ name: "storeAdmin" },
-		{ name: "admin" },
-	],
+	roles: [{ name: "user" }, { name: "admin" }],
 	advanced: {
 		trustedProxyHeaders: true,
 		// Apple Sign In uses response_mode=form_post: the browser POSTs the OAuth

@@ -66,7 +66,6 @@ export const sendAuthPasswordReset = async (
 	let phased_subject = await PhaseTags(
 		message_content_template.subject,
 		null,
-		null,
 		user as User,
 		storeContext,
 	);
@@ -76,7 +75,6 @@ export const sendAuthPasswordReset = async (
 
 	let textMessage = await PhaseTags(
 		message_content_template.body,
-		null,
 		null,
 		user as User,
 		storeContext,
