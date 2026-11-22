@@ -1,0 +1,1 @@
+- Clean up the deployment guide and agent docs after the agent team setup
