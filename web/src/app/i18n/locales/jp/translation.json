@@ -66,5 +66,16 @@
   "avatar_chat_reply_sign_in": "チャットするには、先にログインしてください。",
   "avatar_chat_reply_paid_only": "チャットは現在、招待された有料会員のみご利用いただけます。",
   "avatar_chat_reply_not_configured": "ただいまお答えできません。しばらくしてからもう一度お試しください。",
-  "avatar_chat_reply_failed": "すみません、お答えできませんでした。もう一度お試しください。"
+  "avatar_chat_reply_failed": "すみません、お答えできませんでした。もう一度お試しください。",
+  "sysadmin_no_access": "このページを表示する権限がありません。",
+  "sysadmin_ai_models_title": "AIモデル",
+  "sysadmin_ai_models_descr": "バーチャルMingのチャットで使うモデルを選びます。APIキーが設定されたプロバイダのみ表示されます。",
+  "sysadmin_ai_purpose_avatar_chat": "バーチャルMingチャット",
+  "sysadmin_ai_model_label": "モデル",
+  "sysadmin_ai_fallback_label": "フォールバックモデル（メインモデルがタイムアウトまたはエラーのとき1回だけ使用）",
+  "sysadmin_ai_fallback_none": "なし",
+  "sysadmin_ai_purpose_misconfigured": "選んだプロバイダのAPIキーが未設定のため、現在はGeminiで回答しています。",
+  "sysadmin_ai_save_failed": "保存できませんでした。もう一度お試しください。",
+  "save": "保存",
+  "saved": "保存しました"
 }

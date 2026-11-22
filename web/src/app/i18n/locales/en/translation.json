@@ -727,5 +727,14 @@
   "avatar_chat_reply_sign_in": "Please sign in first to chat with me.",
   "avatar_chat_reply_paid_only": "Chat is only open to invited paid subscribers right now.",
   "avatar_chat_reply_not_configured": "I can't answer right now. Please try again later.",
-  "avatar_chat_reply_failed": "Sorry, I couldn't answer that. Please try again."
+  "avatar_chat_reply_failed": "Sorry, I couldn't answer that. Please try again.",
+  "sysadmin_no_access": "You don't have access to this page.",
+  "sysadmin_ai_models_title": "AI models",
+  "sysadmin_ai_models_descr": "Choose the model for virtual Ming chat. Only providers with an API key are listed.",
+  "sysadmin_ai_purpose_avatar_chat": "Virtual Ming chat",
+  "sysadmin_ai_model_label": "Model",
+  "sysadmin_ai_fallback_label": "Fallback model (tried once if the main model times out or errors)",
+  "sysadmin_ai_fallback_none": "None",
+  "sysadmin_ai_purpose_misconfigured": "The selected provider has no API key, so chat is using Gemini.",
+  "sysadmin_ai_save_failed": "Could not save. Please try again."
 }
