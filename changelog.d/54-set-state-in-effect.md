@@ -1,0 +1,1 @@
+- Fix the 14 react-hooks/set-state-in-effect warnings (derive during render, useSyncExternalStore, lazy initial state) and restore the rule to error

@@ -7,7 +7,7 @@ import {
 	TwoFactorCard,
 } from "@daveyplate/better-auth-ui";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { useTranslation } from "@/app/i18n/client";
 import { Loader } from "@/components/loader";
@@ -40,10 +40,12 @@ export const UserClient: React.FC<iUserTabProps> = ({ user }) => {
 		//router.push({ query: { tab: value } });
 	};
 
-	// if the query parameter changes, update the state
-	useEffect(() => {
+	// if the query parameter changes, update the state (adjusted during render)
+	const [prevInitialTab, setPrevInitialTab] = useState(initialTab);
+	if (prevInitialTab !== initialTab) {
+		setPrevInitialTab(initialTab);
 		if (initialTab) setActiveTab(initialTab);
-	}, [initialTab]);
+	}
 	//console.log('selectedTab: ' + activeTab);
 
 	if (loading) {
