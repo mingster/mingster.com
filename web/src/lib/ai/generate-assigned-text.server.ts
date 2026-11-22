@@ -1,3 +1,4 @@
+import logger from "@/lib/logger";
 import {
 	classifyProviderError,
 	providerErrorStatus,
@@ -77,6 +78,18 @@ export async function generateAssignedText(
 		assignment,
 		hasProviderKey: hasUsableProviderKey,
 	});
+	if (resolved.unusableAssigned) {
+		// No key value is logged, only which provider lacks one.
+		logger.warn("AI assigned model unusable, running on Gemini Flash", {
+			metadata: {
+				purpose: input.purpose,
+				assignedModelId: resolved.unusableAssigned.id,
+				provider: resolved.unusableAssigned.provider,
+				usedModelId: resolved.entry.id,
+			},
+			tags: ["ai", "fallback"],
+		});
+	}
 	const attempts: AttemptUsage[] = [];
 
 	const run = async (entry: ModelCatalogEntry, usedFallback: boolean) => {

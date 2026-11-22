@@ -23,7 +23,8 @@ import { speakPart } from "./speak";
 /** Starting values, tune from the per attempt logs. */
 const MODEL_TIMEOUT_MS = 20_000;
 const MODEL_MAX_OUTPUT_TOKENS = 4096;
-const BAD_OUTPUT_LOG_CHARS = 300;
+/** One turn speaks at most this many parts, so it cannot run dozens of TTS calls. */
+const MAX_REPLY_PARTS = 6;
 
 type Send = (msg: ChatMessage) => void;
 
@@ -125,15 +126,18 @@ async function runModelTurn(send: Send, ctx: TurnContext) {
 	let reply: AvatarReply;
 	try {
 		reply = parseAvatarReply(result.text);
-	} catch {
+	} catch (err) {
 		const last = result.attempts[result.attempts.length - 1];
 		logAttempts(result.attempts, ctx, { ttsMs: 0, rhubarbMs: 0 });
+		// Metadata only: model output can echo the visitor's message or email.
 		logger.warn("avatar chat bad model output", {
 			userId: ctx.userId,
 			metadata: {
+				errorName: errorName(err),
 				length: result.text.length,
 				finishReason: last?.finishReason,
-				head: result.text.slice(0, BAD_OUTPUT_LOG_CHARS),
+				provider: result.provider,
+				modelId: result.modelId,
 			},
 			tags: ["avatar-chat", "bad-json"],
 		});
@@ -149,7 +153,7 @@ async function runModelTurn(send: Send, ctx: TurnContext) {
 	let ttsMs = 0;
 	let rhubarbMs = 0;
 	try {
-		for (const part of reply.parts) {
+		for (const part of reply.parts.slice(0, MAX_REPLY_PARTS)) {
 			const spoken = await speakPart(part, replyLocale, {
 				noAudio: ctx.noAudio,
 			});
@@ -204,8 +208,9 @@ function streamOf(work: (send: Send) => Promise<void>): Response {
  * and unpaid users hear a cached spoken reply, the owner and paid users get a model reply.
  */
 export async function POST(req: Request) {
+	// An unreadable body is undefined, which fails the schema and gets 400.
 	const parsed = chatRequestSchema.safeParse(
-		await req.json().catch(() => ({})),
+		await req.json().catch(() => undefined),
 	);
 	if (!parsed.success) {
 		logger.warn("avatar chat bad request", {

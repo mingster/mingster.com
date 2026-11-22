@@ -4,8 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 let hangTts = false;
+let ttsConnections = 0;
 mock.module("edge-tts-universal", () => ({
 	Communicate: class {
+		constructor() {
+			ttsConnections++;
+		}
 		async *stream() {
 			if (hangTts) await new Promise(() => {});
 			yield { type: "audio", data: new Uint8Array([1, 2, 3]) };
@@ -74,8 +78,15 @@ describe("spawn timeouts (case 27)", () => {
 				(e) => e,
 			);
 			expect(err).toBeInstanceOf(TtsTimeoutError);
+
+			// During the cooldown no new connection is opened.
+			const before = ttsConnections;
+			const again = await textToSpeech("hello").catch((e) => e);
+			expect(again).toBeInstanceOf(TtsTimeoutError);
+			expect(ttsConnections).toBe(before);
 		} finally {
 			hangTts = false;
+			(await import("../tts")).resetTtsCooldown();
 		}
 	});
 

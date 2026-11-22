@@ -6,6 +6,7 @@ import {
 	describe,
 	expect,
 	mock,
+	setDefaultTimeout,
 	test,
 } from "bun:test";
 import {
@@ -17,6 +18,9 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
+// Each turn spawns shell shims, which is slow on a loaded machine.
+setDefaultTimeout(20_000);
 
 // Only third party code and the session are faked. The route, the access rule,
 // the AI module, the fixed reply cache, TTS and the spawn helper run for real.
@@ -361,24 +365,52 @@ describe("case 6: failure", () => {
 		expect(attempt?.opts.metadata.errorStatus).toBe(503);
 	});
 
-	test("bad JSON speaks the failed reply and logs at most 300 chars", async () => {
+	test("bad JSON speaks the failed reply and logs metadata only, never content", async () => {
 		asOwner();
-		const long = `{"parts":[{"text":"${"x".repeat(2000)}`;
+		const echoed = `{"parts":[{"text":"echo marker-4471 mail alice@example.com ${"x".repeat(2000)}`;
 		geminiBehavior = () => ({
 			response: {
-				text: () => long,
+				text: () => echoed,
 				usageMetadata: {},
 				candidates: [{ finishReason: "MAX_TOKENS" }],
 			},
 		});
-		const out = await lines(await post({ message: "hi", uiLanguage: "en" }));
+		const out = await lines(
+			await post({
+				message: "my note marker-4471 and alice@example.com",
+				uiLanguage: "en",
+			}),
+		);
+		expect(out).toHaveLength(1);
 		expect(out[0].text).toBe(
 			"Sorry, I couldn't answer that. Please try again.",
 		);
-		const bad = logs.find((l) => l.message === "avatar chat bad model output");
-		expect(bad?.opts.metadata.length).toBe(long.length);
-		expect(bad?.opts.metadata.finishReason).toBe("MAX_TOKENS");
-		expect(bad?.opts.metadata.head.length).toBeLessThanOrEqual(300);
+		const bad = logs.filter(
+			(l) => l.message === "avatar chat bad model output",
+		);
+		expect(bad).toHaveLength(1);
+		expect(bad[0].opts.metadata).toEqual({
+			errorName: "AvatarReplyParseError",
+			length: echoed.length,
+			finishReason: "MAX_TOKENS",
+			provider: "gemini",
+			modelId: "gemini-flash-latest",
+		});
+		const all = JSON.stringify(logs);
+		expect(all).not.toContain("marker-4471");
+		expect(all).not.toContain("@example.com");
+		expect(all).not.toContain("echo ");
+	});
+
+	test("a reply with 30 parts speaks only the first 6", async () => {
+		asOwner();
+		geminiBehavior = () =>
+			modelReply(Array.from({ length: 30 }, (_, i) => part(`part ${i}`)));
+		const out = await lines(await post({ message: "hi", uiLanguage: "en" }));
+		expect(out.map((m) => m.text)).toEqual(
+			Array.from({ length: 6 }, (_, i) => `part ${i}`),
+		);
+		expect(ttsCalls).toHaveLength(6);
 	});
 });
 
@@ -430,6 +462,8 @@ describe("case 23: request bounds over HTTP", () => {
 			{ history: [{ role: "system", text: "a" }] },
 			{ uiLanguage: "fr" },
 			"null",
+			"not json at all",
+			"",
 		];
 		for (const body of bodies) {
 			const res = await post(body);

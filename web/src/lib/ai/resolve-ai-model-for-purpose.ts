@@ -20,6 +20,8 @@ export interface ResolveAiModelResult {
 	fallbackEntry?: ModelCatalogEntry;
 	/** True when the assigned model could not be used and Gemini Flash runs instead. */
 	usedFallback: boolean;
+	/** The assigned catalog entry that was skipped because its provider has no key or adapter. */
+	unusableAssigned?: ModelCatalogEntry;
 }
 
 function geminiFallbackEntry(): ModelCatalogEntry {
@@ -42,7 +44,11 @@ export function resolveAiModelForPurpose(
 	const assignment = input.assignment ?? DEFAULT_AI_MODEL_ASSIGNMENT;
 	const entry = getModelCatalogEntry(assignment.assigned[input.purpose]);
 	if (!entry || !input.hasProviderKey(entry.provider)) {
-		return { entry: geminiFallbackEntry(), usedFallback: true };
+		return {
+			entry: geminiFallbackEntry(),
+			usedFallback: true,
+			unusableAssigned: entry,
+		};
 	}
 	const configured = assignment.fallback[input.purpose];
 	const candidate = configured ? getModelCatalogEntry(configured) : undefined;

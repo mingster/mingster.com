@@ -1,7 +1,13 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 
+const warns: { message: string; opts: unknown }[] = [];
 mock.module("@/lib/logger", () => ({
-	default: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} },
+	default: {
+		info: () => {},
+		warn: (message: string, opts: unknown) => warns.push({ message, opts }),
+		error: () => {},
+		debug: () => {},
+	},
 }));
 mock.module("@/lib/prismadb", () => ({ sqlClient: {} }));
 
@@ -61,6 +67,32 @@ describe("generateAssignedText", () => {
 		});
 		expect(r.modelId).toBe("gemini-flash-latest");
 		expect(r.usedFallback).toBe(true);
+	});
+
+	test("a fallback because the key is missing logs a warning without the key", async () => {
+		warns.length = 0;
+		delete process.env.XAI_API_KEY;
+		await generateAssignedText(input, {
+			loadAssignment: async () =>
+				parseAiModelAssignment({ avatar_chat: "grok-4.3" }),
+			generate: async ({ entry }) => ({ text: "{}", usage: usage(entry.id) }),
+		});
+		expect(warns).toHaveLength(1);
+		const logged = JSON.stringify(warns[0]);
+		expect(logged).toContain("grok-4.3");
+		expect(logged).toContain("xai");
+		expect(logged).toContain("gemini-flash-latest");
+		expect(logged).not.toContain("test-gemini");
+		expect(logged).not.toContain("test-claude");
+	});
+
+	test("no warning when the assigned model is used", async () => {
+		warns.length = 0;
+		await generateAssignedText(input, {
+			loadAssignment: async () => parseAiModelAssignment(null),
+			generate: async ({ entry }) => ({ text: "{}", usage: usage(entry.id) }),
+		});
+		expect(warns).toHaveLength(0);
 	});
 
 	test("fails over once to a configured fallback on a timeout", async () => {

@@ -18,6 +18,19 @@ const DEFAULT_VOICE = process.env.EDGE_TTS_VOICE ?? "en-US-JennyNeural";
 
 export const TTS_TIMEOUT_MS = 15_000;
 
+/**
+ * After a timeout, fail fast for this long. edge-tts-universal gives no handle to
+ * close its websocket (its `_stream` keeps the socket private and ws ignores the
+ * library's `timeout` option), so a hung connection cannot be cancelled. Skipping
+ * the call during a stall bounds the abandoned sockets to one per window.
+ */
+export const TTS_COOLDOWN_MS = 60_000;
+let ttsBlockedUntil = 0;
+
+export function resetTtsCooldown(): void {
+	ttsBlockedUntil = 0;
+}
+
 /** The edge TTS service did not finish in time. */
 export class TtsTimeoutError extends Error {
 	constructor(readonly timeoutMs: number) {
@@ -90,6 +103,8 @@ export async function textToSpeech(
 	text: string,
 	options: TtsOptions = {},
 ): Promise<TtsResult> {
+	const timeoutMs = options.ttsTimeoutMs ?? TTS_TIMEOUT_MS;
+	if (Date.now() < ttsBlockedUntil) throw new TtsTimeoutError(timeoutMs);
 	const communicate = new Communicate(text, {
 		voice: options.voice ?? DEFAULT_VOICE,
 	});
@@ -102,17 +117,15 @@ export async function textToSpeech(
 			}
 		}
 	};
-	// The service has no abort hook, so a hung connection is abandoned, not cancelled.
-	const timeoutMs = options.ttsTimeoutMs ?? TTS_TIMEOUT_MS;
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	try {
 		await Promise.race([
 			collect(),
 			new Promise<never>((_, reject) => {
-				timer = setTimeout(
-					() => reject(new TtsTimeoutError(timeoutMs)),
-					timeoutMs,
-				);
+				timer = setTimeout(() => {
+					ttsBlockedUntil = Date.now() + TTS_COOLDOWN_MS;
+					reject(new TtsTimeoutError(timeoutMs));
+				}, timeoutMs);
 			}),
 		]);
 	} finally {
