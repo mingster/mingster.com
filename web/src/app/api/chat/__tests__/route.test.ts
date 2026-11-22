@@ -491,3 +491,33 @@ describe("intro", () => {
 		expect(spawns()).toHaveLength(0);
 	});
 });
+
+describe("cases 11 to 13: blog knowledge reaches the model", () => {
+	test("the prompt holds the public corpus, corpus first, earlier turns next, message last", async () => {
+		asOwner();
+		geminiBehavior = () => modelReply([part("ok")]);
+		await lines(
+			await post({
+				message: "W124 的變速箱油壓是多少？",
+				uiLanguage: "en",
+				history: [{ role: "user", text: "earlier-turn-marker" }],
+			}),
+		);
+		const prompt = geminiCalls[0].prompt;
+		expect(prompt).toContain("Benz W124 E280");
+		expect(prompt).toContain("變速箱油壓");
+		expect(prompt).toContain("Elon Mush's 'the algorithm'");
+		expect(prompt).not.toContain("export const meta");
+		expect(prompt.indexOf("Titles:")).toBeLessThan(
+			prompt.indexOf("earlier-turn-marker"),
+		);
+		expect(prompt.trimEnd().endsWith('"W124 的變速箱油壓是多少？"')).toBe(true);
+	});
+
+	test("the corpus text is never logged", async () => {
+		asOwner();
+		geminiBehavior = () => modelReply([part("ok")]);
+		await lines(await post({ message: "hi", uiLanguage: "en" }));
+		expect(JSON.stringify(logs)).not.toContain("變速箱油壓");
+	});
+});
