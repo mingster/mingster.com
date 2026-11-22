@@ -19,24 +19,59 @@ export const AUTH_CONTINUE_PATH = "/auth/continue";
  */
 export const DEFAULT_POST_AUTH_REDIRECT = "/account";
 
-/** Same-origin path only (blocks protocol-relative and open redirects). */
-export function isSafeInternalPath(path: string): boolean {
+/** Same-origin check on one decoding layer: single leading "/", no scheme, no backslash, no control chars. */
+function isSafeLayer(path: string): boolean {
 	if (!path.startsWith("/") || path.startsWith("//")) {
 		return false;
 	}
 	if (path.includes("://") || path.includes("\\")) {
 		return false;
 	}
+	// Browsers strip tab/CR/LF inside URLs, so "/\t/evil" would become "//evil".
+	for (let i = 0; i < path.length; i++) {
+		const code = path.charCodeAt(i);
+		if (code <= 0x1f || code === 0x7f) {
+			return false;
+		}
+	}
 	return true;
 }
 
 /**
+ * Same-origin path only (blocks protocol-relative, scheme, backslash and
+ * encoded open redirects). Every percent-decoding layer must also pass.
+ */
+export function isSafeInternalPath(path: string): boolean {
+	let current = path;
+	for (let depth = 0; depth < 5; depth++) {
+		if (!isSafeLayer(current)) {
+			return false;
+		}
+		let decoded: string;
+		try {
+			decoded = decodeURIComponent(current);
+		} catch {
+			return false;
+		}
+		if (decoded === current) {
+			return true;
+		}
+		current = decoded;
+	}
+	return false;
+}
+
+/**
  * Normalize the post-auth destination (not the OAuth `callbackURL`).
- * Empty and `/` become {@link DEFAULT_POST_AUTH_REDIRECT}.
+ * Empty, `/` and anything that is not a same-origin path become
+ * {@link DEFAULT_POST_AUTH_REDIRECT}.
  */
 export function resolveOAuthCallbackUrl(callbackUrl?: string | null): string {
 	const trimmed = callbackUrl?.trim() ?? "";
 	if (!trimmed || trimmed === "/") {
+		return DEFAULT_POST_AUTH_REDIRECT;
+	}
+	if (!isSafeInternalPath(trimmed)) {
 		return DEFAULT_POST_AUTH_REDIRECT;
 	}
 	return trimmed;

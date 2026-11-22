@@ -1,3 +1,8 @@
+import {
+	DEFAULT_POST_AUTH_REDIRECT,
+	isSafeInternalPath,
+} from "@/lib/auth-sign-in-urls";
+
 /**
  * Persists `/liff/<segment>` (and query) before LINE Login redirects to the LIFF endpoint root,
  * so we can send the user back after OAuth when LINE drops the path segment.
@@ -55,5 +60,7 @@ export function getPostSignInRedirect(callbackUrl: string): string {
 	if (stored) {
 		return stored;
 	}
-	return callbackUrl;
+	return isSafeInternalPath(callbackUrl)
+		? callbackUrl
+		: DEFAULT_POST_AUTH_REDIRECT;
 }
