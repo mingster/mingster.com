@@ -2,8 +2,8 @@
 import { IconHome, IconSettings } from "@tabler/icons-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { useTranslation } from "@/app/i18n/client";
+import { useIsHydrated } from "@/hooks/use-hydrated";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,16 +31,12 @@ export default function DropdownUser({
 	db_user: _db_user,
 	callbackUrl,
 }: UserButtonProps) {
-	const [mounted, setMounted] = useState(false);
+	const mounted = useIsHydrated();
 	const { lng } = useI18n();
 	const { t } = useTranslation(lng);
 	const avatarPlaceholder = "/img/avatar_placeholder.png";
 
 	const { data: session } = authClient.useSession();
-
-	useEffect(() => {
-		setMounted(true);
-	}, []);
 
 	if (!mounted) return <Skeleton className="size-8 rounded-full" />;
 

@@ -5,7 +5,7 @@ import i18next, { type FlatNamespace, type KeyPrefix } from "i18next";
 import LanguageDetector from "i18next-browser-languagedetector";
 import resourcesToBackend from "i18next-resources-to-backend";
 import { useCookies } from "next-client-cookies";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 import {
 	type FallbackNs,
@@ -58,14 +58,6 @@ export function useTranslation<
 	if (runsOnServerSide && lng && i18n.resolvedLanguage !== lng) {
 		i18n.changeLanguage(lng);
 	}
-
-	const [activeLng, setActiveLng] = useState(i18n.resolvedLanguage);
-
-	// Sync activeLng with i18n's resolved language
-	useEffect(() => {
-		if (activeLng === i18n.resolvedLanguage) return;
-		setActiveLng(i18n.resolvedLanguage);
-	}, [activeLng, i18n.resolvedLanguage]);
 
 	// Only change language if lng is explicitly provided and different
 	// Use a ref to track the last lng we processed to avoid conflicts

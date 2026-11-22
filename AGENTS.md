@@ -13,7 +13,7 @@ mingster.com: Next.js 16 web platform. Main app: `web/`. Run all commands from `
 ## Cross-project context (Obsidian)
 
 Tech patterns and project docs live in the Obsidian vault (`~/Documents/Obsidian`). Fetch on
-demand via the `obsidian` MCP — do not load everything upfront.
+demand via the `obsidian` MCP, and do not load everything upfront.
 
 | What | Entry point |
 |------|-------------|
@@ -54,14 +54,13 @@ shadcn/ui, Better Auth, Pino logging, react-hook-form + Zod, next-safe-action.
 | `api/` | `auth`, `chat` (VE), `og` (blog), `common/get-locales`, `log-write` |
 | `auth/` | Better Auth UI pages `[authView]` |
 | `blog/` | Blog with MDX (content in `web/blogData/`) |
-| `page.tsx` | Home — renders VirtualExperience |
+| `page.tsx` | Home, renders VirtualExperience |
 | `qr-generator/` | QR tool, opened by the VE `/qrcode` slash command |
 
 **Scope:** this app is deliberately limited to three features: **auth**,
 **VirtualExperience**, and **blog**, plus a planned sysAdmin page that sets the
 avatar's AI model (intent `docs/intent/2026-11-22-avatar-clerk/`). Store, storefront,
-shop, checkout, payment, reservation and notification pages were removed (see
-`docs/CLEANUP.md`); their leftover models and action clients go in #39.
+shop, checkout, payment, reservation, notification and admin code was removed (see `docs/CLEANUP.md`).
 Do not reintroduce store/tenant concepts.
 
 **Key files:**
@@ -73,21 +72,21 @@ Do not reintroduce store/tenant concepts.
 | `src/lib/prismadb.ts` | Prisma singleton (`sqlClient`) |
 | `src/utils/actions/safe-action.ts` | Action clients |
 | `src/lib/logger.ts` | Structured Pino logger |
-| `prisma/schema.prisma` | Database schema (115 models; the unused Store models go in #39) |
+| `prisma/schema.prisma` | Database schema, 17 models covering auth, mail, Stripe subscription and platform settings |
 | `src/components/virtual-experience/` | VE avatar, scene, chat UI |
 | `src/lib/legal-content.ts` | Reads privacy/terms markdown from `public/defaults/` |
 
 ## Constraints
 
-- Never `console.log` — use `logger` from `@/lib/logger` with structured `metadata`
+- Never `console.log`, use `logger` from `@/lib/logger` with structured `metadata`
 - No `@prisma/client` in `"use client"` modules
-- `components/ui/` is shadcn-only — wrap, don't edit directly
+- `components/ui/` is shadcn-only, wrap, don't edit directly
 - After mutations: update local `useState` directly; do not rely on `router.refresh()` for list data
 - User-facing errors: throw `SafeError`; use `getT()` from `@/app/i18n` for messages
 
 ## Prisma / datetime (critical)
 
-All datetime fields are **BigInt epoch milliseconds** — no Prisma `DateTime`, no `@default(now())`.
+All datetime fields are **BigInt epoch milliseconds**, no Prisma `DateTime`, no `@default(now())`.
 
 ```typescript
 import { getUtcNowEpoch, epochToDate } from "@/utils/datetime-utils"
@@ -105,10 +104,10 @@ transformBigIntToNumbers(data)
 
 ## Server actions
 
-Actions live in `src/actions/` by domain (today only `user/`; add `sysAdmin/` for the AI model page).
+Actions live in `src/actions/` by domain (currently `user/`).
 Naming: `verb-object.ts` + `verb-object.validation.ts`, exported as `verbObjectAction`.
 
-- Reuse the Zod schema from `*.validation.ts` in forms — never duplicate.
+- Reuse the Zod schema from `*.validation.ts` in forms, never duplicate.
 - Zod v4: `import { z } from "zod"`.
 
 | Client | Use for |
@@ -120,7 +119,7 @@ Naming: `verb-object.ts` + `verb-object.validation.ts`, exported as `verbObjectA
 
 ## Auth roles
 
-Better Auth roles in use: `user`, `admin`. `owner`, `staff` and `storeAdmin` are store leftovers that #39 removes.
+Better Auth with roles: `user`, `admin`.
 Social providers: Google, LINE, Apple. Also: phone/OTP, magic link, passkeys, anonymous.
 
 ## Code conventions
@@ -139,7 +138,7 @@ GitHub issues in this repo, via the `gh` CLI. See `docs/agents/issue-tracker.md`
 
 ### Triage labels
 
-The 20 label set (state, P0 to P3, size, role, hold) plus status labels. See `docs/agents/triage-labels.md`.
+State, P0 to P3, size, role, hold and status labels. See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
@@ -166,9 +165,9 @@ Every agent and teammate pays for what it reads, on every turn after. These hold
 - Search, then read the part. Grep or Glob first, then Read with `offset` and `limit`.
 - Keep command output short: pipe test, build and lint output through `tail -40`. Lint only the files you edited, never a whole repo lint with autofix (it rewrites every file). Run only the unit's listed test cases and the test files you touch, never the full suite: Regression runs only in the development pass before staging, or with the coordinator's approval recorded on the issue.
 - Plan before you edit: 3 to 5 lines naming the files, the change and the test that proves it.
-- Strikes. The same test failing twice after your change means stop editing: check whether a fake is stale or the test database is wrong. The same command failing 3 times in a row is a hard stop, enforced by `.claude/hooks/strikes.py`. Report the failing output and what was ruled out, and wait for the user. This is the only strike rule; role files point here.
+- Strikes. The same test failing twice after your change means stop editing: check whether a fake is stale or the test database is wrong. The same command failing 3 times in a row is a hard stop. Report the failing output and what was ruled out, and wait for the user. This is the only strike rule; role files point here.
 - Use `active_run.md` (git ignored) only on a unit with more than one slice: write it at the start and when blocked.
-- Hard limits: sessions compact at 200k tokens (`autoCompactWindow` in `.claude/settings.json`), and an Orca worker gets a warning at 120 turns and is stopped at 200 (`.claude/hooks/worker-budget.py`). A worker that hits the stop pushes and reports what is left.
+- Hard limit: sessions compact at 200k tokens (`autoCompactWindow` in `.claude/settings.json`). A worker that is stopped pushes and reports what is left.
 - Report with `git diff main...HEAD --stat`, the branch name, test counts and only the failing output.
 
 ## Compact instructions

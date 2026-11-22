@@ -1,0 +1,1 @@
+- Await the admin check in adminActionClient so non-admin users are rejected

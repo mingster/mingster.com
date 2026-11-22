@@ -1,29 +1,15 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
-import pluginReact from "eslint-plugin-react";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-	baseDirectory: __dirname,
-});
+import coreWebVitals from "eslint-config-next/core-web-vitals";
+import nextTypescript from "eslint-config-next/typescript";
 
 const eslintConfig = [
-	//...compat.extends("next/core-web-vitals", "next/typescript"),
-	// ? https://github.com/jsx-eslint/eslint-plugin-react
+	...coreWebVitals,
+	...nextTypescript,
 	{
-		// @ts-ignore
-		...pluginReact.configs.flat.recommended,
 		settings: {
 			react: {
 				version: "detect",
 			},
 		},
-	},
-	...compat.config({
-		extends: ["next/core-web-vitals", "next/typescript"],
 		rules: {
 			// ! TO COMPILE SHADCN EXAMPLES, PLEASE REMOVE AS NEEDED
 			//'@next/next/no-html-link-for-pages': 'off',
@@ -48,6 +34,7 @@ const eslintConfig = [
 			"react/no-unescaped-entities": "off",
 			"react/react-in-jsx-scope": "off",
 			"react-hooks/exhaustive-deps": "off",
+			"react-hooks/set-state-in-effect": "error",
 			"react/display-name": "off",
 			"react/prop-types": "off",
 			"react/no-unknown-property": "off",
@@ -58,7 +45,7 @@ const eslintConfig = [
       'tailwindcss/classnames-order': 'off',
       */
 		},
-	}),
+	},
 ];
 
 export default eslintConfig;

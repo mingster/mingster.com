@@ -5,8 +5,8 @@ import {
 	type ReactNode,
 	useCallback,
 	useContext,
-	useEffect,
 	useState,
+	useSyncExternalStore,
 } from "react";
 import type { ChatMessage } from "@/types/virtual-experience";
 
@@ -92,6 +92,19 @@ async function readNdjsonStream(
 	}
 }
 
+const SOUND_ENABLED_KEY = "chat:soundEnabled";
+const soundEnabledListeners = new Set<() => void>();
+
+function subscribeSoundEnabled(listener: () => void) {
+	soundEnabledListeners.add(listener);
+	return () => {
+		soundEnabledListeners.delete(listener);
+	};
+}
+const getSoundEnabled = () =>
+	localStorage.getItem(SOUND_ENABLED_KEY) !== "false";
+const getSoundEnabledOnServer = () => true;
+
 export function ChatProvider({ children }: { children: ReactNode }) {
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
 	const [displayHistory, setDisplayHistory] = useState<DisplayEntry[]>([]);
@@ -100,17 +113,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 	const [cameraZoomed, setCameraZoomed] = useState(false);
 	const [danceTrigger, setDanceTrigger] = useState<number | null>(null);
 	const [chatHistory, setChatHistory] = useState<ChatHistoryEntry[]>([]);
-	const [soundEnabled, setSoundEnabledState] = useState(true);
-
-	// Persist sound preference to localStorage
-	useEffect(() => {
-		const stored = localStorage.getItem("chat:soundEnabled");
-		if (stored !== null) setSoundEnabledState(stored !== "false");
-	}, []);
+	// Sound preference lives in localStorage; the server and hydration render use true
+	const soundEnabled = useSyncExternalStore(
+		subscribeSoundEnabled,
+		getSoundEnabled,
+		getSoundEnabledOnServer,
+	);
 
 	const setSoundEnabled = useCallback((enabled: boolean) => {
-		setSoundEnabledState(enabled);
-		localStorage.setItem("chat:soundEnabled", String(enabled));
+		localStorage.setItem(SOUND_ENABLED_KEY, String(enabled));
+		for (const listener of soundEnabledListeners) listener();
 	}, []);
 
 	const currentMessage =

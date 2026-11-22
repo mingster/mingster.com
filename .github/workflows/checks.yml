@@ -1,0 +1,52 @@
+name: Checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: web
+    env:
+      # Dummy values only. No real secrets are used or needed.
+      DATABASE_URL: postgresql://dummy:dummy@127.0.0.1:5432/dummy
+      STRIPE_SECRET_KEY: sk_test_dummy
+      BETTER_AUTH_SECRET: dummy-better-auth-secret-for-ci-0123456789
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Test
+        run: bun test
+
+      - name: Typecheck
+        run: bunx tsc --noEmit
+
+      - name: Biome
+        run: bunx biome check ./src
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Build
+        run: bun run build

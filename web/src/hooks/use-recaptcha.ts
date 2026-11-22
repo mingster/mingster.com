@@ -37,13 +37,13 @@ export function useRecaptcha(
 	useEnterprise: boolean = true,
 ): UseRecaptchaResult {
 	const [isReady, setIsReady] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+	const [checkError, setError] = useState<string | null>(null);
 	const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA;
+	const error = siteKey ? checkError : "reCAPTCHA site key not configured";
 
 	// Check if reCAPTCHA is ready
 	useEffect(() => {
 		if (typeof window === "undefined" || !siteKey) {
-			setError("reCAPTCHA site key not configured");
 			return;
 		}
 

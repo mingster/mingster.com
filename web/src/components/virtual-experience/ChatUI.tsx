@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -71,13 +71,13 @@ export function ChatUI() {
 		[commandQuery],
 	);
 
-	useEffect(() => {
-		if (!showCommandList) setSelectedCommandIndex(0);
-		else
-			setSelectedCommandIndex((i) =>
-				Math.min(Math.max(0, i), filteredCommands.length - 1),
-			);
-	}, [showCommandList, filteredCommands.length]);
+	// Keep the selection in range (adjusted during render)
+	const clampedCommandIndex = showCommandList
+		? Math.min(Math.max(0, selectedCommandIndex), filteredCommands.length - 1)
+		: 0;
+	if (clampedCommandIndex !== selectedCommandIndex) {
+		setSelectedCommandIndex(clampedCommandIndex);
+	}
 
 	const openCommandPage = useCallback(
 		(path: string) => {

@@ -48,7 +48,6 @@
     "noUncheckedIndexedAccess": false,
     "noImplicitOverride": false,
     // Faster compilation
-    "importsNotUsedAsValues": "remove",
     "verbatimModuleSyntax": false,
     "allowSyntheticDefaultImports": true,
     "useDefineForClassFields": true
