@@ -1,0 +1,1 @@
+- Email sign-up and first-time Google, LINE and Apple sign-in no longer fail with a missing `issuer` error, because the unused `Account.issuer` column is now optional
