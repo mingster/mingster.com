@@ -1,0 +1,1 @@
+- Grok (4.3 and 4.7) can now be picked as the avatar chat model on the sysAdmin AI models page once `XAI_API_KEY` is set, and chat falls back to Gemini on a Grok timeout, 429 or 5xx

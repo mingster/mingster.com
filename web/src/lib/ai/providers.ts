@@ -2,10 +2,11 @@
 export const AI_PROVIDERS = ["gemini", "anthropic", "xai"] as const;
 export type AiProvider = (typeof AI_PROVIDERS)[number];
 
-/** Providers with a working adapter in generate-content.ts. Grok joins in its own ticket. */
+/** Providers with a working adapter in generate-content.ts. */
 export const WIRED_AI_PROVIDERS: readonly AiProvider[] = [
 	"gemini",
 	"anthropic",
+	"xai",
 ];
 
 /** Why a model is called. The sysAdmin page assigns a model per purpose. */

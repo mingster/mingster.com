@@ -59,8 +59,8 @@ describe("generateAssignedText", () => {
 		});
 	});
 
-	test("a Grok assignment runs on Gemini until its adapter lands", async () => {
-		process.env.XAI_API_KEY = "test-xai";
+	test("a Grok assignment without its key runs on Gemini", async () => {
+		delete process.env.XAI_API_KEY;
 		const r = await generateAssignedText(input, {
 			loadAssignment: async () =>
 				parseAiModelAssignment({ avatar_chat: "grok-4.3" }),
