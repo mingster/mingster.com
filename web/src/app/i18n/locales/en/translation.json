@@ -727,5 +727,12 @@
   "avatar_chat_reply_sign_in": "Please sign in first to chat with me.",
   "avatar_chat_reply_paid_only": "Chat is only open to invited paid subscribers right now.",
   "avatar_chat_reply_not_configured": "I can't answer right now. Please try again later.",
-  "avatar_chat_reply_failed": "Sorry, I couldn't answer that. Please try again."
+  "avatar_chat_reply_failed": "Sorry, I couldn't answer that. Please try again.",
+  "avatar_chat_sign_in_prompt": "Sign in to chat. Chat is for paid subscribers.",
+  "avatar_chat_sign_in_button": "Sign in",
+  "avatar_chat_paid_only": "Chat is for paid subscribers.",
+  "avatar_chat_placeholder": "Type a message, or / for commands...",
+  "avatar_chat_thinking": "Thinking...",
+  "avatar_chat_loading": "Loading...",
+  "avatar_chat_access_error": "We couldn't check your subscription. Please refresh the page."
 }
