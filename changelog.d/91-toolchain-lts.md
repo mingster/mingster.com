@@ -1,0 +1,1 @@
+- Pin Node.js 26.13.1 in `.tool-versions`, Bun 1.4.5 in `web/package.json` and CI checks, and `@types/node` `^26`

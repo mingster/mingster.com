@@ -159,7 +159,7 @@ export function isIOS() {
 	);
 }
 
-export const generateSHA1 = (data: crypto.BinaryLike) => {
+export const generateSHA1 = (data: string | NodeJS.ArrayBufferView) => {
 	const hash = crypto.createHash("sha1");
 	hash.update(data);
 
