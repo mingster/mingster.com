@@ -1,26 +1,19 @@
 "use client";
 
-import { useStoreAdminFullWidth } from "@/contexts/store-admin-full-width";
 import { cn } from "@/lib/utils";
 
 interface ContainerProps {
 	children: React.ReactNode;
 	className?: string;
-	/**
-	 * Force full-width inner layout even outside store admin (e.g. embedded previews).
-	 * Inside store admin, width is full by default via {@link StoreAdminFullWidthProvider}.
-	 */
+	/** Force full-width inner layout (e.g. embedded previews). */
 	fullWidth?: boolean;
 }
 
 const Container: React.FC<ContainerProps> = ({
 	children,
 	className,
-	fullWidth: fullWidthProp,
+	fullWidth = false,
 }) => {
-	const storeAdminFullWidth = useStoreAdminFullWidth();
-	const fullWidth = fullWidthProp ?? storeAdminFullWidth;
-
 	return (
 		<div className={cn("w-full min-h-screen min-w-0 pt-2 px-1", className)}>
 			<div

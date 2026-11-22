@@ -1,10 +1,10 @@
 /**
- * Persists `/liff/[storeId]` (and query) before LINE Login redirects to the LIFF endpoint root,
+ * Persists `/liff/<segment>` (and query) before LINE Login redirects to the LIFF endpoint root,
  * so we can send the user back after OAuth when LINE drops the path segment.
  */
 const STORAGE_KEY = "liff_post_login_path";
 
-/** Matches `/liff/<segment>` where segment is a single path part (e.g. store id or slug). */
+/** Matches `/liff/<segment>` where segment is a single path part (e.g. an id or slug). */
 const DEEP_LIFF_PATH = /^\/liff\/[^/]+/;
 
 export function saveLiffReturnPathIfDeepLink(
