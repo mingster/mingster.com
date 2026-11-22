@@ -29,7 +29,7 @@
 - `components/edit-[object].tsx` — dialog with react-hook-form + Zod + server action
 - **NO `router.refresh()`** for client state — update local state directly after mutations
 - Callbacks: `onCreated`, `onUpdated`, `onDeleted` passed down from client component
-- Reference: `src/app/sysAdmin/sysmsg/`
+- The admin and sysAdmin CRUD pages were removed with the store code (see `docs/CLEANUP.md`); `src/app/sysAdmin/ai-models/` is the single settings form page. Use the table and dialog pattern only if a multi-row admin page is added back.
 
 ## Database
 - Multiple Prisma databases; schema at `web/prisma/schema.prisma`

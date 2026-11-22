@@ -33,11 +33,11 @@ Project specific schemas, wrapper scripts, and domain rules per role. Keep the `
 
 ### sales-marketing
 
-* Read only data access: none. This app has no store, orders or subscriptions (see `AGENTS.md` Scope).
+* Read only data access: none. This app has no store or orders (see `AGENTS.md` Scope). The Better Auth Stripe plugin is kept (`web/src/lib/auth.ts`, `web/src/lib/stripe/`) with a `Subscription` model in `web/prisma/schema.prisma`, but no UI sells or bills through it.
 
 ### secops-finops
 
-* Read only reconciliation access: none. This app takes no payments.
+* Read only reconciliation access: none for any app flow, since no UI takes payments. The Better Auth Stripe plugin and its webhook handler (`web/src/lib/stripe/handle-subscription-event.ts`) exist, so check them before assuming no Stripe money path.
 
 ### support-csm
 
