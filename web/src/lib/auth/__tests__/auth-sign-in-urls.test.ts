@@ -9,6 +9,29 @@ import {
 	resolveOAuthCallbackUrl,
 	wrapOAuthCallbackUrl,
 } from "@/lib/auth-sign-in-urls";
+import { getPostSignInRedirect } from "@/lib/liff-return-path";
+
+const UNSAFE_CALLBACKS = [
+	"https://evil.example",
+	"http://evil.example/account",
+	"//evil.example",
+	"///evil.example",
+	"/\\evil.example",
+	"\\\\evil.example",
+	"javascript:alert(1)",
+	" javascript:alert(1)",
+	"%2F%2Fevil.example",
+	"%2f%2fevil.example",
+	"/%2Fevil.example",
+	"/%5Cevil.example",
+	"/%252F%252Fevil.example",
+	"https%3A%2F%2Fevil.example",
+	"/\t/evil.example",
+	"/\n/evil.example",
+	"/account?next=https://evil.example",
+	"evil.example",
+	"account",
+];
 
 describe("resolveOAuthCallbackUrl", () => {
 	test("does not land OAuth on `/`", () => {
@@ -21,6 +44,45 @@ describe("resolveOAuthCallbackUrl", () => {
 	test("keeps explicit post-login paths", () => {
 		expect(resolveOAuthCallbackUrl("/account")).toBe("/account");
 		expect(resolveOAuthCallbackUrl("/blog")).toBe("/blog");
+	});
+});
+
+describe("resolveOAuthCallbackUrl same-origin only", () => {
+	for (const bad of UNSAFE_CALLBACKS) {
+		test(`rejects ${JSON.stringify(bad)}`, () => {
+			expect(resolveOAuthCallbackUrl(bad)).toBe(DEFAULT_POST_AUTH_REDIRECT);
+		});
+	}
+
+	test("keeps valid relative paths with a query", () => {
+		expect(resolveOAuthCallbackUrl("/account?x=1")).toBe("/account?x=1");
+		expect(resolveOAuthCallbackUrl("/blog/post-1#top")).toBe(
+			"/blog/post-1#top",
+		);
+	});
+
+	test("wrap and redirect urls never carry an unsafe target", () => {
+		for (const bad of UNSAFE_CALLBACKS) {
+			const urls = oauthRedirectUrls(bad);
+			expect(urls.dest).toBe(DEFAULT_POST_AUTH_REDIRECT);
+			expect(urls.callbackURL).toBe(
+				`${AUTH_CONTINUE_PATH}?next=${encodeURIComponent("/account")}`,
+			);
+			expect(urls.errorCallbackURL).toBe("/signIn?callbackUrl=%2Faccount");
+		}
+	});
+});
+
+describe("getPostSignInRedirect (passkey and phone paths)", () => {
+	for (const bad of UNSAFE_CALLBACKS) {
+		test(`rejects ${JSON.stringify(bad)}`, () => {
+			expect(getPostSignInRedirect(bad)).toBe(DEFAULT_POST_AUTH_REDIRECT);
+		});
+	}
+
+	test("keeps valid relative paths", () => {
+		expect(getPostSignInRedirect("/account?x=1")).toBe("/account?x=1");
+		expect(getPostSignInRedirect("/")).toBe("/");
 	});
 });
 

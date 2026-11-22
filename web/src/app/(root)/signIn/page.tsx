@@ -11,8 +11,9 @@ export default async function SignInPage(props: Props) {
 	const { searchParams } = props;
 
 	const searchParamsObj = await searchParams;
+	const rawCallbackUrl = searchParamsObj.callbackUrl;
 	const callbackUrl = resolveOAuthCallbackUrl(
-		searchParamsObj.callbackUrl as string | undefined,
+		Array.isArray(rawCallbackUrl) ? rawCallbackUrl[0] : rawCallbackUrl,
 	);
 
 	return (
