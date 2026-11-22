@@ -1,0 +1,1 @@
+- Upgrade better-auth to 1.7.27 and nodemailer to 10.6.1 to close 13 Dependabot alerts
